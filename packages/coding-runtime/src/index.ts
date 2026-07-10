@@ -16,4 +16,3 @@ export type { SubagentSpec } from "./subagents/index.js";
 export type { ToolResult } from "./tools/index.js";
 export type { VerificationResult } from "./verification/index.js";
 export type { WorkspaceSnapshot } from "./workspace/index.js";
-

@@ -9,13 +9,16 @@
   },
   "scripts": {
     "build": "pnpm -r build",
+    "code:check": "biome check .",
+    "code:fix": "biome check --write .",
     "hooks:install": "node scripts/configure-hooks.mjs",
     "markdown:check": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
     "markdown:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\"",
-    "test": "pnpm -r test",
+    "test": "node --test scripts/*.test.mjs && pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.3",
     "@types/node": "24.13.3",
     "markdownlint-cli2": "0.23.0",
     "typescript": "5.9.3"

@@ -10,4 +10,3 @@ if (result.error) {
 }
 
 process.exit(result.status ?? 1);
-

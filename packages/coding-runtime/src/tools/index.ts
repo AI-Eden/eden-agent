@@ -3,4 +3,3 @@ export interface ToolResult {
   readonly productData: unknown;
   readonly diagnostics: unknown;
 }
-

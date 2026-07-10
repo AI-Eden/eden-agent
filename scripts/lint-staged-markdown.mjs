@@ -1,17 +1,11 @@
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, { encoding: "utf8", ...options });
 }
 
-const diff = run("git", [
-  "diff",
-  "--cached",
-  "--name-only",
-  "--diff-filter=ACMR",
-  "-z",
-]);
+const diff = run("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"]);
 
 if (diff.error || diff.status !== 0) {
   console.error(diff.stderr || diff.error?.message || "Could not inspect staged files.");
@@ -51,4 +45,3 @@ const checked = run("pnpm", ["exec", "markdownlint-cli2", ...literalFiles], {
   stdio: "inherit",
 });
 process.exit(checked.status ?? 1);
-

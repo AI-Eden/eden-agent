@@ -2,7 +2,7 @@
   "config": {
     "default": true,
     "MD013": false,
-    "MD024": { "siblings_only": true },
+    "MD024": { "siblings_only": true }
   },
-  "ignores": ["**/.git/**", "**/node_modules/**"],
+  "ignores": ["**/.git/**", "**/node_modules/**"]
 }

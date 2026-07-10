@@ -21,4 +21,3 @@ if (command === "exec") {
     ].join("\n"),
   );
 }
-

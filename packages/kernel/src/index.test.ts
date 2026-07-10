@@ -1,7 +1,7 @@
 import { strictEqual } from "node:assert";
 import { test } from "node:test";
 
-import { reduce, type RunState } from "./index.ts";
+import { type RunState, reduce } from "./index.ts";
 
 const idle: RunState = { phase: "idle" };
 

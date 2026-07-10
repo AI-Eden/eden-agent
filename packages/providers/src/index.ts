@@ -11,4 +11,3 @@ export class FakeModelDriver implements ModelDriver {
     return { request, output: "fake-response" };
   }
 }
-

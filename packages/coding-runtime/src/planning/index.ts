@@ -4,4 +4,3 @@ export interface PlanArtifact {
   readonly acceptanceChecks: readonly string[];
   readonly nonGoals: readonly string[];
 }
-

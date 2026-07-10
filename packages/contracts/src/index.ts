@@ -12,4 +12,3 @@ export type ProductEvent =
   | { readonly type: "run.terminal"; readonly state: TerminalState };
 
 export type TerminalState = "succeeded" | "failed" | "blocked" | "cancelled";
-

@@ -3,4 +3,3 @@ export interface SkillDescriptor {
   readonly description: string;
   readonly path: string;
 }
-

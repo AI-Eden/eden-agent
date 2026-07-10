@@ -6,4 +6,3 @@ export interface VerificationResult {
   }[];
   readonly evidenceRefs: readonly string[];
 }
-

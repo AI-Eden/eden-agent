@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/quality-session-start.mjs\"",
+            "commandWindows": "powershell.exe -NoProfile -Command \"& node (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/quality-session-start.mjs')\"",
+            "timeout": 30,
+            "statusMessage": "Recording the quality baseline"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/.codex/hooks/quality-stop.mjs\"",
+            "commandWindows": "powershell.exe -NoProfile -Command \"& node (Join-Path (git rev-parse --show-toplevel) '.codex/hooks/quality-stop.mjs')\"",
+            "timeout": 30,
+            "statusMessage": "Formatting and linting this turn's code changes"
+          }
+        ]
+      }
+    ]
+  }
+}

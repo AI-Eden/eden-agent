@@ -4,4 +4,3 @@ export interface SubagentSpec {
   readonly capabilityIds: readonly string[];
   readonly budgetId: string;
 }
-

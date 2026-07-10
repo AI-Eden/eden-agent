@@ -4,4 +4,3 @@ export interface ContextItem {
   readonly content: string;
   readonly estimatedTokens: number;
 }
-

@@ -4,4 +4,3 @@ export interface WorkspaceSnapshot {
   readonly dirty: boolean;
   readonly capturedAt: string;
 }
-

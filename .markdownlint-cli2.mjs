@@ -6,4 +6,3 @@ export default {
   },
   ignores: ["**/.git/**", "**/node_modules/**"],
 };
-

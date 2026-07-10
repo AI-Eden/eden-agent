@@ -26,4 +26,3 @@ export function reduce(state: RunState, event: KernelEvent): RunState {
 export function decide(state: RunState): readonly KernelEffect[] {
   return state.phase === "running" ? [{ type: "context.assemble" }] : [];
 }
-

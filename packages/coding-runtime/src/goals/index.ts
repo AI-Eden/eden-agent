@@ -4,4 +4,3 @@ export interface GoalSpec {
   readonly allowedCapabilities: readonly string[];
   readonly repairBudget: number;
 }
-
