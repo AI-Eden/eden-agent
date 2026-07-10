@@ -22,7 +22,7 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const literalFiles = files.map((file) => ":" + file);
+const literalFiles = files.map((file) => `:${file}`);
 const fixed = run("pnpm", ["exec", "markdownlint-cli2", "--fix", ...literalFiles], {
   stdio: "inherit",
 });

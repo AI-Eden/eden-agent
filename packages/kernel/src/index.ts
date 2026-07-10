@@ -12,7 +12,7 @@ export type KernelEffect =
   | { readonly type: "context.assemble" }
   | { readonly type: "checkpoint.persist" };
 
-export function reduce(state: RunState, event: KernelEvent): RunState {
+export function reduce(_state: RunState, event: KernelEvent): RunState {
   switch (event.type) {
     case "run.started":
       return { phase: "running" };

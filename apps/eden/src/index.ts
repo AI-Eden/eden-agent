@@ -4,11 +4,11 @@ const command = process.argv[2];
 
 if (command === "exec") {
   process.stdout.write(
-    JSON.stringify({
+    `${JSON.stringify({
       kind: "scaffold",
       message: "The headless runtime is not implemented yet.",
       roadmapStage: "R0",
-    }) + "\n",
+    })}\n`,
   );
 } else {
   process.stdout.write(

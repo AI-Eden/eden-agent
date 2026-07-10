@@ -5,7 +5,7 @@ const result = spawnSync("git", ["config", "core.hooksPath", ".githooks"], {
 });
 
 if (result.error) {
-  console.error("Could not configure Git hooks: " + result.error.message);
+  console.error(`Could not configure Git hooks: ${result.error.message}`);
   process.exit(1);
 }
 
