@@ -1,0 +1,15 @@
+{
+  "name": "@eden/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "eden": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit false",
+    "test": "node --test",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}
+
