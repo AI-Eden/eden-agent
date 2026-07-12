@@ -32,6 +32,15 @@ Research explains why the project exists; it does not silently override accepted
 - Do not introduce Rust, a daemon, a desktop shell, subagents, or a second provider without the corresponding architecture gate.
 - Prefer the smallest vertical slice that produces user-visible evidence.
 
+## Comments
+
+- Default to no comment. Use names, types, and module interfaces to explain ordinary code.
+- Add `//` comments only for non-obvious invariants, causal constraints, failure modes, compatibility or platform quirks, and measured performance decisions. Explain why the constraint exists and what would fail without it.
+- Use TSDoc only when an exported contract has lifecycle, ownership, ordering, failure, security, or performance semantics that its type cannot express. An internal symbol does not need TSDoc merely because it is exported.
+- Do not narrate assignments, branches, loops, signatures, or other behavior already clear from the code. Avoid section dividers and procedural comments such as `Check`, `Handle`, or `Try`.
+- Link durable evidence such as an ADR, issue, specification, or benchmark when it materially explains the constraint, but keep the local invariant understandable without following the link.
+- Give every TODO a removal condition. Use `TODO(#123): ...` when an issue owns the follow-up; do not leave unbounded backlog notes in source.
+
 ## Verification
 
 - Use test-first development for behavior changes.
