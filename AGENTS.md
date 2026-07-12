@@ -7,7 +7,8 @@ This repository is the public, English-only source of truth for eden-agent.
 1. Read `CONTEXT.md` for the current project state.
 2. Read `WORKFLOW.md` before planning or implementation.
 3. Read `PRODUCT.md` and `SPEC.md` before changing product behavior.
-4. Follow the nearest nested `AGENTS.md` if one is added later.
+4. Read the relevant accepted ADRs, focused documents, and approved plan before changing their area.
+5. Follow the nearest nested `AGENTS.md` if one is added later.
 
 ## Source-of-truth order
 
