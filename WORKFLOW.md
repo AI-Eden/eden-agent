@@ -13,6 +13,8 @@ Use this phase when the problem or design space is still uncertain.
 
 Use the agent's native repository inspection and research capabilities. Optional search or parallel exploration tools may gather evidence, but one owner must synthesize it. A separate brainstorming workflow is unnecessary unless the human explicitly requests a design interview.
 
+When the human requests a design interview, treat it as a dependency-ordered decision tree. Verify discoverable facts instead of asking for them, ask one decision question at a time, and wait for the answer before opening dependent branches. When genuine alternatives exist, present two to four viable options, compare their benefits and risks against explicit criteria, and provide a recommendation without treating it as authorization. Do not implement the direction until the human confirms shared understanding and the accepted decision reaches Freeze.
+
 Exit when the decision, open questions, and required evidence are explicit.
 
 ## 2. Freeze
@@ -64,6 +66,19 @@ Before handoff or merge:
 - update `CONTEXT.md`, the plan, and relevant docs;
 - report exact automated and matching-surface verification results, produced evidence, and anything not run;
 - let the human perform the key-node review defined by the plan.
+
+## Durable goal runs
+
+An agent-native durable goal may span consecutive agent-owned steps, but it may not cross a human checkpoint.
+
+Use one for either of these bounded capsules:
+
+- an Explore spike with one research question, explicit comparison criteria, budgets, a required evidence artifact, and a stopping condition; the goal ends before the human makes the resulting product or architecture decision;
+- one approved implementation milestone after Freeze and any required first-core-invariant test review, continuing through Build, automated Review, matching-surface verification, repair, and Finish preparation before stopping for the named human review.
+
+Every goal names one objective, one verifiable stopping condition, its source documents or approved plan, non-goals, allowed capabilities, budgets, required commands or artifacts, pause conditions, a compact progress record, and the next human checkpoint. Pause when evidence invalidates the plan, a product or architecture decision is needed, authority is missing, or the goal would broaden scope. A durable goal does not authorize commits, pushes, merges, or other external writes that the human did not already request, and it never decides that the human has learned enough to enter teaching consolidation.
+
+Prefer the agent-native durable goal before a more stateful autonomous orchestrator. Escalate further only when the approved work explicitly needs additional ledgers, worktrees, multi-agent gates, or continuation state.
 
 ## Capability model
 
