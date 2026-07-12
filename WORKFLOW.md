@@ -22,9 +22,10 @@ Convert the chosen direction into durable project state before implementation.
 - Update `PRODUCT.md` or `SPEC.md` if the contract changed.
 - Add or supersede an ADR for an architectural decision.
 - Write an executable plan in `docs/plans/` with acceptance checks, affected files, risks, and non-goals.
+- For every behavior slice, record the accepted test seam, observable behavior, independent expected result, permitted boundary fakes or mocks, and matching-surface scenario.
 - Ask the human reviewer to approve decisions that change product scope, trust boundaries, public contracts, or roadmap gates.
 
-Use the repository's plan format in `docs/plans/` and the agent's native plan tracking. Do not create a plugin-specific spec or plan tree. Once approved, the plan is fixed input: implementation discoveries may trigger an explicit amendment, not an invisible redesign.
+Use the repository's plan format in `docs/plans/` and the agent's native plan tracking. Do not use a generic issue-publishing spec skill or create a plugin-specific spec or plan tree. Once approved, the plan is fixed input: implementation discoveries may trigger an explicit amendment, not an invisible redesign.
 
 ## 3. Build
 
@@ -36,7 +37,9 @@ Implement one plan slice at a time with RED, GREEN, REFACTOR.
 4. Refactor without changing behavior.
 5. Run focused checks and update the plan status.
 
-The loop above is authoritative without a TDD skill. A focused TDD reference may help at test seams accepted by the plan. Use reproduction, runtime evidence, and falsifiable hypotheses when a cause is unknown; do not patch by guesswork. Optional search, LSP, or long-running execution tools remain capability layers. Do not run competing planners or let an automation loop broaden the approved scope.
+Tests exercise observable behavior through the accepted public seam. Expected results come from the specification, a worked example, or another independent source rather than reproducing the implementation. Work one vertical slice at a time, and mock only real system boundaries when a real adapter or deterministic fake is impractical.
+
+The repository loop is authoritative without repeatedly loading a TDD skill. Load the full TDD reference when Freeze has not made the test seam or mocking boundary clear; approval of the plan satisfies its seam checkpoint. This repository keeps refactoring inside each behavior slice. When a bug has no confirmed cause, use the focused diagnosis workflow by default: establish a deterministic feedback loop, reproduce the symptom, test falsifiable hypotheses, and lock the fix with a regression test. Optional search, LSP, or long-running execution tools remain capability layers. Do not run competing planners or let an automation loop broaden the approved scope.
 
 ## 4. Review
 
@@ -67,7 +70,7 @@ Before handoff or merge:
 Use three layers and stop at the lowest layer that produces sufficient evidence:
 
 1. Project workflow and agent-native tools own phases, scope, plan tracking, editing, execution, review, and fresh verification.
-2. Focused evidence tools may add code intelligence, diagnostics, documentation lookup, structural search, or surface capture without creating competing project state.
+2. Focused evidence tools may add code intelligence, diagnostics, documentation lookup, structural search, or surface capture without creating competing project state. Use LSP definition, reference, rename-safety, and error-diagnostic operations by default when a source change benefits from them. Use focused diagnosis by default when a bug's cause is unknown. Apply conservative Git-history or commit guidance when the human requested that Git operation; this never grants permission for additional writes.
 3. A process skill, multi-agent review, visual-fidelity gate, or long-running autonomous mode is an explicit escalation for a task whose risk or shape justifies the overhead.
 
-No plugin workflow is required to complete these phases. An escalation must inherit the accepted plan, scope, budgets, checkpoints, and stop conditions. It may not add worktrees, commits, subagents, approval gates, or plan artifacts unless the plan or human explicitly requests them.
+No plugin workflow is required to complete these phases. Generic issue-publishing spec skills, broad language-policy skills, and autonomous plan executors do not replace repository state or this workflow. An escalation must inherit the accepted plan, scope, budgets, checkpoints, and stop conditions. It may not add worktrees, commits, subagents, approval gates, or plan artifacts unless the plan or human explicitly requests them.
