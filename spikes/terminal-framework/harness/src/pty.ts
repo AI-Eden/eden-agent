@@ -128,13 +128,19 @@ export async function runCandidateScenario(
   });
   let transcript = "";
   let exited = false;
-  const terminal = spawn(shellSession.command, shellSession.arguments, {
-    cols: 60,
-    cwd: harnessRoot,
-    env: environment,
-    name: "xterm-256color",
-    rows: 20,
-  });
+  let terminal: ReturnType<typeof spawn>;
+  try {
+    terminal = spawn(shellSession.command, shellSession.arguments, {
+      cols: 60,
+      cwd: harnessRoot,
+      env: environment,
+      name: "xterm-256color",
+      rows: 20,
+    });
+  } catch (error) {
+    shellSession.cleanup();
+    throw error;
+  }
   const outputSubscription = terminal.onData((data) => {
     transcript = `${transcript}${data}`.slice(-transcriptLimit);
   });
@@ -164,8 +170,12 @@ export async function runCandidateScenario(
   } finally {
     outputSubscription.dispose();
     exitSubscription.dispose();
-    if (!exited) {
-      terminatePtyProcessGroup(terminal);
+    try {
+      if (!exited) {
+        terminatePtyProcessGroup(terminal);
+      }
+    } finally {
+      shellSession.cleanup();
     }
   }
 }

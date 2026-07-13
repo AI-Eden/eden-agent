@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { createShellSession } from "../src/shell-session.ts";
 
@@ -33,10 +34,14 @@ describe("parent shell session", () => {
     });
 
     assert.equal(session.command, "C:\\Windows\\System32\\cmd.exe");
-    assert.deepEqual(session.arguments.slice(0, 5), ["/D", "/Q", "/V:ON", "/S", "/C"]);
-    assert.match(session.arguments[5] ?? "", /set \/p "eden_challenge="/u);
+    assert.deepEqual(session.arguments.slice(0, 3), ["/D", "/Q", "/C"]);
+    const scriptPath = session.arguments[3];
+    assert.ok(scriptPath !== undefined);
+    assert.match(readFileSync(scriptPath, "utf8"), /set \/p "eden_challenge="/u);
     assert.equal(session.challengeInput, "def456\r");
     assert.equal(session.expectedResponse, "EDEN_TUI_RESTORED_def456");
     assert.equal(session.readyMarker, "__EDEN_PARENT_SHELL_READY__");
+    session.cleanup();
+    assert.equal(existsSync(scriptPath), false);
   });
 });
