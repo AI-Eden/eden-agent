@@ -1,11 +1,11 @@
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveBunExecutable } from "./candidate-command.ts";
 import { type CandidateId, candidateIds, type ProcessScenario } from "./pty.ts";
 import { captureTerminalModeFingerprint } from "./terminal-mode.ts";
 
 const workspaceRoot = fileURLToPath(new URL("../../../../", import.meta.url));
-const binName = process.platform === "win32" ? "bun.CMD" : "bun";
 const inkRoot = resolve(workspaceRoot, "spikes/terminal-framework/ink");
 const openTuiRoot = resolve(workspaceRoot, "spikes/terminal-framework/opentui");
 
@@ -41,13 +41,13 @@ function getCandidateLaunch(candidateId: CandidateId): CandidateLaunch {
     case "ink-bun":
       return {
         arguments: ["src/cli.tsx"],
-        command: resolve(inkRoot, "node_modules/.bin", binName),
+        command: resolveBunExecutable(inkRoot),
         cwd: inkRoot,
       };
     case "opentui-bun":
       return {
         arguments: ["src/cli.tsx"],
-        command: resolve(openTuiRoot, "node_modules/.bin", binName),
+        command: resolveBunExecutable(openTuiRoot),
         cwd: openTuiRoot,
       };
   }

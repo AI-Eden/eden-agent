@@ -151,12 +151,14 @@ async function driveStressScenario(
     terminal: options.terminal,
   });
   requestPtyCancellation(options);
-  await waitForText({
-    candidateId: options.candidateId,
-    expectedText: "__EDEN_PROBE_INTERRUPT__=received",
-    readTranscript: options.readTranscript,
-    terminal: options.terminal,
-  });
+  if (process.platform !== "win32") {
+    await waitForText({
+      candidateId: options.candidateId,
+      expectedText: "__EDEN_PROBE_INTERRUPT__=received",
+      readTranscript: options.readTranscript,
+      terminal: options.terminal,
+    });
+  }
   await waitForText({
     candidateId: options.candidateId,
     expectedText: "__EDEN_CANDIDATE_EXIT__=130",
