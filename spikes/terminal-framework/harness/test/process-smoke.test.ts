@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
-import { terminatePtyProcessGroup, terminateWindowsProcessTree } from "../src/drive-scenario.ts";
 import { type CandidateId, runCandidateScenario } from "../src/pty.ts";
+import { terminatePtyProcessGroup, terminateWindowsProcessTree } from "../src/pty-cleanup.ts";
 import { ProcessHarnessTimeoutError } from "../src/pty-events.ts";
 
 const candidateIds = [

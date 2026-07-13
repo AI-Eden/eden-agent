@@ -55,6 +55,7 @@ function getCandidateLaunch(candidateId: CandidateId): CandidateLaunch {
 
 const scenario = parseScenario(process.argv[3]);
 const launch = getCandidateLaunch(parseCandidateId(process.argv[2]));
+process.stdout.write(`__EDEN_PROBE_PID__=${process.pid}\n`);
 const terminalModeBefore = captureTerminalModeFingerprint();
 process.stdout.write(`__EDEN_TERMINAL_MODE_BEFORE__=${terminalModeBefore}\n`);
 const candidateArguments =
@@ -108,6 +109,6 @@ try {
 
 const terminalModeAfter = captureTerminalModeFingerprint();
 process.stdout.write(
-  `\n__EDEN_CANCELLATION_ESCALATION__=${cancellationEscalation}\n__EDEN_CANDIDATE_EXIT__=${exitCode}\n__EDEN_TERMINAL_MODE_AFTER__=${terminalModeAfter}\nEDEN_TUI_RESTORED\n`,
+  `\n__EDEN_CANCELLATION_ESCALATION__=${cancellationEscalation}\n__EDEN_CANDIDATE_EXIT__=${exitCode}\n__EDEN_TERMINAL_MODE_AFTER__=${terminalModeAfter}\n`,
 );
 process.exitCode = exitCode;

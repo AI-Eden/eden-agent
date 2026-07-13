@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createPackageCommandEnvironment } from "./package-command.ts";
 
 type SnapshotOptions = {
   readonly encoding: "utf8";
@@ -25,34 +26,53 @@ type SnapshotRunner = (
   options: SnapshotOptions,
 ) => SnapshotResult;
 
-const windowsConsoleModeScript = `
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class EdenConsoleMode { [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int id); [DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr handle, out uint mode); }'
-[uint32]$inputMode = 0
-[uint32]$outputMode = 0
-$inputOk = [EdenConsoleMode]::GetConsoleMode([EdenConsoleMode]::GetStdHandle(-10), [ref]$inputMode)
-$outputOk = [EdenConsoleMode]::GetConsoleMode([EdenConsoleMode]::GetStdHandle(-11), [ref]$outputMode)
-if (-not ($inputOk -and $outputOk)) { exit 1 }
-[System.IO.File]::WriteAllText($env:EDEN_CONSOLE_MODE_PATH, ([string]$inputMode + ':' + [string]$outputMode))
+const windowsConsoleModeSource = `
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+
+public static class EdenConsoleMode {
+  [DllImport("kernel32.dll", SetLastError = true)]
+  private static extern IntPtr GetStdHandle(int id);
+
+  [DllImport("kernel32.dll", SetLastError = true)]
+  private static extern bool GetConsoleMode(IntPtr handle, out uint mode);
+
+  public static int Main(string[] arguments) {
+    if (arguments.Length != 1) return 2;
+    uint inputMode;
+    uint outputMode;
+    if (!GetConsoleMode(GetStdHandle(-10), out inputMode)) return 1;
+    if (!GetConsoleMode(GetStdHandle(-11), out outputMode)) return 1;
+    File.WriteAllText(arguments[0], inputMode + ":" + outputMode);
+    return 0;
+  }
+}
 `;
+
+const windowsCompilerScript = `
+param([string]$SourcePath, [string]$OutputPath)
+Add-Type -Path $SourcePath -OutputAssembly $OutputPath -OutputType ConsoleApplication
+`;
+
+let preparedWindowsHelper:
+  | { readonly directory: string; readonly executablePath: string }
+  | undefined;
 
 const runSnapshot: SnapshotRunner = (command, arguments_, options) =>
   spawnSync(command, arguments_, options);
 
-function captureWindowsConsoleMode(runner: SnapshotRunner): string {
+function captureWindowsConsoleMode(runner: SnapshotRunner, helperPath: string): string {
   const snapshotDirectory = mkdtempSync(join(tmpdir(), "eden-console-mode-"));
   const snapshotPath = join(snapshotDirectory, "mode.txt");
   try {
-    const snapshot = runner(
-      "powershell.exe",
-      ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", windowsConsoleModeScript],
-      {
-        encoding: "utf8",
-        env: { ...process.env, EDEN_CONSOLE_MODE_PATH: snapshotPath },
-        stdio: ["inherit", "inherit", "pipe"],
-        timeout: 5_000,
-        windowsHide: true,
-      },
-    );
+    const snapshot = runner(helperPath, [snapshotPath], {
+      encoding: "utf8",
+      env: createPackageCommandEnvironment(process.env),
+      stdio: ["inherit", "inherit", "pipe"],
+      timeout: 5_000,
+      windowsHide: true,
+    });
     if (snapshot.error !== undefined) {
       throw snapshot.error;
     }
@@ -68,13 +88,74 @@ function captureWindowsConsoleMode(runner: SnapshotRunner): string {
 export function captureTerminalModeFingerprint(
   platform: NodeJS.Platform = process.platform,
   runner: SnapshotRunner = runSnapshot,
+  windowsHelperPath: string | undefined = process.env.EDEN_CONSOLE_MODE_HELPER,
 ): string {
   const terminalMode =
-    platform === "win32" ? captureWindowsConsoleMode(runner) : captureUnixTerminalMode(runner);
+    platform === "win32"
+      ? captureWindowsConsoleMode(runner, requireWindowsHelperPath(windowsHelperPath))
+      : captureUnixTerminalMode(runner);
   if (terminalMode.length === 0) {
     throw new TypeError("Unable to capture terminal mode: empty snapshot");
   }
   return createHash("sha256").update(terminalMode).digest("hex");
+}
+
+function requireWindowsHelperPath(helperPath: string | undefined): string {
+  if (helperPath === undefined) {
+    throw new TypeError("Windows console-mode helper is unavailable");
+  }
+  return helperPath;
+}
+
+export function prepareWindowsConsoleModeHelper(
+  platform: NodeJS.Platform = process.platform,
+): string | undefined {
+  if (platform !== "win32") {
+    return undefined;
+  }
+  if (preparedWindowsHelper !== undefined) {
+    return preparedWindowsHelper.executablePath;
+  }
+
+  const directory = mkdtempSync(join(tmpdir(), "eden-console-helper-"));
+  const compilerPath = join(directory, "compile.ps1");
+  const executablePath = join(directory, "eden-console-mode.exe");
+  const sourcePath = join(directory, "eden-console-mode.cs");
+  try {
+    writeFileSync(compilerPath, windowsCompilerScript, "utf8");
+    writeFileSync(sourcePath, windowsConsoleModeSource, "utf8");
+    const compilation = spawnSync(
+      "powershell.exe",
+      [
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        compilerPath,
+        sourcePath,
+        executablePath,
+      ],
+      {
+        cwd: directory,
+        encoding: "utf8",
+        env: createPackageCommandEnvironment(process.env),
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
+    if (compilation.error !== undefined) {
+      throw compilation.error;
+    }
+    if (compilation.status !== 0) {
+      throw new TypeError(`Unable to compile console-mode helper: ${compilation.stderr.trim()}`);
+    }
+    preparedWindowsHelper = { directory, executablePath };
+    process.once("exit", () => rmSync(directory, { force: true, recursive: true }));
+    return executablePath;
+  } catch (error) {
+    rmSync(directory, { force: true, recursive: true });
+    throw error;
+  }
 }
 
 function captureUnixTerminalMode(runner: SnapshotRunner): string {

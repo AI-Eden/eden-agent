@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import type { IPty } from "node-pty";
 import type { CandidateId, ProcessScenario } from "./pty.ts";
@@ -13,9 +12,11 @@ export type DrivenScenario = {
 
 type DriveCandidateScenarioOptions = {
   readonly candidateId: CandidateId;
-  readonly hasExited: () => boolean;
   readonly readTranscript: () => string;
   readonly scenario: ProcessScenario;
+  readonly shellChallengeInput: string;
+  readonly shellExpectedResponse: string;
+  readonly shellReadyMarker: string;
   readonly startedAt: Date;
   readonly terminal: IPty;
 };
@@ -27,89 +28,58 @@ function assertNeverScenario(scenario: never): never {
   throw new TypeError(`Unsupported process scenario: ${scenario}`);
 }
 
-function requestPtyCancellation(terminal: IPty): void {
-  terminal.write("\u0003");
+function requestPtyCancellation(options: DriveCandidateScenarioOptions): void {
+  options.terminal.write("\u0003");
   if (process.platform !== "win32") {
-    process.kill(terminal.pid, "SIGINT");
+    const probePid = readNumericMarker(options.readTranscript(), "__EDEN_PROBE_PID__=");
+    try {
+      process.kill(probePid, "SIGINT");
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) {
+        throw error;
+      }
+    }
   }
 }
 
-type WindowsProcessTreeTerminator = (pid: number) => void;
+function readNumericMarker(transcript: string, prefix: string): number {
+  const match = transcript.match(new RegExp(`${prefix}(\\d+)`, "u"));
+  if (match?.[1] === undefined) {
+    throw new TypeError(`Missing numeric transcript marker: ${prefix}`);
+  }
+  return Number.parseInt(match[1], 10);
+}
 
-type TaskkillOptions = {
-  readonly encoding: "utf8";
-  readonly stdio: ["ignore", "pipe", "pipe"];
-  readonly timeout: number;
-  readonly windowsHide: boolean;
-};
-
-type TaskkillResult = {
-  readonly error?: Error | undefined;
-  readonly status: number | null;
-  readonly stderr: string;
-};
-
-type TaskkillRunner = (
-  command: string,
-  arguments_: readonly string[],
-  options: TaskkillOptions,
-) => TaskkillResult;
-
-const runTaskkill: TaskkillRunner = (command, arguments_, options) =>
-  spawnSync(command, arguments_, options);
-
-export function terminateWindowsProcessTree(
-  pid: number,
-  runner: TaskkillRunner = runTaskkill,
-  probeProcess: typeof process.kill = process.kill,
-): void {
-  const result = runner("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    timeout: 5_000,
-    windowsHide: true,
+async function completeShellRecovery(options: DriveCandidateScenarioOptions): Promise<number> {
+  await waitForText({
+    candidateId: options.candidateId,
+    expectedText: "__EDEN_CANDIDATE_EXIT__=",
+    readTranscript: options.readTranscript,
+    terminal: options.terminal,
   });
-  if (result.error !== undefined) {
-    throw result.error;
+  const candidateExitCode = readNumericMarker(options.readTranscript(), "__EDEN_CANDIDATE_EXIT__=");
+  await waitForText({
+    candidateId: options.candidateId,
+    expectedText: options.shellReadyMarker,
+    readTranscript: options.readTranscript,
+    terminal: options.terminal,
+  });
+  const responseOffset = options.readTranscript().length;
+  const shellExit = waitForExit(options.candidateId, options.terminal);
+  options.terminal.write(options.shellChallengeInput);
+  await waitForText({
+    candidateId: options.candidateId,
+    expectedText: options.shellExpectedResponse,
+    readTranscript: () => options.readTranscript().slice(responseOffset),
+    terminal: options.terminal,
+  });
+  const shellExitCode = await shellExit;
+  if (shellExitCode !== candidateExitCode) {
+    throw new TypeError(
+      `Parent shell exited with ${shellExitCode}; expected candidate status ${candidateExitCode}`,
+    );
   }
-  if (result.status === 0) {
-    return;
-  }
-  try {
-    probeProcess(pid, 0);
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ESRCH") {
-      return;
-    }
-    throw error;
-  }
-  throw new Error(
-    `taskkill failed with status ${result.status ?? "missing"}: ${result.stderr.trim().slice(0, 4_096)}`,
-  );
-}
-
-export function terminatePtyProcessGroup(
-  terminal: Pick<IPty, "kill" | "pid">,
-  sendSignal: typeof process.kill = process.kill,
-  platform: NodeJS.Platform = process.platform,
-  terminateWindowsTree: WindowsProcessTreeTerminator = terminateWindowsProcessTree,
-): void {
-  if (platform === "win32") {
-    terminateWindowsTree(terminal.pid);
-    return;
-  }
-  try {
-    sendSignal(-terminal.pid, "SIGKILL");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ESRCH") {
-      return;
-    }
-    if (error instanceof Error && "code" in error && error.code === "EPERM") {
-      terminal.kill();
-      return;
-    }
-    throw error;
-  }
+  return candidateExitCode;
 }
 
 async function prepareInteractiveCandidate(options: DriveCandidateScenarioOptions): Promise<Date> {
@@ -180,7 +150,7 @@ async function driveStressScenario(
     readTranscript: () => options.readTranscript().slice(escapeOffset),
     terminal: options.terminal,
   });
-  requestPtyCancellation(options.terminal);
+  requestPtyCancellation(options);
   await waitForText({
     candidateId: options.candidateId,
     expectedText: "__EDEN_PROBE_INTERRUPT__=received",
@@ -193,10 +163,8 @@ async function driveStressScenario(
     readTranscript: options.readTranscript,
     terminal: options.terminal,
   });
-  if (!options.hasExited()) {
-    terminatePtyProcessGroup(options.terminal);
-  }
-  return { exitCode: 130, readiness: "observed", readyAt, viewportSequence };
+  const exitCode = await completeShellRecovery(options);
+  return { exitCode, readiness: "observed", readyAt, viewportSequence };
 }
 
 export async function driveCandidateScenario(
@@ -204,7 +172,7 @@ export async function driveCandidateScenario(
 ): Promise<DrivenScenario> {
   switch (options.scenario) {
     case "invalid": {
-      const exitCode = await waitForExit(options.candidateId, options.terminal);
+      const exitCode = await completeShellRecovery(options);
       return {
         exitCode,
         readiness: "not-applicable",
@@ -213,7 +181,6 @@ export async function driveCandidateScenario(
       };
     }
     case "cancel": {
-      const exitPromise = waitForExit(options.candidateId, options.terminal);
       await waitForText({
         candidateId: options.candidateId,
         expectedText: "approve: a",
@@ -221,14 +188,13 @@ export async function driveCandidateScenario(
         terminal: options.terminal,
       });
       const readyAt = new Date();
-      requestPtyCancellation(options.terminal);
-      const exitCode = await exitPromise;
+      requestPtyCancellation(options);
+      const exitCode = await completeShellRecovery(options);
       return { exitCode, readiness: "observed", readyAt, viewportSequence: ["60x20"] };
     }
     case "stress":
       return driveStressScenario(options);
     case "primary": {
-      const exitPromise = waitForExit(options.candidateId, options.terminal);
       const readyAt = await prepareInteractiveCandidate(options);
       options.terminal.write("a");
       await waitForText({
@@ -238,7 +204,7 @@ export async function driveCandidateScenario(
         terminal: options.terminal,
       });
       options.terminal.write("q");
-      const exitCode = await exitPromise;
+      const exitCode = await completeShellRecovery(options);
       return { exitCode, readiness: "observed", readyAt, viewportSequence };
     }
     default:

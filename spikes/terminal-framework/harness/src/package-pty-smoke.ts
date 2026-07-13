@@ -1,10 +1,10 @@
 import { spawn } from "node-pty";
-import { terminatePtyProcessGroup } from "./drive-scenario.ts";
 import {
   createInteractiveTerminalEnvironment,
   type PackageCommandResult,
   redactPackageOutput,
 } from "./package-command.ts";
+import { terminatePtyProcessGroup } from "./pty-cleanup.ts";
 
 const outputLimit = 32 * 1024;
 const inputReadinessDelayMs = 100;

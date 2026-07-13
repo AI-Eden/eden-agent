@@ -1,8 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
 import { spawn } from "node-pty";
-import { driveCandidateScenario, terminatePtyProcessGroup } from "./drive-scenario.ts";
+import { driveCandidateScenario } from "./drive-scenario.ts";
 import { createInteractiveTerminalEnvironment } from "./package-command.ts";
+import { terminatePtyProcessGroup } from "./pty-cleanup.ts";
+import { createShellSession } from "./shell-session.ts";
+import { prepareWindowsConsoleModeHelper } from "./terminal-mode.ts";
 
 export const candidateIds = ["ink-node", "ink-bun", "opentui-bun"] as const;
 
@@ -42,6 +46,7 @@ type CompletedProcessObservation = {
   readonly readiness: ProcessSmokeResult["readiness"];
   readonly readyAt: Date;
   readonly scenario: ProcessScenario;
+  readonly shellExpectedResponse: string;
   readonly startedAt: Date;
   readonly transcript: string;
   readonly viewportSequence: readonly string[];
@@ -78,7 +83,9 @@ function createProcessSmokeResult(observation: CompletedProcessObservation): Pro
     readiness: observation.readiness,
     readyAt: readyAt.toISOString(),
     scenario: observation.scenario,
-    shellSentinel: observation.transcript.includes("EDEN_TUI_RESTORED") ? "observed" : "missing",
+    shellSentinel: observation.transcript.includes(observation.shellExpectedResponse)
+      ? "observed"
+      : "missing",
     startedAt: observation.startedAt.toISOString(),
     terminalCleanup:
       cursorRestored &&
@@ -105,19 +112,29 @@ export async function runCandidateScenario(
   options: RunCandidateScenarioOptions,
 ): Promise<ProcessSmokeResult> {
   const startedAt = new Date();
+  const environment = createInteractiveTerminalEnvironment(process.env);
+  const windowsConsoleModeHelper = prepareWindowsConsoleModeHelper();
+  if (windowsConsoleModeHelper !== undefined) {
+    environment.EDEN_CONSOLE_MODE_HELPER = windowsConsoleModeHelper;
+  }
+  const shellSession = createShellSession({
+    candidateId: options.candidateId,
+    challenge: randomUUID().replaceAll("-", ""),
+    commandInterpreter: environment.ComSpec ?? environment.COMSPEC,
+    nodeExecutable: process.execPath,
+    platform: process.platform,
+    probePath,
+    scenario: options.scenario,
+  });
   let transcript = "";
   let exited = false;
-  const terminal = spawn(
-    process.execPath,
-    ["--import", "tsx", probePath, options.candidateId, options.scenario],
-    {
-      cols: 60,
-      cwd: harnessRoot,
-      env: createInteractiveTerminalEnvironment(process.env),
-      name: "xterm-256color",
-      rows: 20,
-    },
-  );
+  const terminal = spawn(shellSession.command, shellSession.arguments, {
+    cols: 60,
+    cwd: harnessRoot,
+    env: environment,
+    name: "xterm-256color",
+    rows: 20,
+  });
   const outputSubscription = terminal.onData((data) => {
     transcript = `${transcript}${data}`.slice(-transcriptLimit);
   });
@@ -128,9 +145,11 @@ export async function runCandidateScenario(
   try {
     const drivenScenario = await driveCandidateScenario({
       candidateId: options.candidateId,
-      hasExited: () => exited,
       readTranscript: () => transcript,
       scenario: options.scenario,
+      shellChallengeInput: shellSession.challengeInput,
+      shellExpectedResponse: shellSession.expectedResponse,
+      shellReadyMarker: shellSession.readyMarker,
       startedAt,
       terminal,
     });
@@ -138,6 +157,7 @@ export async function runCandidateScenario(
       candidateId: options.candidateId,
       ...drivenScenario,
       scenario: options.scenario,
+      shellExpectedResponse: shellSession.expectedResponse,
       startedAt,
       transcript,
     });
