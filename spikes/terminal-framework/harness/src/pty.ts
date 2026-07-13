@@ -1,7 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
 import { spawn } from "node-pty";
-import { driveCandidateScenario } from "./drive-scenario.ts";
+import { driveCandidateScenario, terminatePtyProcessGroup } from "./drive-scenario.ts";
+import { createInteractiveTerminalEnvironment } from "./package-command.ts";
 
 export const candidateIds = ["ink-node", "ink-bun", "opentui-bun"] as const;
 
@@ -112,7 +113,7 @@ export async function runCandidateScenario(
     {
       cols: 60,
       cwd: harnessRoot,
-      env: process.env,
+      env: createInteractiveTerminalEnvironment(process.env),
       name: "xterm-256color",
       rows: 20,
     },
@@ -144,7 +145,7 @@ export async function runCandidateScenario(
     outputSubscription.dispose();
     exitSubscription.dispose();
     if (!exited) {
-      terminal.kill();
+      terminatePtyProcessGroup(terminal);
     }
   }
 }

@@ -68,6 +68,12 @@ export function createPackageCommandEnvironment(source: NodeJS.ProcessEnv): Reco
   );
 }
 
+export function createInteractiveTerminalEnvironment(
+  source: NodeJS.ProcessEnv,
+): Record<string, string> {
+  return { ...createPackageCommandEnvironment(source), CI: "false" };
+}
+
 export function resolvePnpmInvocation(
   arguments_: readonly string[],
   runtime: PnpmRuntime = {

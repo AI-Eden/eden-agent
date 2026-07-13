@@ -1,6 +1,7 @@
 import { spawn } from "node-pty";
+import { terminatePtyProcessGroup } from "./drive-scenario.ts";
 import {
-  createPackageCommandEnvironment,
+  createInteractiveTerminalEnvironment,
   type PackageCommandResult,
   redactPackageOutput,
 } from "./package-command.ts";
@@ -17,7 +18,7 @@ export async function runInteractivePackageSmoke(
   const terminal = spawn(command, [...arguments_], {
     cols: 60,
     cwd,
-    env: createPackageCommandEnvironment(process.env),
+    env: createInteractiveTerminalEnvironment(process.env),
     name: "xterm-256color",
     rows: 20,
   });
@@ -55,7 +56,7 @@ export async function runInteractivePackageSmoke(
       finish(event.exitCode, sentExit ? "" : "Packaged renderer exited before readiness");
     });
     const timeout = setTimeout(() => {
-      terminal.kill();
+      terminatePtyProcessGroup(terminal);
       finish(1, `Timed out waiting for packaged renderer readiness after ${timeoutMs}ms`);
     }, timeoutMs);
   });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  createInteractiveTerminalEnvironment,
   createPackageCommandEnvironment,
   resolvePnpmInvocation,
   runPackageCommand,
@@ -48,5 +49,18 @@ describe("package command observation", () => {
       HOME: "/home/runner",
       Path: "C:\\Windows\\System32",
     });
+  });
+
+  it("keeps real PTY children interactive under an outer CI runner", () => {
+    // Given the automation process marks its own environment as non-interactive CI.
+    // When the harness creates the environment for a child attached to a real PTY.
+    const environment = createInteractiveTerminalEnvironment({
+      CI: "true",
+      GITHUB_TOKEN: "secret-canary-value",
+      PATH: "/usr/bin",
+    });
+
+    // Then Ink sees the documented interactive opt-out and credentials remain excluded.
+    assert.deepEqual(environment, { CI: "false", PATH: "/usr/bin" });
   });
 });

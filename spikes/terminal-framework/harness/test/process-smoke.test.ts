@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
+import { terminatePtyProcessGroup } from "../src/drive-scenario.ts";
 import { type CandidateId, runCandidateScenario } from "../src/pty.ts";
 import { ProcessHarnessTimeoutError } from "../src/pty-events.ts";
 
@@ -9,6 +10,25 @@ const candidateIds = [
   "ink-bun",
   "opentui-bun",
 ] as const satisfies readonly CandidateId[];
+
+it("terminates the complete POSIX PTY process group after an interactive timeout", {
+  skip: process.platform === "win32",
+}, () => {
+  // Given one timed-out PTY with a child process group.
+  const signals: Array<{ pid: number; signal: string | number }> = [];
+
+  // When timeout cleanup terminates the PTY.
+  terminatePtyProcessGroup({ kill: () => undefined, pid: 321 }, (pid, signal) => {
+    if (signal === undefined) {
+      throw new TypeError("Expected timeout cleanup to provide a signal");
+    }
+    signals.push({ pid, signal });
+    return true;
+  });
+
+  // Then the whole group receives an uncatchable termination signal.
+  assert.deepEqual(signals, [{ pid: -321, signal: "SIGKILL" }]);
+});
 
 describe("terminal candidate process harness", () => {
   for (const candidateId of candidateIds) {

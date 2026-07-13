@@ -26,13 +26,16 @@ function assertNeverScenario(scenario: never): never {
   throw new TypeError(`Unsupported process scenario: ${scenario}`);
 }
 
-function terminatePtyProcessGroup(terminal: IPty): void {
+export function terminatePtyProcessGroup(
+  terminal: Pick<IPty, "kill" | "pid">,
+  sendSignal: typeof process.kill = process.kill,
+): void {
   if (process.platform === "win32") {
     terminal.kill();
     return;
   }
   try {
-    process.kill(-terminal.pid, "SIGKILL");
+    sendSignal(-terminal.pid, "SIGKILL");
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ESRCH") {
       return;
