@@ -1,8 +1,8 @@
-import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type CandidateId, candidateIds, type ProcessScenario } from "./pty.ts";
+import { captureTerminalModeFingerprint } from "./terminal-mode.ts";
 
 const workspaceRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const binName = process.platform === "win32" ? "bun.CMD" : "bun";
@@ -14,40 +14,6 @@ type CandidateLaunch = {
   readonly command: string;
   readonly cwd: string;
 };
-
-const windowsConsoleModeScript = `
-Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class EdenConsoleMode { [DllImport("kernel32.dll")] public static extern IntPtr GetStdHandle(int id); [DllImport("kernel32.dll")] public static extern bool GetConsoleMode(IntPtr handle, out uint mode); }'
-[uint32]$inputMode = 0
-[uint32]$outputMode = 0
-$inputOk = [EdenConsoleMode]::GetConsoleMode([EdenConsoleMode]::GetStdHandle(-10), [ref]$inputMode)
-$outputOk = [EdenConsoleMode]::GetConsoleMode([EdenConsoleMode]::GetStdHandle(-11), [ref]$outputMode)
-if (-not ($inputOk -and $outputOk)) { exit 1 }
-Write-Output ([string]$inputMode + ':' + [string]$outputMode)
-`;
-
-function readTerminalModeFingerprint(): string {
-  const snapshot =
-    process.platform === "win32"
-      ? spawnSync(
-          "powershell.exe",
-          ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", windowsConsoleModeScript],
-          {
-            encoding: "utf8",
-            stdio: ["inherit", "pipe", "pipe"],
-          },
-        )
-      : spawnSync("stty", ["-g"], {
-          encoding: "utf8",
-          stdio: ["inherit", "pipe", "pipe"],
-        });
-  if (snapshot.error !== undefined) {
-    throw snapshot.error;
-  }
-  if (snapshot.status !== 0 || snapshot.stdout.trim().length === 0) {
-    throw new TypeError(`Unable to capture terminal mode: ${snapshot.stderr.trim()}`);
-  }
-  return createHash("sha256").update(snapshot.stdout.trim()).digest("hex");
-}
 
 function parseCandidateId(value: string | undefined): CandidateId {
   const candidateId = candidateIds.find((candidate) => candidate === value);
@@ -89,7 +55,7 @@ function getCandidateLaunch(candidateId: CandidateId): CandidateLaunch {
 
 const scenario = parseScenario(process.argv[3]);
 const launch = getCandidateLaunch(parseCandidateId(process.argv[2]));
-const terminalModeBefore = readTerminalModeFingerprint();
+const terminalModeBefore = captureTerminalModeFingerprint();
 process.stdout.write(`__EDEN_TERMINAL_MODE_BEFORE__=${terminalModeBefore}\n`);
 const candidateArguments =
   scenario === "invalid" ? [...launch.arguments, "--unknown"] : launch.arguments;
@@ -140,7 +106,7 @@ try {
   process.off("SIGINT", relayChildCancellation);
 }
 
-const terminalModeAfter = readTerminalModeFingerprint();
+const terminalModeAfter = captureTerminalModeFingerprint();
 process.stdout.write(
   `\n__EDEN_CANCELLATION_ESCALATION__=${cancellationEscalation}\n__EDEN_CANDIDATE_EXIT__=${exitCode}\n__EDEN_TERMINAL_MODE_AFTER__=${terminalModeAfter}\nEDEN_TUI_RESTORED\n`,
 );

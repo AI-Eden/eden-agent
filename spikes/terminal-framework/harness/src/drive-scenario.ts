@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import type { IPty } from "node-pty";
 import type { CandidateId, ProcessScenario } from "./pty.ts";
@@ -26,18 +27,85 @@ function assertNeverScenario(scenario: never): never {
   throw new TypeError(`Unsupported process scenario: ${scenario}`);
 }
 
+function requestPtyCancellation(terminal: IPty): void {
+  terminal.write("\u0003");
+  if (process.platform !== "win32") {
+    process.kill(terminal.pid, "SIGINT");
+  }
+}
+
+type WindowsProcessTreeTerminator = (pid: number) => void;
+
+type TaskkillOptions = {
+  readonly encoding: "utf8";
+  readonly stdio: ["ignore", "pipe", "pipe"];
+  readonly timeout: number;
+  readonly windowsHide: boolean;
+};
+
+type TaskkillResult = {
+  readonly error?: Error | undefined;
+  readonly status: number | null;
+  readonly stderr: string;
+};
+
+type TaskkillRunner = (
+  command: string,
+  arguments_: readonly string[],
+  options: TaskkillOptions,
+) => TaskkillResult;
+
+const runTaskkill: TaskkillRunner = (command, arguments_, options) =>
+  spawnSync(command, arguments_, options);
+
+export function terminateWindowsProcessTree(
+  pid: number,
+  runner: TaskkillRunner = runTaskkill,
+  probeProcess: typeof process.kill = process.kill,
+): void {
+  const result = runner("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: 5_000,
+    windowsHide: true,
+  });
+  if (result.error !== undefined) {
+    throw result.error;
+  }
+  if (result.status === 0) {
+    return;
+  }
+  try {
+    probeProcess(pid, 0);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH") {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(
+    `taskkill failed with status ${result.status ?? "missing"}: ${result.stderr.trim().slice(0, 4_096)}`,
+  );
+}
+
 export function terminatePtyProcessGroup(
   terminal: Pick<IPty, "kill" | "pid">,
   sendSignal: typeof process.kill = process.kill,
+  platform: NodeJS.Platform = process.platform,
+  terminateWindowsTree: WindowsProcessTreeTerminator = terminateWindowsProcessTree,
 ): void {
-  if (process.platform === "win32") {
-    terminal.kill();
+  if (platform === "win32") {
+    terminateWindowsTree(terminal.pid);
     return;
   }
   try {
     sendSignal(-terminal.pid, "SIGKILL");
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ESRCH") {
+      return;
+    }
+    if (error instanceof Error && "code" in error && error.code === "EPERM") {
+      terminal.kill();
       return;
     }
     throw error;
@@ -112,8 +180,7 @@ async function driveStressScenario(
     readTranscript: () => options.readTranscript().slice(escapeOffset),
     terminal: options.terminal,
   });
-  options.terminal.write("\u0003");
-  process.kill(options.terminal.pid, "SIGINT");
+  requestPtyCancellation(options.terminal);
   await waitForText({
     candidateId: options.candidateId,
     expectedText: "__EDEN_PROBE_INTERRUPT__=received",
@@ -154,7 +221,7 @@ export async function driveCandidateScenario(
         terminal: options.terminal,
       });
       const readyAt = new Date();
-      options.terminal.write("\u0003");
+      requestPtyCancellation(options.terminal);
       const exitCode = await exitPromise;
       return { exitCode, readiness: "observed", readyAt, viewportSequence: ["60x20"] };
     }

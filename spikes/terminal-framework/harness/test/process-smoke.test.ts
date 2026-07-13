@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
-import { terminatePtyProcessGroup } from "../src/drive-scenario.ts";
+import { terminatePtyProcessGroup, terminateWindowsProcessTree } from "../src/drive-scenario.ts";
 import { type CandidateId, runCandidateScenario } from "../src/pty.ts";
 import { ProcessHarnessTimeoutError } from "../src/pty-events.ts";
 
@@ -28,6 +28,70 @@ it("terminates the complete POSIX PTY process group after an interactive timeout
 
   // Then the whole group receives an uncatchable termination signal.
   assert.deepEqual(signals, [{ pid: -321, signal: "SIGKILL" }]);
+});
+
+it("falls back to node-pty cleanup when POSIX process-group signaling is denied", {
+  skip: process.platform === "win32",
+}, () => {
+  // Given the host refuses a process-group signal during an exit-event race.
+  let terminalKillCount = 0;
+  const permissionError = Object.assign(new Error("kill EPERM"), { code: "EPERM" });
+
+  // When timeout cleanup encounters that platform response.
+  terminatePtyProcessGroup({ kill: () => terminalKillCount++, pid: 321 }, () => {
+    throw permissionError;
+  });
+
+  // Then node-pty still receives a direct cleanup request.
+  assert.equal(terminalKillCount, 1);
+});
+
+it("terminates the Windows PTY process tree without node-pty console enumeration", () => {
+  // Given one timed-out ConPTY and a platform process-tree terminator.
+  const terminatedPids: number[] = [];
+  let terminalKillCount = 0;
+
+  // When timeout cleanup runs on Windows.
+  terminatePtyProcessGroup(
+    { kill: () => terminalKillCount++, pid: 321 },
+    process.kill,
+    "win32",
+    (pid) => terminatedPids.push(pid),
+  );
+
+  // Then the process tree is terminated without node-pty's fragile AttachConsole helper.
+  assert.deepEqual(terminatedPids, [321]);
+  assert.equal(terminalKillCount, 0);
+});
+
+it("bounds taskkill and rejects a failed Windows process-tree cleanup", () => {
+  // Given taskkill cannot terminate a process that remains alive.
+  let timeout = 0;
+
+  // When Windows cleanup observes the non-zero command status.
+  assert.throws(
+    () =>
+      terminateWindowsProcessTree(
+        321,
+        (_command, _arguments, options) => {
+          timeout = options.timeout ?? 0;
+          return {
+            error: undefined,
+            output: [null, "", "Access denied"],
+            pid: 1,
+            signal: null,
+            status: 1,
+            stderr: "Access denied",
+            stdout: "",
+          };
+        },
+        () => true,
+      ),
+    /taskkill failed with status 1/u,
+  );
+
+  // Then cleanup is bounded instead of silently leaving a descendant alive.
+  assert.equal(timeout, 5_000);
 });
 
 describe("terminal candidate process harness", () => {
