@@ -1,0 +1,15 @@
+{
+  "name": "@eden/terminal-spike-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/fixture.ts",
+    "./oracle": "./src/oracle.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit false",
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  }
+}

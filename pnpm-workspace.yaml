@@ -1,4 +1,9 @@
 packages:
   - apps/*
   - packages/*
-
+  - spikes/terminal-framework/*
+allowBuilds:
+  bun: true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - tsx@4.23.1
