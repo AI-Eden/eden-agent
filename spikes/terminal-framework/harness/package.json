@@ -1,0 +1,21 @@
+{
+  "name": "@eden/terminal-spike-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/pty.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit false",
+    "measure": "node --import tsx src/measure.ts",
+    "test": "pnpm test:process",
+    "test:process": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@eden/terminal-spike-fixture": "workspace:*",
+    "node-pty": "1.1.0"
+  },
+  "devDependencies": {
+    "tsx": "4.23.1"
+  }
+}
