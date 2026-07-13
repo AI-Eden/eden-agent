@@ -6,8 +6,10 @@
   "exports": "./src/app.tsx",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit false",
+    "package:bun": "pnpm --filter @eden/terminal-spike-harness package -- opentui-bun",
     "start": "bun src/cli.tsx",
     "test": "bun test test/*.test.ts test/*.test.tsx",
+    "test:bun": "bun test test/*.test.ts test/*.test.tsx",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

@@ -1,0 +1,101 @@
+name: Terminal framework spike
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/terminal-framework-spike.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "spikes/terminal-framework/**"
+  push:
+    paths:
+      - ".github/workflows/terminal-framework-spike.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "spikes/terminal-framework/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-2025
+          - macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          cache: pnpm
+          node-version: 24.15.0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Run tests
+        run: node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test
+
+      - id: ink-node
+        name: Package Ink for Node
+        continue-on-error: true
+        env:
+          EDEN_PACKAGE_ARTIFACT_DIR: ${{ runner.temp }}/terminal-packages
+        run: pnpm --filter @eden/terminal-spike-ink package:node
+
+      - id: ink-bun
+        name: Package Ink for Bun
+        continue-on-error: true
+        env:
+          EDEN_PACKAGE_ARTIFACT_DIR: ${{ runner.temp }}/terminal-packages
+        run: pnpm --filter @eden/terminal-spike-ink package:bun
+
+      - id: opentui-bun
+        name: Package OpenTUI for Bun
+        continue-on-error: true
+        env:
+          EDEN_PACKAGE_ARTIFACT_DIR: ${{ runner.temp }}/terminal-packages
+        run: pnpm --filter @eden/terminal-spike-opentui package:bun
+
+      - name: Upload package evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          if-no-files-found: error
+          name: terminal-framework-${{ matrix.os }}
+          path: ${{ runner.temp }}/terminal-packages
+
+      - name: Enforce packaging results
+        if: >-
+          always() &&
+          (steps.ink-node.outcome != 'success' ||
+          steps.ink-bun.outcome != 'success' ||
+          steps.opentui-bun.outcome != 'success')
+        run: exit 1

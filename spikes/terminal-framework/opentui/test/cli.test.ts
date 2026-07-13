@@ -23,10 +23,10 @@ describe("OpenTUI spike CLI", () => {
     // When the CLI is invoked with the standard help flag.
     const result = await runCli("--help");
 
-    // Then it succeeds and reports the Bun-only matching-surface command.
+    // Then it succeeds and reports a command valid for source and packaged launches.
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("Usage: bun src/cli.tsx");
+    expect(result.stdout).toContain("Usage: terminal-spike-opentui");
     expect(result.stdout).toContain("q       Exit normally");
     expect(result.stdout).toContain("Ctrl+C  Cancel with exit code 130");
   });

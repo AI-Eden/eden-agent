@@ -2,7 +2,7 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { OpenTuiSpikeApp } from "./app.tsx";
 
-const helpText = `Usage: bun src/cli.tsx [--help]
+const helpText = `Usage: terminal-spike-opentui [--help]
 
 OpenTUI terminal-framework spike matching surface
 
