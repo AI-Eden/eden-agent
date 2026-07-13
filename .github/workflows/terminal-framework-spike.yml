@@ -3,17 +3,23 @@ name: Terminal framework spike
 on:
   pull_request:
     paths:
+      - ".codex/hooks/**"
       - ".github/workflows/terminal-framework-spike.yml"
+      - "biome.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "scripts/**"
       - "spikes/terminal-framework/**"
   push:
     paths:
+      - ".codex/hooks/**"
       - ".github/workflows/terminal-framework-spike.yml"
+      - "biome.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "scripts/**"
       - "spikes/terminal-framework/**"
   workflow_dispatch:
 
@@ -57,11 +63,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Restore node-pty helper permissions
+        if: runner.os == 'macOS'
+        run: chmod +x node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/prebuilds/darwin-*/spawn-helper
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Run tests
-        run: node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test
+        run: pnpm test
 
       - id: ink-node
         name: Package Ink for Node

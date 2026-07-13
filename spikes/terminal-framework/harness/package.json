@@ -9,7 +9,7 @@
     "measure": "node --import tsx src/measure.ts",
     "package": "node --import tsx src/package-candidate.ts",
     "test": "pnpm test:process",
-    "test:process": "node --import tsx --test test/*.test.ts",
+    "test:process": "node --import tsx --test --test-concurrency=1 test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

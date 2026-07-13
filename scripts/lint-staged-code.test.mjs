@@ -24,10 +24,15 @@ function createFixture() {
     JSON.stringify({ private: true, packageManager: "pnpm@11.7.0" }),
   );
   copyFileSync(join(repositoryRoot, "biome.json"), join(directory, "biome.json"));
-  symlinkSync(join(repositoryRoot, "node_modules"), join(directory, "node_modules"));
+  symlinkSync(
+    join(repositoryRoot, "node_modules"),
+    join(directory, "node_modules"),
+    process.platform === "win32" ? "junction" : "dir",
+  );
   execFileSync("git", ["init", "--quiet"], { cwd: directory });
   execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: directory });
   execFileSync("git", ["config", "user.name", "Test User"], { cwd: directory });
+  execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: directory });
 
   return directory;
 }

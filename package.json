@@ -14,7 +14,7 @@
     "hooks:install": "node scripts/configure-hooks.mjs",
     "markdown:check": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
     "markdown:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\"",
-    "test": "node --test scripts/*.test.mjs && pnpm -r test",
+    "test": "node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {
