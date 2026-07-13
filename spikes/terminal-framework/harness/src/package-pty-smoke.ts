@@ -7,6 +7,7 @@ import {
 } from "./package-command.ts";
 
 const outputLimit = 32 * 1024;
+const inputReadinessDelayMs = 100;
 const timeoutMs = 15_000;
 
 export async function runInteractivePackageSmoke(
@@ -25,6 +26,7 @@ export async function runInteractivePackageSmoke(
   let complete = false;
   let sentExit = false;
   let transcript = "";
+  let exitTimer: ReturnType<typeof setTimeout> | undefined;
 
   return new Promise((resolve) => {
     const finish = (exitCode: number, stderr: string) => {
@@ -33,6 +35,7 @@ export async function runInteractivePackageSmoke(
       }
       complete = true;
       clearTimeout(timeout);
+      clearTimeout(exitTimer);
       outputSubscription.dispose();
       exitSubscription.dispose();
       resolve({
@@ -49,7 +52,7 @@ export async function runInteractivePackageSmoke(
       transcript = `${transcript}${data}`.slice(-outputLimit);
       if (!sentExit && transcript.includes("status: pending")) {
         sentExit = true;
-        terminal.write("q");
+        exitTimer = setTimeout(() => terminal.write("q"), inputReadinessDelayMs);
       }
     });
     const exitSubscription = terminal.onExit((event) => {
@@ -57,7 +60,10 @@ export async function runInteractivePackageSmoke(
     });
     const timeout = setTimeout(() => {
       terminatePtyProcessGroup(terminal);
-      finish(1, `Timed out waiting for packaged renderer readiness after ${timeoutMs}ms`);
+      finish(
+        1,
+        `Timed out waiting for packaged renderer ${sentExit ? "exit" : "readiness"} after ${timeoutMs}ms`,
+      );
     }, timeoutMs);
   });
 }
