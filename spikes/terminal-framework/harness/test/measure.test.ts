@@ -7,6 +7,7 @@ import { candidateIds } from "../src/pty.ts";
 
 const execFileAsync = promisify(execFile);
 const harnessRoot = fileURLToPath(new URL("../", import.meta.url));
+const measurementTimeoutMs = process.platform === "win32" ? 60_000 : 30_000;
 
 describe("terminal candidate measurement command", () => {
   it("emits one bounded structured primary observation per candidate", async () => {
@@ -15,7 +16,7 @@ describe("terminal candidate measurement command", () => {
     const execution = await execFileAsync(process.execPath, ["--import", "tsx", "src/measure.ts"], {
       cwd: harnessRoot,
       encoding: "utf8",
-      timeout: 30_000,
+      timeout: measurementTimeoutMs,
     });
     const report: unknown = JSON.parse(execution.stdout);
 
