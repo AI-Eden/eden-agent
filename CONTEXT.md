@@ -2,7 +2,8 @@
 
 ## Current stage
 
-R0 is complete. R1, Installable Walking Skeleton, is the next stage pending the R0 exit review.
+R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice is implemented and
+locally verified; its slice review and hosted clean-machine evidence remain open.
 
 ## Current truth
 
@@ -16,18 +17,24 @@ R0 is complete. R1, Installable Walking Skeleton, is the next stage pending the 
 - Node.js and pnpm remain the development baseline; Bun, OpenTUI, React, keymap, and native renderer types stay inside the terminal application boundary.
 - TypeBox 1.x is the runtime-schema library for product contracts on TypeScript 7. Node's built-in test runner remains the initial runner; add property testing only when a concrete invariant requires it.
 - The version 1 product boundary now has executable schemas, non-throwing decoders, and deterministic awaiting-approval, executing, and review fixtures. Renderer and runtime authority remain outside the contracts package.
+- One fake task now traverses the deterministic kernel, JSONL journal, replay, explicit effect
+  reconciliation, in-process `AgentClient`, headless NDJSON, and Bun/OpenTUI surfaces.
+- Local crash, renderer, standalone artifact, and full-workspace evidence is green. Hosted Ubuntu, Windows,
+  and macOS evidence requires a separately authorized commit and push.
 
 ## Next decision
 
-Complete the R0 exit review and confirm entry into R1. No unresolved R0 architecture choice remains.
+Review the completed local evidence for `docs/plans/2026-07-15-r1-fake-task-vertical-slice.md` and decide
+whether to authorize publication for hosted clean-machine verification.
 
 ## Next implementation slice
 
-After the exit review, freeze the first R1 vertical slice for the installable walking skeleton. Fake data must travel through the executable product contracts; do not add a real provider before the deterministic reducer, journal, replay, client, and terminal path exist.
+After the first-slice review, plan the next R1 slice around onboarding and explicit workspace-trust
+selection. Do not add a real provider or claim R1 completion in that slice without a separate plan.
 
 ## Known open questions
 
-- Initial journal migration envelope, to be frozen with the R1 journal-and-replay work rather than blocking R0.
+- Hosted distribution evidence has no URL until a commit and push are separately authorized.
 
 ## Update rule
 

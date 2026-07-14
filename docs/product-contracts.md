@@ -24,7 +24,35 @@ The product protocol and journal schema have separate versions. A client negotia
 
 ## AgentClient
 
-All clients use an `AgentClient` port with command submission, current snapshot, event subscription from a cursor, and cancellation. R0-R4 use an in-process implementation. R5 may add local IPC without changing product semantics.
+All clients use this renderer-independent port:
+
+```ts
+interface AgentClient {
+  submit(command: ProductCommand, options?: { signal?: AbortSignal }): Promise<ProductView>;
+  getSnapshot(runId: RunId): Promise<ProductView>;
+  subscribe(
+    runId: RunId,
+    afterCursor?: EventCursor,
+    options?: { signal?: AbortSignal },
+  ): AsyncIterable<ProductEvent>;
+  close(): Promise<void>;
+}
+```
+
+The R1 implementation is in-process, replay-backed, and then live. It enforces run identity and optimistic
+revision freshness before append, exposes only product projections, and keeps `AbortSignal` cancellation
+separate from the durable `run.cancel` command. R5 may add local IPC without changing product semantics.
+
+## Headless JSON
+
+`eden exec --json "<task>"` writes one complete `ProductEvent` JSON object per stdout line in cursor order.
+It writes no prose, ANSI sequence, kernel event, journal record, or diagnostic payload to stdout. The final
+successful line is `run.terminal` with verifier evidence. Diagnostics are structured `ProductError` values
+on stderr.
+
+The deterministic fake action requires `--approve-fake-action` in non-interactive use. Missing approval,
+empty tasks, and unknown arguments exit with code 2; runtime failures exit with code 1; verifier-backed
+success exits with code 0.
 
 ## Contract tests
 

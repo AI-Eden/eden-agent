@@ -1,0 +1,78 @@
+name: R1 walking skeleton
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/r1-walking-skeleton.yml"
+      - ".markdownlint-cli2.jsonc"
+      - ".markdownlint-cli2.mjs"
+      - "biome.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "scripts/r1-walking-skeleton-workflow.test.mjs"
+      - "scripts/smoke-standalone.mjs"
+      - "apps/eden/**"
+      - "packages/coding-runtime/**"
+      - "packages/contracts/**"
+      - "packages/kernel/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r1-walking-skeleton.yml"
+      - ".markdownlint-cli2.jsonc"
+      - ".markdownlint-cli2.mjs"
+      - "biome.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "scripts/r1-walking-skeleton-workflow.test.mjs"
+      - "scripts/smoke-standalone.mjs"
+      - "apps/eden/**"
+      - "packages/coding-runtime/**"
+      - "packages/contracts/**"
+      - "packages/kernel/**"
+
+permissions:
+  contents: read
+
+jobs:
+  standalone:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm peers check
+      - run: pnpm test
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm code:check
+      - run: pnpm markdown:check
+      - run: pnpm --filter @eden/cli package:bun
+      - name: Smoke standalone artifact
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            node scripts/smoke-standalone.mjs apps/eden/dist/eden.exe
+          else
+            node scripts/smoke-standalone.mjs apps/eden/dist/eden
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: eden-${{ runner.os }}-${{ runner.arch }}
+          path: apps/eden/dist/eden*
+          if-no-files-found: error

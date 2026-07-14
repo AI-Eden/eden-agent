@@ -315,6 +315,20 @@ export type ProductCommandDecodeResult = Type.Static<typeof ProductCommandDecode
 export type ProductEventDecodeResult = Type.Static<typeof ProductEventDecodeResultSchema>;
 export type ProductViewDecodeResult = Type.Static<typeof ProductViewDecodeResultSchema>;
 
+export interface AgentClient {
+  submit(
+    command: ProductCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<ProductView>;
+  getSnapshot(runId: RunId): Promise<ProductView>;
+  subscribe(
+    runId: RunId,
+    afterCursor?: EventCursor,
+    options?: { readonly signal?: AbortSignal },
+  ): AsyncIterable<ProductEvent>;
+  close(): Promise<void>;
+}
+
 const commandValidator = Schema.Compile(ProductCommandSchema);
 const eventValidator = Schema.Compile(ProductEventSchema);
 const viewValidator = Schema.Compile(ProductViewSchema);

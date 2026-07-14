@@ -1,4 +1,18 @@
+export { FileJournal, JournalCorruptionError } from "./file-journal.ts";
+export type {
+  DecodedJournalRecord,
+  JournalDecodeResult,
+  JournalRecordV1,
+} from "./schema.ts";
+export {
+  decodeJournalRecord,
+  JournalRecordV1Schema,
+  journalVersion,
+} from "./schema.ts";
+
+import type { JournalRecordV1 } from "./schema.ts";
+
 export interface JournalPort {
-  append(event: unknown): Promise<void>;
-  readAll(): AsyncIterable<unknown>;
+  append(record: JournalRecordV1): Promise<void>;
+  readAll(): Promise<readonly JournalRecordV1[]>;
 }

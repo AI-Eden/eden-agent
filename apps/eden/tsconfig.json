@@ -1,8 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/react",
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": ".",
+    "skipLibCheck": true,
+    "types": ["bun", "node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
 }

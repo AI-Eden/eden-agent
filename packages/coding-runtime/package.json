@@ -6,7 +6,12 @@
   "exports": "./src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit false",
-    "test": "node --test",
-    "typecheck": "tsc -p tsconfig.json"
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p test/tsconfig.json"
+  },
+  "dependencies": {
+    "@eden/contracts": "workspace:*",
+    "@eden/kernel": "workspace:*",
+    "typebox": "1.3.6"
   }
 }

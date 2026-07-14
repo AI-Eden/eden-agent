@@ -14,7 +14,30 @@ The internal union may evolve faster than public contracts. Product events are p
 
 ## Event envelope
 
-Every persisted event will eventually include schema version, run ID, monotonic sequence, timestamp supplied by a clock port, causation ID, correlation ID, event type, validated payload, and redaction metadata.
+Journal version 1 persists every kernel event as one closed, newline-terminated JSON object:
+
+```ts
+type JournalRecordV1 = {
+  journalVersion: 1;
+  eventId: string;
+  runId: string;
+  sequence: number;
+  recordedAt: string;
+  causationId: string | null;
+  correlationId: string;
+  type: KernelEvent["type"];
+  payload: unknown;
+  redaction: {
+    status: "not-required" | "redacted";
+    fields: readonly string[];
+  };
+};
+```
+
+Sequence starts at zero and is contiguous within one run. The timestamp comes from the runtime clock port
+and does not participate in reduction. The v1 decoder rejects unknown versions, event variants, envelope
+fields, duplicate event IDs, run-ID mismatches, sequence gaps, and unterminated records. Product protocol
+versioning remains independent from journal versioning.
 
 ## Transition rules
 
@@ -27,7 +50,16 @@ Every persisted event will eventually include schema version, run ID, monotonic 
 
 ## Effects
 
-Effects include context assembly, model calls, policy evaluation, action execution, verification, and checkpoint persistence. Each effect needs an idempotency key or a documented reconciliation procedure before crash-resume support can claim reliability.
+The committed JSONL newline is the state-transition boundary. The runtime appends and flushes the domain
+event before reduction, derives at most one deterministic effect, and appends an `effect.requested` event
+before dispatch. The adapter may then persist an idempotent receipt before the runtime appends the
+observation event.
+
+Pure replay never dispatches. Recovery reconciles an unresolved stable effect identity with its owning
+adapter. `completed` reuses the recorded observation, `not-started` permits one execution with the same
+identity, and `unknown` appends a visible blocked outcome. The runtime never blindly repeats an unresolved
+effect. Journal v1 does not claim byte-level power-loss repair; malformed or partial records block replay
+without silent truncation.
 
 ## Replay
 
