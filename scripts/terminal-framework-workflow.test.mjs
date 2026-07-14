@@ -1,4 +1,4 @@
-import { deepStrictEqual, match, notStrictEqual } from "node:assert";
+import { deepStrictEqual, match, notStrictEqual, strictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -62,4 +62,5 @@ test("keeps manual terminal-framework runs available", () => {
 test("proves peer policy and native compiler startup in the packaging matrix", () => {
   match(workflowSource, /^ {8}run: pnpm peers check$/m);
   match(workflowSource, /^ {8}run: pnpm exec tsc --version$/m);
+  strictEqual(/^\s+version:/mu.test(workflowSource), false);
 });

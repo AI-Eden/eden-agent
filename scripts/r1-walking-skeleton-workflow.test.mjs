@@ -60,5 +60,6 @@ test("R1 workflow freezes the cross-platform standalone evidence contract", asyn
   match(workflow, /pnpm --filter @eden\/cli package:bun/u);
   match(workflow, /scripts\/smoke-standalone\.mjs/u);
   match(workflow, /actions\/upload-artifact@v4/u);
+  strictEqual(/^\s+version:/mu.test(workflow), false);
   strictEqual(workflow.includes("terminal-framework"), false);
 });
