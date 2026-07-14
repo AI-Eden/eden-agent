@@ -1,9 +1,15 @@
 export const candidatePackageIds = ["ink-node", "ink-bun", "opentui-bun"] as const;
 
-export const expectedPackageVersions = {
+export const measurementVersions = {
   bun: "1.3.14",
   node: "v24.15.0",
   pnpm: "11.7.0",
+} as const;
+
+export const packagingVersions = {
+  bun: "1.3.14",
+  node: "v24.15.0",
+  pnpm: "11.13.0",
 } as const;
 
 export type CandidatePackageId = (typeof candidatePackageIds)[number];

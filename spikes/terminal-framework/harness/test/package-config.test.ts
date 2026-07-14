@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   candidatePackageIds,
-  expectedPackageVersions,
   getCandidatePackageConfig,
+  measurementVersions,
+  packagingVersions,
 } from "../src/package-config.ts";
 
 describe("terminal candidate package configuration", () => {
@@ -47,14 +48,19 @@ describe("terminal candidate package configuration", () => {
     assert.equal(packageManifest.scripts["test:bun"], "bun test ./test");
   });
 
-  it("pins every runtime used by local and hosted packaging", () => {
-    // Given one comparison must not mix runtime or package-manager releases.
-    // When the packaging baseline is inspected before any build command.
-    // Then every executable tool has one exact approved version.
-    assert.deepEqual(expectedPackageVersions, {
+  it("preserves the accepted measurement toolchain", () => {
+    assert.deepEqual(measurementVersions, {
       bun: "1.3.14",
       node: "v24.15.0",
       pnpm: "11.7.0",
+    });
+  });
+
+  it("pins every runtime used by current local and hosted packaging", () => {
+    assert.deepEqual(packagingVersions, {
+      bun: "1.3.14",
+      node: "v24.15.0",
+      pnpm: "11.13.0",
     });
   });
 });

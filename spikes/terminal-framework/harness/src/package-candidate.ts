@@ -13,8 +13,8 @@ import {
 import { type PackageCommandResult, runPackageCommand, runPnpmCommand } from "./package-command.ts";
 import {
   type CandidatePackageConfig,
-  expectedPackageVersions,
   getCandidatePackageConfig,
+  packagingVersions,
   parseCandidatePackageId,
 } from "./package-config.ts";
 import { collectProductionDependencyGraph, type ProductionDependency } from "./package-evidence.ts";
@@ -152,8 +152,8 @@ function observePnpmOutput(
 
 function requireExpectedVersions(versions: ToolVersions): void {
   for (const key of ["bun", "node", "pnpm"] as const) {
-    if (versions[key] !== expectedPackageVersions[key]) {
-      throw new Error(`Expected ${key} ${expectedPackageVersions[key]}, observed ${versions[key]}`);
+    if (versions[key] !== packagingVersions[key]) {
+      throw new Error(`Expected ${key} ${packagingVersions[key]}, observed ${versions[key]}`);
     }
   }
 }

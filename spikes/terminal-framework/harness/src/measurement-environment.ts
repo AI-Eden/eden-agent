@@ -1,7 +1,7 @@
 import { cpus, hostname, release, totalmem } from "node:os";
 import type { MeasurementOptions } from "./measurement-options.ts";
 import { runPackageCommand } from "./package-command.ts";
-import { expectedPackageVersions } from "./package-config.ts";
+import { measurementVersions } from "./package-config.ts";
 
 export type MeasurementEnvironment = {
   readonly arch: string;
@@ -62,7 +62,7 @@ export function captureMeasurementEnvironment(options: MeasurementOptions): Meas
     versions: {
       bun: options.runtimeVersions.bun,
       node: options.runtimeVersions.node,
-      pnpm: expectedPackageVersions.pnpm,
+      pnpm: measurementVersions.pnpm,
     },
   };
 }

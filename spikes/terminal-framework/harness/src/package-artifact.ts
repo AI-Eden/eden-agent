@@ -7,7 +7,7 @@ import {
   requirePackageCommand,
   requirePnpmCommand,
 } from "./package-command.ts";
-import type { CandidatePackageConfig } from "./package-config.ts";
+import { type CandidatePackageConfig, packagingVersions } from "./package-config.ts";
 import { measureDirectorySize } from "./package-evidence.ts";
 import { runInteractivePackageSmoke } from "./package-pty-smoke.ts";
 
@@ -102,7 +102,12 @@ export async function packageNodeTarball(
   await mkdir(cleanProject);
   await writeFile(
     join(cleanProject, "package.json"),
-    '{"name":"eden-package-smoke","packageManager":"pnpm@11.7.0","private":true,"type":"module"}\n',
+    `${JSON.stringify({
+      name: "eden-package-smoke",
+      packageManager: `pnpm@${packagingVersions.pnpm}`,
+      private: true,
+      type: "module",
+    })}\n`,
     "utf8",
   );
   requirePnpmCommand(commands, ["add", tarballPath, "--prod", "--ignore-scripts"], cleanProject);
