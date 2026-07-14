@@ -111,6 +111,14 @@ export function createPassedTrial(
   index: number,
 ): MeasurementTrial {
   if (
+    result.stateUpdateMs !== null &&
+    (!Number.isFinite(result.stateUpdateMs) || result.stateUpdateMs < 0)
+  ) {
+    throw new RangeError(
+      `Primary trial requires a non-negative state update for ${result.candidateId}`,
+    );
+  }
+  if (
     result.exitCode !== 0 ||
     result.shellSentinel !== "observed" ||
     result.stateUpdateMs === null ||

@@ -10,6 +10,7 @@ export type DrivenScenario = {
   readonly readiness: "not-applicable" | "observed";
   readonly readyAt: Date;
   readonly stateUpdate: {
+    readonly durationMs: number;
     readonly endedAt: Date;
     readonly startedAt: Date;
   } | null;
@@ -113,6 +114,7 @@ async function driveStressScenario(
   const readyAt = await prepareInteractiveCandidate(options);
   const memory = await options.captureMemory();
   const stateUpdateStartedAt = new Date();
+  const stateUpdateStartedAtMonotonic = performance.now();
   options.terminal.write("a");
   await waitForText({
     candidateId: options.candidateId,
@@ -121,6 +123,7 @@ async function driveStressScenario(
     terminal: options.terminal,
   });
   const stateUpdateEndedAt = new Date();
+  const stateUpdateDurationMs = performance.now() - stateUpdateStartedAtMonotonic;
   const outputOffset = options.readTranscript().length;
   options.terminal.write("o");
   await waitForText({
@@ -174,7 +177,11 @@ async function driveStressScenario(
     memory,
     readiness: "observed",
     readyAt,
-    stateUpdate: { endedAt: stateUpdateEndedAt, startedAt: stateUpdateStartedAt },
+    stateUpdate: {
+      durationMs: stateUpdateDurationMs,
+      endedAt: stateUpdateEndedAt,
+      startedAt: stateUpdateStartedAt,
+    },
     viewportSequence,
   };
 }
@@ -214,6 +221,7 @@ export async function driveCandidateScenario(
       const readyAt = await prepareInteractiveCandidate(options);
       const memory = await options.captureMemory();
       const stateUpdateStartedAt = new Date();
+      const stateUpdateStartedAtMonotonic = performance.now();
       options.terminal.write("a");
       await waitForText({
         candidateId: options.candidateId,
@@ -222,6 +230,7 @@ export async function driveCandidateScenario(
         terminal: options.terminal,
       });
       const stateUpdateEndedAt = new Date();
+      const stateUpdateDurationMs = performance.now() - stateUpdateStartedAtMonotonic;
       options.terminal.write("q");
       const exitCode = await completeShellRecovery(options);
       return {
@@ -229,7 +238,11 @@ export async function driveCandidateScenario(
         memory,
         readiness: "observed",
         readyAt,
-        stateUpdate: { endedAt: stateUpdateEndedAt, startedAt: stateUpdateStartedAt },
+        stateUpdate: {
+          durationMs: stateUpdateDurationMs,
+          endedAt: stateUpdateEndedAt,
+          startedAt: stateUpdateStartedAt,
+        },
         viewportSequence,
       };
     }

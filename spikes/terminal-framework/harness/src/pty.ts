@@ -44,7 +44,7 @@ const transcriptLimit = 128 * 1024;
 const probePath = fileURLToPath(new URL("./probe.ts", import.meta.url));
 const harnessRoot = fileURLToPath(new URL("../", import.meta.url));
 
-type CompletedProcessObservation = {
+export type CompletedProcessObservation = {
   readonly candidateId: CandidateId;
   readonly exitCode: number;
   readonly memory: MemoryObservation;
@@ -54,6 +54,7 @@ type CompletedProcessObservation = {
   readonly shellExpectedResponse: string;
   readonly startedAt: Date;
   readonly stateUpdate: {
+    readonly durationMs: number;
     readonly endedAt: Date;
     readonly startedAt: Date;
   } | null;
@@ -61,7 +62,9 @@ type CompletedProcessObservation = {
   readonly viewportSequence: readonly string[];
 };
 
-function createProcessSmokeResult(observation: CompletedProcessObservation): ProcessSmokeResult {
+export function createProcessSmokeResult(
+  observation: CompletedProcessObservation,
+): ProcessSmokeResult {
   const readyAt = new Date(
     Math.max(observation.startedAt.getTime(), observation.readyAt.getTime()),
   );
@@ -98,10 +101,7 @@ function createProcessSmokeResult(observation: CompletedProcessObservation): Pro
       : "missing",
     startedAt: observation.startedAt.toISOString(),
     startupMs: readyAt.getTime() - observation.startedAt.getTime(),
-    stateUpdateMs:
-      observation.stateUpdate === null
-        ? null
-        : observation.stateUpdate.endedAt.getTime() - observation.stateUpdate.startedAt.getTime(),
+    stateUpdateMs: observation.stateUpdate === null ? null : observation.stateUpdate.durationMs,
     terminalCleanup:
       cursorRestored &&
       alternateScreenRestored &&
