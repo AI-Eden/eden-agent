@@ -54,6 +54,7 @@ test("R1 workflow freezes the cross-platform standalone evidence contract", asyn
   // When and Then: every required clean-machine lane and proof step is explicit.
   match(workflow, /os: \[ubuntu-latest, windows-latest, macos-latest\]/u);
   match(workflow, /pnpm install --frozen-lockfile/u);
+  match(workflow, /chmod \+x node_modules\/\.pnpm\/node-pty@1\.1\.0/u);
   match(workflow, /pnpm test/u);
   match(workflow, /pnpm typecheck/u);
   match(workflow, /pnpm build/u);
