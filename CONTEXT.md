@@ -12,14 +12,15 @@ R0: Product Contract and Architecture Spikes.
 - The first provider is fake; the first real provider arrives after deterministic foundations.
 - Eden owns its loop. External frameworks may be adapters or comparison baselines.
 - The desktop goal is explicit but gated behind R4 evidence and an R5 local-service spike.
+- Terminal-spike Slices 1-5 are complete. Hosted Linux, Windows, and macOS runners pass the shared candidate tests and packaging matrix, but CI is not real-terminal or IME evidence.
 
 ## Next decision
 
-Run the terminal-framework spike and record comparative evidence for OpenTUI/Bun and Ink/Node. No framework has been selected yet.
+Complete the terminal-framework measurements and real-terminal QA, then produce the evidence report. Runtime and renderer selection remains a human checkpoint after that report; no framework has been selected.
 
 ## Next implementation slice
 
-Define executable contract schemas and three fake ProductView fixtures, then implement the pure reducer against deterministic transition tests.
+Execute terminal-framework spike Slice 6: collect identical multi-trial measurements for Ink/Node, Ink/Bun, and OpenTUI/Bun, and prepare the named human-operated matching-surface checklist and structured observations.
 
 ## Known open questions
 

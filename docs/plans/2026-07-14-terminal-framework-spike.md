@@ -2,10 +2,18 @@
 
 - Status: Approved
 - Approved: 2026-07-14
-- Execution: Slices 1-4 complete; Slice 5 implemented locally, hosted CI pending publication
+- Execution: Slices 1-5 complete; Slice 6 is next
 - Date: 2026-07-14
 - Roadmap stage: R0, Product Contract and Architecture Spikes
 - Human checkpoint: approve this plan before execution; choose a release runtime and renderer only after the evidence report is complete
+
+## Execution progress
+
+- Slices 1-5 are complete. The shared fixture, three candidate paths, process and stress harness, and cross-platform packaging matrix are implemented.
+- Hosted run [29299771791](https://github.com/AI-Eden/eden-agent/actions/runs/29299771791) passed on `windows-2025`, `ubuntu-24.04`, and `macos-15` at commit `a57f4dc28ef55f5d3dc19e1226cb4d8e69240532`.
+- Automatic workflow runs are scoped to terminal-spike implementation and configuration inputs. Result records other than `result.schema.json` do not rerun the matrix, and `workflow_dispatch` remains available for explicit evidence refreshes.
+- Slice 6 is the next execution boundary: collect the multi-trial measurements and complete named human-operated real-terminal QA. Hosted CI does not satisfy the IME or matching-surface requirements.
+- Slice 7, the evidence report, and the runtime-and-renderer decision checkpoint have not started. No candidate has been selected.
 
 ## Goal and user-visible outcome
 
@@ -15,7 +23,7 @@ The preferred release hypothesis is a standalone Bun executable, but it remains 
 
 ## Current repository facts
 
-- `CONTEXT.md` identifies this comparison as the next R0 decision and confirms that no framework has been selected.
+- `CONTEXT.md` records Slice 5 as complete and Slice 6 as the next R0 implementation boundary. No framework has been selected.
 - `PRODUCT.md` makes the keyboard-first TUI the v0.1 default while requiring it to share execution truth with the headless surface.
 - `SPEC.md` remains `Draft for R0`; changes to trust, terminal states, public product contracts, or non-goals require an ADR and human approval.
 - ADR 0005 requires a real terminal-interface spike in R0 and forbids building a renderer from scratch.
@@ -218,7 +226,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 
 ## Test-first implementation slices
 
-### Slice 1: freeze the evidence manifest and shared fixture
+### Slice 1: freeze the evidence manifest and shared fixture — complete
 
 - Public seam: import the spike-only fixture, black-box oracle, and generated stress data from `spikes/terminal-framework/fixture/src/`.
 - Independent expected result: `PRODUCT.md`, `SPEC.md`, the UX state model, and release support matrix define the information and terminal cases the spike must expose.
@@ -228,7 +236,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: print a redacted fixture manifest and verify that it contains no provider key, local absolute path, raw reasoning, or invented completion claim.
 - Acceptance: the same fixture object is imported by every combination; no renderer or runtime path owns a divergent copy.
 
-### Slice 2: shared Ink renderer on Node and Bun
+### Slice 2: shared Ink renderer on Node and Bun — complete
 
 - Public seam: launch the same Ink entrypoint as `ink-node` and `ink-bun`, then render the same component tree with `ink-testing-library` under each runtime.
 - Independent expected result: the shared fixture and action list define visible text, focus order, transitions, and size behavior.
@@ -238,7 +246,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: run the same Ink entrypoint in a real PTY on Node 24 and Bun; complete the primary flow, denial path, multiline paste, resize, and exit under both.
 - Acceptance: Node and Bun tests assert the same observable frames and actions rather than React component internals or exact ANSI byte streams. Any runtime-specific branch must be listed, justified, and scored as compatibility cost.
 
-### Slice 3: OpenTUI/Bun renderer path
+### Slice 3: OpenTUI/Bun renderer path — complete
 
 - Public seam: launch the OpenTUI candidate command and render it with `@opentui/core/testing`.
 - Independent expected result: the same fixture, actions, and size behavior used by the Ink path.
@@ -248,7 +256,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: run the native renderer with Bun in a real PTY; complete the same primary flow, denial path, multiline paste, resize, and exit.
 - Acceptance: the OpenTUI path does not rely on Node experimental FFI and does not introduce Bun APIs outside the spike directory. It uses the same pinned Bun version as Ink/Bun.
 
-### Slice 4: common process, stress, and cleanup harness
+### Slice 4: common process, stress, and cleanup harness — complete
 
 - Public seam: invoke `ink-node`, `ink-bun`, and `opentui-bun` through one process-smoke test and one measurement command.
 - Independent expected result: the hard gates define readiness, exit, stress, and cleanup observations; all three combinations must receive identical fixture sizes and action sequences.
@@ -258,7 +266,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: run happy, invalid-argument, and forced-cancellation paths in a real PTY. Capture `stty -g` before and after on Unix-like hosts and an equivalent console-mode snapshot on Windows; check cursor-show and alternate-screen-exit output; then send a unique shell sentinel and require its exact response.
 - Acceptance: non-interactive smoke has a bounded timeout, kills its process tree on failure, emits a non-zero exit for invalid invocation, restores the recorded terminal/console mode, and leaves the parent shell responsive. A PTY adapter result does not count as real IME composition evidence.
 
-### Slice 5: platform and packaging matrix
+### Slice 5: platform and packaging matrix — complete
 
 - Public seam: run `.github/workflows/terminal-framework-spike.yml` on Ubuntu, Windows, and macOS hosted runners.
 - Independent expected result: the release support matrix defines the target OS families; official framework/runtime documentation defines supported build and packaging commands.
@@ -268,7 +276,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: on available local Windows Terminal/PowerShell and WSL terminals, launch the same commit and repeat the interactive checklist.
 - Acceptance: each matrix row publishes commands, versions, exit status, artifact size, and failure logs; a missing OS row remains an explicit failure or `not run`.
 
-### Slice 6: multi-trial measurements and real terminal QA
+### Slice 6: multi-trial measurements and real terminal QA — next
 
 - Public seam: run `spikes/terminal-framework/harness/src/measure.ts` and the matching-surface checklist against all three combinations from the same commit.
 - Independent expected result: `docs/eval-methodology.md` requires explicit environment metadata, multiple trials, failures, latency, and infrastructure versions.
@@ -278,7 +286,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: at a named human-operated QA checkpoint, the project owner or an explicitly named delegate types Chinese with a real IME, pastes multiline text, navigates the large diff/output, resizes repeatedly, cancels, and returns to the shell. The agent prepares the exact checklist and structured observation template; scripted Unicode cannot fill the IME fields.
 - Acceptance: run five warm-ups and thirty recorded trials for startup and scripted state updates; report median and p95, raw failures, artifact size, and observed peak or stable memory using the same platform-specific method for all three combinations.
 
-### Slice 7: evidence report and decision checkpoint
+### Slice 7: evidence report and decision checkpoint — pending
 
 - Public seam: review `docs/research/terminal-framework-spike.md` from a clean checkout using only its linked commands and artifacts.
 - Independent expected result: this plan's hard gates and rubric determine the report structure; they do not determine the human choice.
