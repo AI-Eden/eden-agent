@@ -2,18 +2,19 @@
 
 - Status: Approved
 - Approved: 2026-07-14
-- Execution: Slices 1-5 complete; Slice 6 is next
+- Execution: Slices 1-7 complete; runtime-and-renderer decision checkpoint is next
 - Date: 2026-07-14
 - Roadmap stage: R0, Product Contract and Architecture Spikes
 - Human checkpoint: approve this plan before execution; choose a release runtime and renderer only after the evidence report is complete
 
 ## Execution progress
 
-- Slices 1-5 are complete. The shared fixture, three candidate paths, process and stress harness, and cross-platform packaging matrix are implemented.
+- Slices 1-7 are complete. The shared fixture, three candidate paths, process and stress harness, cross-platform packaging matrix, multi-trial evidence, human-operated Windows Terminal QA, and evidence report are implemented.
 - Hosted run [29299771791](https://github.com/AI-Eden/eden-agent/actions/runs/29299771791) passed on `windows-2025`, `ubuntu-24.04`, and `macos-15` at commit `a57f4dc28ef55f5d3dc19e1226cb4d8e69240532`.
 - Automatic workflow runs are scoped to terminal-spike implementation and configuration inputs. Result records other than `result.schema.json` do not rerun the matrix, and `workflow_dispatch` remains available for explicit evidence refreshes.
-- Slice 6 is the next execution boundary: collect the multi-trial measurements and complete named human-operated real-terminal QA. Hosted CI does not satisfy the IME or matching-surface requirements.
-- Slice 7, the evidence report, and the runtime-and-renderer decision checkpoint have not started. No candidate has been selected.
+- Slice 6 is complete. All three candidates have five warm-ups, thirty recorded trials, and named human-operated Windows Terminal WSL observations. The project owner accepted the bounded Ink vertical-navigation and cancellation-output presentation limitations.
+- Slice 7 is complete at `docs/research/terminal-framework-spike.md`. Its recommendation is provisional because current-baseline hosted CI and several required real-terminal targets remain `not-run`.
+- The runtime-and-renderer decision checkpoint is active. No candidate has been selected, ADR 0008 has not started, and production code remains unchanged.
 
 ## Goal and user-visible outcome
 
@@ -276,7 +277,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: on available local Windows Terminal/PowerShell and WSL terminals, launch the same commit and repeat the interactive checklist.
 - Acceptance: each matrix row publishes commands, versions, exit status, artifact size, and failure logs; a missing OS row remains an explicit failure or `not run`.
 
-### Slice 6: multi-trial measurements and real terminal QA — next
+### Slice 6: multi-trial measurements and real terminal QA — complete
 
 - Public seam: run `spikes/terminal-framework/harness/src/measure.ts` and the matching-surface checklist against all three combinations from the same commit.
 - Independent expected result: `docs/eval-methodology.md` requires explicit environment metadata, multiple trials, failures, latency, and infrastructure versions.
@@ -286,7 +287,7 @@ Apply each tie rule once and add no hidden bonus. Report both controlled compari
 - Matching surface: at a named human-operated QA checkpoint, the project owner or an explicitly named delegate types Chinese with a real IME, pastes multiline text, navigates the large diff/output, resizes repeatedly, cancels, and returns to the shell. The agent prepares the exact checklist and structured observation template; scripted Unicode cannot fill the IME fields.
 - Acceptance: run five warm-ups and thirty recorded trials for startup and scripted state updates; report median and p95, raw failures, artifact size, and observed peak or stable memory using the same platform-specific method for all three combinations.
 
-### Slice 7: evidence report and decision checkpoint — pending
+### Slice 7: evidence report and decision checkpoint — complete
 
 - Public seam: review `docs/research/terminal-framework-spike.md` from a clean checkout using only its linked commands and artifacts.
 - Independent expected result: this plan's hard gates and rubric determine the report structure; they do not determine the human choice.
