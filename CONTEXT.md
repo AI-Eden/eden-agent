@@ -14,20 +14,19 @@ R0: Product Contract and Architecture Spikes.
 - The desktop goal is explicit but gated behind R4 evidence and an R5 local-service spike.
 - The terminal spike is complete. ADR 0008 selects Bun and OpenTUI for the first terminal product, with the named residual platform-evidence risks accepted for R0.
 - Node.js and pnpm remain the development baseline; Bun, OpenTUI, React, keymap, and native renderer types stay inside the terminal application boundary.
+- TypeBox is the runtime-schema library for product contracts. Node's built-in test runner remains the initial runner; add property testing only when a concrete invariant requires it.
 
 ## Next decision
 
-Approve the second R0 plan for executable product-contract schemas and fake `ProductView` fixtures. The plan must choose the runtime schema library and freeze observable fixtures before implementation begins.
+Approve the second and final R0 implementation plan for TypeBox-backed product-contract schemas, fake `ProductView` fixtures, and three deterministic product-contract scenarios. No further R0 architecture choice is expected unless implementation evidence invalidates an accepted boundary.
 
 ## Next implementation slice
 
-After that plan is approved, implement the smallest versioned command, event, error, and `ProductView` schema surface plus deterministic fake views. Do not integrate the production TUI, real provider, or autonomous loop in the same slice.
+After that plan is approved, implement the smallest versioned command, event, error, and `ProductView` schema surface plus deterministic fake views and scenarios. Completing their acceptance checks closes R0 and moves the project to the R1 installable walking skeleton; do not integrate the production TUI, real provider, or autonomous loop into the R0 slice.
 
 ## Known open questions
 
-- Runtime schema library: Zod, ArkType, or TypeBox.
-- Initial test runner and property-testing library.
-- Initial journal migration envelope.
+- Initial journal migration envelope, to be frozen with the R1 journal-and-replay work rather than blocking R0.
 
 ## Update rule
 
