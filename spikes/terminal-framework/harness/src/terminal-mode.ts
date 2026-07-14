@@ -56,6 +56,7 @@ Add-Type -Path $SourcePath -OutputAssembly $OutputPath -OutputType ConsoleApplic
 `;
 
 const windowsProcessedLineAndEchoInputMask = 0x0007;
+const windowsConsoleHelperCompilationTimeoutMs = 60_000;
 
 let preparedWindowsHelper:
   | { readonly directory: string; readonly executablePath: string }
@@ -120,9 +121,13 @@ function requireWindowsHelperPath(helperPath: string | undefined): string {
 
 export function prepareWindowsConsoleModeHelper(
   platform: NodeJS.Platform = process.platform,
+  existingHelperPath: string | undefined = process.env.EDEN_CONSOLE_MODE_HELPER,
 ): string | undefined {
   if (platform !== "win32") {
     return undefined;
+  }
+  if (existingHelperPath !== undefined) {
+    return existingHelperPath;
   }
   if (preparedWindowsHelper !== undefined) {
     return preparedWindowsHelper.executablePath;
@@ -150,7 +155,7 @@ export function prepareWindowsConsoleModeHelper(
         cwd: directory,
         encoding: "utf8",
         env: createPackageCommandEnvironment(process.env),
-        timeout: 30_000,
+        timeout: windowsConsoleHelperCompilationTimeoutMs,
         windowsHide: true,
       },
     );

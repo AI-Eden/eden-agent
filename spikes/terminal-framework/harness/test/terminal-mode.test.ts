@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync, writeFileSync } from "node:fs";
 import { it } from "node:test";
-import { captureTerminalModeFingerprint } from "../src/terminal-mode.ts";
+import {
+  captureTerminalModeFingerprint,
+  prepareWindowsConsoleModeHelper,
+} from "../src/terminal-mode.ts";
 
 it("captures Windows console mode through inherited PTY handles", () => {
   // Given a Windows PTY whose child must retain console-backed standard handles.
@@ -59,4 +62,10 @@ it("treats a cooked Windows shell as restored when optional input flags change",
 
   // Then the harness accepts the shell-safe equivalent instead of a byte-identical mode.
   assert.equal(after, before);
+});
+
+it("reuses a parent-prepared Windows helper without invoking PowerShell", () => {
+  const helperPath = "C:\\temp\\shared-eden-console-mode.exe";
+
+  assert.equal(prepareWindowsConsoleModeHelper("win32", helperPath), helperPath);
 });
