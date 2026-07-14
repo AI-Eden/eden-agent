@@ -76,7 +76,9 @@ The completion artifact includes goal identity, scoped diff summary, required an
 
 ## Initial support target
 
-Node.js 24+ and pnpm 10+ for development. Release support is decided by the TUI and packaging spike, with Windows Terminal/PowerShell/WSL, current macOS terminals, and common Linux terminals included in evidence collection.
+Node.js 24+ and pnpm 10+ remain the development baseline. ADR 0008 selects Bun and OpenTUI for the
+release TUI. Windows Terminal/PowerShell/WSL, current macOS terminals, and common Linux terminals remain
+separate evidence targets; the framework decision does not imply support without matching-surface proof.
 
 ## Release threshold
 

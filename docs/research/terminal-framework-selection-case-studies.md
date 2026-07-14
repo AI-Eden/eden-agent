@@ -1,6 +1,6 @@
 # Terminal Framework Selection Case Studies
 
-- Status: Decision support for the R0 runtime-and-renderer checkpoint
+- Status: Completed decision support; OpenTUI/Bun selected in ADR 0008
 - Research date: 2026-07-14
 - Related evidence: [local terminal framework spike](terminal-framework-spike.md)
 - Source policy: first-party repositories, project documentation, release history, and package artifacts only
@@ -246,7 +246,7 @@ specific to this repository:
 
 The recommendation should carry explicit containment rules:
 
-1. Keep OpenTUI, Solid, keymap, Bun, and native types inside the application/renderer boundary.
+1. Keep OpenTUI, its React binding, keymap, Bun, and native types inside the application/renderer boundary.
 2. Keep the shared fixture and black-box oracle independent of the renderer.
 3. Pin OpenTUI and Bun versions; upgrade only with the renderer, process, packaging, and terminal QA suite.
 4. Preserve current-baseline Linux, Windows, and macOS package smoke as a release gate.

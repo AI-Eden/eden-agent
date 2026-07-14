@@ -1,6 +1,6 @@
 # R0 Terminal Runtime and Framework Spike Evidence
 
-- Status: Ready for the runtime-and-renderer decision checkpoint
+- Status: Decision accepted; OpenTUI/Bun selected in ADR 0008
 - Evidence date: 2026-07-14
 - Roadmap stage: R0, Product Contract and Architecture Spikes
 - Approved method: [terminal runtime and framework spike plan](../plans/2026-07-14-terminal-framework-spike.md)
@@ -9,8 +9,8 @@
 
 ## Recommendation
 
-Select **OpenTUI/Bun provisionally** if the project owner accepts the remaining platform-evidence
-risk. Bun clears the controlled runtime comparison, and OpenTUI/Bun leads Ink/Bun by 7 weighted
+The project owner selected **OpenTUI/Bun** on 2026-07-14 and accepted the remaining R0
+platform-evidence risk. Bun clears the controlled runtime comparison, and OpenTUI/Bun leads Ink/Bun by 7 weighted
 points, which exceeds the plan's 5-point renderer threshold. OpenTUI's native textarea also provides
 the multiline vertical cursor behavior that the bounded Ink composer does not implement.
 

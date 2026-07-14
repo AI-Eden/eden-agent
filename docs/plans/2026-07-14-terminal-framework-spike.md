@@ -1,11 +1,11 @@
 # R0 Terminal Runtime and Framework Spike Plan
 
-- Status: Approved
+- Status: Completed
 - Approved: 2026-07-14
-- Execution: Slices 1-7 complete; runtime-and-renderer decision checkpoint is next
+- Execution: Slices 1-7 complete; OpenTUI/Bun selected on 2026-07-14
 - Date: 2026-07-14
 - Roadmap stage: R0, Product Contract and Architecture Spikes
-- Human checkpoint: approve this plan before execution; choose a release runtime and renderer only after the evidence report is complete
+- Human checkpoint: completed; the project owner selected OpenTUI/Bun and accepted the named residual platform-evidence risks
 
 ## Execution progress
 
@@ -14,7 +14,9 @@
 - Automatic workflow runs are scoped to terminal-spike implementation and configuration inputs. Result records other than `result.schema.json` do not rerun the matrix, and `workflow_dispatch` remains available for explicit evidence refreshes.
 - Slice 6 is complete. All three candidates have five warm-ups, thirty recorded trials, and named human-operated Windows Terminal WSL observations. The project owner accepted the bounded Ink vertical-navigation and cancellation-output presentation limitations.
 - Slice 7 is complete at `docs/research/terminal-framework-spike.md`. Its recommendation is provisional because current-baseline hosted CI and several required real-terminal targets remain `not-run`.
-- The runtime-and-renderer decision checkpoint is active. No candidate has been selected, ADR 0008 has not started, and production code remains unchanged.
+- The project owner selected OpenTUI/Bun on 2026-07-14 and accepted the report's named residual
+  platform-evidence risks. ADR 0008 records the decision. Production code remains unchanged, and the
+  second public plan has not begun.
 
 ## Goal and user-visible outcome
 
@@ -24,7 +26,8 @@ The preferred release hypothesis is a standalone Bun executable, but it remains 
 
 ## Current repository facts
 
-- `CONTEXT.md` records Slice 5 as complete and Slice 6 as the next R0 implementation boundary. No framework has been selected.
+- `CONTEXT.md` records the completed spike, the OpenTUI/Bun selection, and the contract-schema plan as
+  the next R0 boundary.
 - `PRODUCT.md` makes the keyboard-first TUI the v0.1 default while requiring it to share execution truth with the headless surface.
 - `SPEC.md` remains `Draft for R0`; changes to trust, terminal states, public product contracts, or non-goals require an ADR and human approval.
 - ADR 0005 requires a real terminal-interface spike in R0 and forbids building a renderer from scratch.
@@ -404,10 +407,12 @@ After a selection, do not copy the winning prototype wholesale into `apps/eden`.
 
 1. **Plan approval before execution.** Confirm the scope, test seams, hard gates, rubric, tie-break rule, cross-platform evidence policy, and stop conditions.
 2. **Contract-change checkpoint.** If the confirmatory review finds a product, trust, contract, or roadmap mismatch, stop and agree on the document or ADR change before spike code.
-3. **Runtime and renderer decision after evidence.** Review the two controlled comparisons and choose OpenTUI/Bun, Ink/Bun, Ink/Node, an explicitly bounded extension, or deferral. The agent recommendation is advisory, and this plan stops as soon as the decision is requested.
+3. **Runtime and renderer decision after evidence — completed.** The project owner selected OpenTUI/Bun
+   and accepted the named residual platform-evidence risks.
 4. **Publication checkpoint.** Commit or push the public spike, report, tutorial submodule pointer, or teaching artifact only when explicitly authorized.
 
-After the human selects a release runtime and renderer, a separately authorized documentation slice must create ADR 0008 with the decision and rejected alternatives, update `CONTEXT.md`, and mark this plan's outcome. That slice is not part of this execution, does not reuse approval of this plan, and must not begin the second public plan.
+The separately authorized post-decision documentation slice created ADR 0008, updated `CONTEXT.md`, and
+recorded this plan's outcome. It did not begin the second public plan.
 
 ## Completion criteria
 
@@ -421,5 +426,6 @@ This plan's execution is evidence-complete when:
 - the English report contains hard-gate verdicts, weighted scores, the controlled runtime and renderer comparisons, direct evidence, residual risks, and a recommendation;
 - all repository quality commands pass after the last relevant change;
 - production CLI, contracts, kernel, runtime, providers, and lab behavior remain unchanged;
-- execution stops at the runtime-and-renderer-selection checkpoint without creating the selection ADR or changing `CONTEXT.md`;
-- the separately authorized post-decision documentation slice and the second public plan have not begun.
+- spike execution stopped at the runtime-and-renderer-selection checkpoint before the selection ADR;
+- the separately authorized post-decision documentation slice records OpenTUI/Bun without beginning
+  the second public plan.
