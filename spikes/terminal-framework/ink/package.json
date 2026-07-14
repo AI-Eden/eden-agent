@@ -11,8 +11,8 @@
     "start:bun": "bun src/cli.tsx",
     "start:node": "node --import tsx src/cli.tsx",
     "test": "pnpm test:node && pnpm test:bun",
-    "test:bun": "bun test/verify.tsx",
-    "test:node": "node --import tsx test/verify.tsx",
+    "test:bun": "bun test/verify.tsx && bun test/editor.tsx",
+    "test:node": "node --import tsx test/verify.tsx && node --import tsx test/editor.tsx",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

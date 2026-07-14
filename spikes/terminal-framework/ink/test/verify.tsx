@@ -83,43 +83,6 @@ try {
   reviewed.unmount();
 }
 
-const chineseOracle = terminalScenarioOracle.find((row) => row.id === "chinese-editing-paste");
-assert.ok(chineseOracle);
-const composed = render(<InkSpikeApp initialState={chineseOracle.initialState} />);
-
-try {
-  for (const input of ["你好世界", "\u001B[D", "\u007F", "\n请保留 /cancel 文本\n第二行"]) {
-    composed.stdin.write(input);
-    await settleRender();
-  }
-  const composedFrame = composed.lastFrame() ?? "";
-  for (const visibleText of chineseOracle.expectedState.visibleText) {
-    assert.ok(composedFrame.includes(visibleText), composedFrame);
-  }
-  for (const forbiddenText of chineseOracle.expectedState.forbiddenVisibleText) {
-    assert.ok(!composedFrame.includes(forbiddenText));
-  }
-} finally {
-  composed.unmount();
-}
-
-const shortcutText = render(
-  <InkSpikeApp initialState={{ focus: "composer", status: "composing" }} />,
-);
-
-try {
-  shortcutText.stdin.write("a");
-  await settleRender();
-  shortcutText.stdin.write("q");
-  await settleRender();
-  const shortcutFrame = shortcutText.lastFrame() ?? "";
-  assert.ok(shortcutFrame.includes("composer: aq"));
-  assert.ok(shortcutFrame.includes("status: composing"));
-  assert.ok(shortcutFrame.includes("focus: composer"));
-} finally {
-  shortcutText.unmount();
-}
-
 const resizeOracle = terminalScenarioOracle.find((row) => row.id === "resize-action-safety");
 assert.ok(resizeOracle);
 const resized = render(

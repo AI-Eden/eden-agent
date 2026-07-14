@@ -84,6 +84,9 @@ importers:
       '@opentui/core':
         specifier: 0.4.3
         version: 0.4.3(typescript@5.9.3)(web-tree-sitter@0.25.10)
+      '@opentui/keymap':
+        specifier: 0.4.3
+        version: 0.4.3(@opentui/react@0.4.3(react-devtools-core@7.0.1)(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.0))(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)
       '@opentui/react':
         specifier: 0.4.3
         version: 0.4.3(react-devtools-core@7.0.1)(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.0)
@@ -378,6 +381,23 @@ packages:
     resolution: {integrity: sha512-rrJfAk13tALDqldYjhc78eWQ+aKq1iknJgffIOg3OwyZoqQo+p6gtuqyhmWvXIfQzlNUbpgpCPcxbXlhMnlaHQ==}
     peerDependencies:
       web-tree-sitter: 0.25.10
+
+  '@opentui/keymap@0.4.3':
+    resolution: {integrity: sha512-sinX0pyQBRrEvo89PSSUbSUDIYpL3xWo81VEfec58VFoVRB5FG48/deAtvRTQfJ8w1kgbzN8hzdOXdSm61zBmw==}
+    peerDependencies:
+      '@opentui/react': 0.4.3
+      '@opentui/solid': 0.4.3
+      react: '>=19.2.0'
+      solid-js: 1.9.12
+    peerDependenciesMeta:
+      '@opentui/react':
+        optional: true
+      '@opentui/solid':
+        optional: true
+      react:
+        optional: true
+      solid-js:
+        optional: true
 
   '@opentui/react@0.4.3':
     resolution: {integrity: sha512-HtC/+lMURaZlifiJNVsn84YqKMywXQmkeSNbUTlbbeS6YM6reahaacnZEYZdnEUgklO6+r/J1tG8UBhqO26X7Q==}
@@ -1207,6 +1227,16 @@ snapshots:
       '@opentui/core-win32-x64': 0.4.3
     transitivePeerDependencies:
       - typescript
+
+  '@opentui/keymap@0.4.3(@opentui/react@0.4.3(react-devtools-core@7.0.1)(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.0))(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)':
+    dependencies:
+      '@opentui/core': 0.4.3(typescript@5.9.3)(web-tree-sitter@0.25.10)
+    optionalDependencies:
+      '@opentui/react': 0.4.3(react-devtools-core@7.0.1)(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.0)
+      react: 19.2.7
+    transitivePeerDependencies:
+      - typescript
+      - web-tree-sitter
 
   '@opentui/react@0.4.3(react-devtools-core@7.0.1)(react@19.2.7)(typescript@5.9.3)(web-tree-sitter@0.25.10)(ws@8.21.0)':
     dependencies:

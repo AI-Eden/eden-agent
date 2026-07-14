@@ -97,38 +97,6 @@ test("failed check review keeps failure recovery diff and action attributable", 
   deepStrictEqual(failingCheckReview, expectedRow);
 });
 
-test("Chinese editing and multiline paste preserve graphemes and literal shortcuts", () => {
-  // Given: the approved Chinese editing and paste scenario.
-  const expectedRow = {
-    expectedState: {
-      allowedCollapsedContent: [],
-      canonicalActionText: "pnpm --filter @eden/kernel test",
-      exitResult: "running",
-      focus: "composer",
-      forbiddenVisibleText: ["status: cancelled"],
-      recoveryAction: null,
-      status: "composing",
-      visibleText: ["composer: 你好界\n请保留 /cancel 文本\n第二行"],
-    },
-    id: "chinese-editing-paste",
-    initialState: { focus: "composer", status: "composing" },
-    inputSequence: [
-      "type:你好世界",
-      "ArrowLeft",
-      "Backspace",
-      "paste:\n请保留 /cancel 文本\n第二行",
-    ],
-  } as const;
-
-  // When: a candidate reads the shared Chinese editing and paste row.
-  const chineseEditingPaste = terminalScenarioOracle.find(
-    (row) => row.id === "chinese-editing-paste",
-  );
-
-  // Then: the expected text preserves grapheme editing and literal pasted content.
-  deepStrictEqual(chineseEditingPaste, expectedRow);
-});
-
 test("resize preserves action safety and focus across every approved width", () => {
   // Given: the approved narrow medium and wide resize sequence.
   const expectedRow = {

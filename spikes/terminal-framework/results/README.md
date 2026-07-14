@@ -71,24 +71,27 @@ pnpm --filter @eden/terminal-spike-opentui start
    same action.
 3. Restart, press `d`, then `Tab`. Confirm denial recovery and composer focus. Use a real Chinese IME
    to compose `你好世界`; do not paste this text. Press Left once and Backspace once. Confirm the
-   composer contains `你好界` without replacement characters or a split grapheme.
-4. Paste exactly the following multiline corpus. Confirm `/cancel` remains literal, line breaks are
-   preserved, and focus stays in the composer:
-
-   ```text
-   请保留 /cancel 文本
-   第二行
-   ```
-
-5. Restart, press `a`, `o`, End, `d`, End, then Escape. Confirm `output-09999`,
+   composer contains `你好界` without replacement characters or a split grapheme. Press Backspace
+   twice more and confirm the composer changes to `你界`, then `界`; every keypress must move the
+   cursor and delete exactly one preceding grapheme.
+4. Restart, press `d`, then `Tab`, and compose `你好` with the IME. Press Home and Delete. Confirm the
+   composer contains `好`, proving forward deletion removes exactly one following grapheme.
+5. Restart, press `d`, then `Tab`, compose `你好世界`, press Left and Backspace, then press End. Open
+   `paste-corpus.txt`, copy the complete file contents, including its initial blank line,
+   without adding indentation, and paste it once. Confirm `/cancel` remains literal, the two source
+   lines remain separate, and focus stays in the composer. The resulting composer must contain
+   `你好界`, then `请保留 /cancel 文本`, then `第二行` on three separate lines.
+6. Restart, press `a`, `o`, End, `d`, End, then Escape. Confirm `output-09999`,
    `synthetic/file-20.ts`, and the canonical selected action become visible, navigation remains
    responsive, and Escape returns to progress. At the initial approval state, also press Alt+d and
-   record whether it is safely distinguished from plain `d`.
-6. Resize rapidly across the three presets while approval is selected and again while the large diff
+   confirm it does not trigger denial: status must remain pending, focus must remain approval, and
+   denial recovery text must remain absent.
+7. Resize rapidly across the three presets while approval is selected and again while the large diff
    is open. Record corruption, focus loss, unsafe action changes, stalls, or hidden recovery text.
-7. Exit normally with `q`, relaunch, then cancel with Ctrl+C. Confirm exit codes 0 and 130
-   respectively, cursor and alternate-screen state are restored, and the real parent shell accepts
-   `echo EDEN_TUI_RESTORED` immediately.
+8. Exit normally with `q`, then run `printf 'exit=%s\n' "$?"` in the parent shell and confirm
+   `exit=0`. Relaunch, cancel with Ctrl+C, run the same `printf` immediately, and confirm `exit=130`.
+   After each exit-code check, run `echo EDEN_TUI_RESTORED`. Confirm the sentinel appears, the cursor
+   and alternate-screen state are restored, and the real parent shell accepts input immediately.
 
 Copy `matching-surface.template.json` into each record's `matchingSurface` field, replace every
 observed case with `passed` or `failed`, add bounded notes for failures, set the overall status, and

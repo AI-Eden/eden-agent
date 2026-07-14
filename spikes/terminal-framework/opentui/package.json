@@ -15,6 +15,7 @@
   "dependencies": {
     "@eden/terminal-spike-fixture": "workspace:*",
     "@opentui/core": "0.4.3",
+    "@opentui/keymap": "0.4.3",
     "@opentui/react": "0.4.3",
     "react": "19.2.7"
   },

@@ -111,6 +111,28 @@ describe("OpenTUI shared renderer", () => {
     }
   });
 
+  it("keeps approval pending when denial is modified with Alt", async () => {
+    // Given the approval action is selected.
+    const setup = await testRender(
+      <OpenTuiSpikeApp initialState={{ focus: "approval", status: "pending" }} />,
+      { height: 30, width: 100 },
+    );
+    await act(async () => setup.flush());
+
+    try {
+      // When the operator presses Alt+d instead of the displayed plain d shortcut.
+      act(() => setup.mockInput.pressKey("d", { meta: true }));
+      await act(async () => setup.flush());
+      const frame = setup.captureCharFrame();
+
+      // Then no denial action is triggered by the modified key.
+      expect(frame).toContain("status: pending");
+      expect(frame).not.toContain("Revise the task or request a safer action.");
+    } finally {
+      act(() => setup.renderer.destroy());
+    }
+  });
+
   it("keeps failure recovery and review evidence attributable to one action", async () => {
     // Given the shared failing-check scenario starts in progress.
     const reviewOracle = terminalScenarioOracle.find((row) => row.id === "failing-check-review");
@@ -141,48 +163,6 @@ describe("OpenTUI shared renderer", () => {
       expect(frame).toContain(`status: ${reviewOracle.expectedState.status}`);
       expect(frame).toContain(`focus: ${reviewOracle.expectedState.focus}`);
       for (const forbiddenText of reviewOracle.expectedState.forbiddenVisibleText) {
-        expect(frame).not.toContain(forbiddenText);
-      }
-    } finally {
-      act(() => setup.renderer.destroy());
-    }
-  });
-
-  it("preserves Chinese graphemes and literal shortcuts during editing and paste", async () => {
-    // Given the shared Chinese-editing scenario starts in the composer.
-    const chineseOracle = terminalScenarioOracle.find((row) => row.id === "chinese-editing-paste");
-    expect(chineseOracle).toBeDefined();
-    if (chineseOracle === undefined) {
-      return;
-    }
-    const setup = await testRender(<OpenTuiSpikeApp initialState={chineseOracle.initialState} />, {
-      height: 30,
-      width: 100,
-    });
-    await act(async () => setup.flush());
-
-    try {
-      // When Chinese text is edited by grapheme and the fixed multiline corpus is pasted.
-      await act(async () => setup.mockInput.typeText("你好世界"));
-      await act(async () => setup.flush());
-      act(() => setup.mockInput.pressArrow("left"));
-      await act(async () => setup.flush());
-      act(() => setup.mockInput.pressBackspace());
-      await act(async () => setup.flush());
-      await act(async () => setup.mockInput.pasteBracketedText("\n请保留 /cancel 文本\n第二行"));
-      await act(async () => setup.flush());
-      const frame = setup
-        .captureCharFrame()
-        .split("\n")
-        .map((line) => line.trimEnd())
-        .join("\n");
-
-      // Then the exact oracle corpus remains visible and no cancellation state appears.
-      for (const visibleText of chineseOracle.expectedState.visibleText) {
-        expect(frame).toContain(visibleText);
-      }
-      expect(frame).toContain(`focus: ${chineseOracle.expectedState.focus}`);
-      for (const forbiddenText of chineseOracle.expectedState.forbiddenVisibleText) {
         expect(frame).not.toContain(forbiddenText);
       }
     } finally {

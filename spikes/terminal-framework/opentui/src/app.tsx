@@ -3,13 +3,11 @@ import {
   generateLargeOutput,
   terminalSpikeFixture,
 } from "@eden/terminal-spike-fixture";
-import { decodePasteBytes } from "@opentui/core";
-import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/react";
-import { useEffect, useRef, useState } from "react";
-
-const graphemeSegmenter = new Intl.Segmenter("zh", { granularity: "grapheme" });
-const splitGraphemes = (text: string) =>
-  Array.from(graphemeSegmenter.segment(text), ({ segment }) => segment);
+import { registerManagedTextareaLayer } from "@opentui/keymap/addons/opentui";
+import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui";
+import { KeymapProvider } from "@opentui/keymap/react";
+import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
+import { useEffect, useMemo, useState } from "react";
 
 type OpenTuiSpikeAppProps = {
   readonly initialState?: {
@@ -20,12 +18,29 @@ type OpenTuiSpikeAppProps = {
   readonly onReady?: () => void;
 };
 
-export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeAppProps) {
+export function OpenTuiSpikeApp(props: OpenTuiSpikeAppProps) {
+  const renderer = useRenderer();
+  const keymap = useMemo(() => createDefaultOpenTuiKeymap(renderer), [renderer]);
+
+  useEffect(
+    () =>
+      registerManagedTextareaLayer(keymap, renderer, {
+        enabled: () => renderer.currentFocusedEditor !== null,
+      }),
+    [keymap, renderer],
+  );
+
+  return (
+    <KeymapProvider keymap={keymap}>
+      <OpenTuiSpikeSurface {...props} />
+    </KeymapProvider>
+  );
+}
+
+function OpenTuiSpikeSurface({ initialState, onExit, onReady }: OpenTuiSpikeAppProps) {
   const { height, width } = useTerminalDimensions();
   const [status, setStatus] = useState(initialState?.status ?? "pending");
   const [focus, setFocus] = useState(initialState?.focus ?? "approval");
-  const [draft, setDraft] = useState<string>(terminalSpikeFixture.composer.draft);
-  const cursor = useRef(0);
   const [outputMarkerVisible, setOutputMarkerVisible] = useState(false);
   const [diffMarkerVisible, setDiffMarkerVisible] = useState(false);
 
@@ -37,34 +52,7 @@ export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeA
       return;
     }
 
-    if (focus === "composer" && key.name === "left") {
-      cursor.current = Math.max(0, cursor.current - 1);
-      return;
-    }
-
-    if (focus === "composer" && key.name === "backspace") {
-      setDraft((currentDraft) => {
-        const graphemes = splitGraphemes(currentDraft);
-        if (cursor.current > 0) {
-          graphemes.splice(cursor.current - 1, 1);
-        }
-        return graphemes.join("");
-      });
-      return;
-    }
-
-    if (focus === "composer" && key.raw.length === 1) {
-      const insertedGraphemes = splitGraphemes(key.raw);
-      setDraft((currentDraft) => {
-        const graphemes = splitGraphemes(currentDraft);
-        graphemes.splice(cursor.current, 0, ...insertedGraphemes);
-        return graphemes.join("");
-      });
-      cursor.current += insertedGraphemes.length;
-      return;
-    }
-
-    if (key.name === "q") {
+    if (key.name === "q" && focus !== "composer") {
       setStatus("exited");
       setFocus("shell");
       onExit?.("normal:0");
@@ -77,7 +65,7 @@ export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeA
       return;
     }
 
-    if (key.name === "d" && focus === "approval") {
+    if (key.name === "d" && !key.meta && !key.option && focus === "approval") {
       setStatus("denied");
       return;
     }
@@ -103,7 +91,7 @@ export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeA
       return;
     }
 
-    if (key.name === "d" && focus === "output") {
+    if (key.name === "d" && !key.meta && !key.option && focus === "output") {
       setFocus("diff");
       return;
     }
@@ -123,19 +111,6 @@ export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeA
     }
   });
 
-  usePaste((event) => {
-    if (focus !== "composer") {
-      return;
-    }
-    const insertedGraphemes = splitGraphemes(decodePasteBytes(event.bytes));
-    setDraft((currentDraft) => {
-      const graphemes = splitGraphemes(currentDraft);
-      graphemes.splice(cursor.current, 0, ...insertedGraphemes);
-      return graphemes.join("");
-    });
-    cursor.current += insertedGraphemes.length;
-  });
-
   useEffect(() => onReady?.(), [onReady]);
 
   return (
@@ -153,7 +128,18 @@ export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeA
       <text>focus: {focus}</text>
       <text>approve: a</text>
       {status === "denied" && <text>Revise the task or request a safer action.</text>}
-      {focus === "composer" && <text>composer: {draft}</text>}
+      {focus === "composer" && (
+        <box style={{ flexDirection: "row", width: "100%" }}>
+          <text>composer: </text>
+          <textarea
+            focused
+            initialValue={terminalSpikeFixture.composer.draft}
+            minHeight={1}
+            maxHeight={6}
+            style={{ flexGrow: 1 }}
+          />
+        </box>
+      )}
       {status === "check-failed" && (
         <box style={{ flexDirection: "column" }}>
           <text>check: typecheck failed</text>

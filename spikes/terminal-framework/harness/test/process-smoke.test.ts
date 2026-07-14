@@ -150,6 +150,7 @@ describe("terminal candidate process harness", () => {
       assert.equal(result.memory.status, "observed");
       assert.ok(result.memory.residentSetBytes > 0);
       assert.ok(result.memory.residentSetBytes < totalmem());
+      assert.ok(result.transcript.includes("\u001B[?2004h"));
       assert.equal(result.exitCode, 0);
       assert.notEqual(result.terminalModeBefore, "missing");
       assert.equal(result.terminalModeBefore, result.terminalModeAfter);

@@ -3,12 +3,9 @@ import {
   generateLargeOutput,
   terminalSpikeFixture,
 } from "@eden/terminal-spike-fixture";
-import { Box, Text, useInput, useWindowSize } from "ink";
-import { useEffect, useState } from "react";
-
-const graphemeSegmenter = new Intl.Segmenter("zh", { granularity: "grapheme" });
-const splitGraphemes = (text: string) =>
-  Array.from(graphemeSegmenter.segment(text), ({ segment }) => segment);
+import { Box, Text, useInput, usePaste, useWindowSize } from "ink";
+import { useEffect, useReducer, useState } from "react";
+import { composerReducer, createComposerState } from "./composer-state.ts";
 
 type InkSpikeAppProps = {
   readonly initialState?: {
@@ -28,8 +25,11 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
   const visibleViewport = viewport ?? windowSize;
   const [status, setStatus] = useState(initialState?.status ?? "pending");
   const [focus, setFocus] = useState(initialState?.focus ?? "approval");
-  const [draft, setDraft] = useState<string>(terminalSpikeFixture.composer.draft);
-  const [cursor, setCursor] = useState(0);
+  const [composer, dispatchComposer] = useReducer(
+    composerReducer,
+    terminalSpikeFixture.composer.draft,
+    createComposerState,
+  );
   const [outputMarkerVisible, setOutputMarkerVisible] = useState(false);
   const [diffMarkerVisible, setDiffMarkerVisible] = useState(false);
 
@@ -54,7 +54,7 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
       return;
     }
 
-    if (input === "d" && focus === "approval") {
+    if (input === "d" && !key.meta && focus === "approval") {
       setStatus("denied");
       return;
     }
@@ -80,7 +80,7 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
       return;
     }
 
-    if (input === "d" && focus === "output") {
+    if (input === "d" && !key.meta && focus === "output") {
       setFocus("diff");
       return;
     }
@@ -101,30 +101,40 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
     }
 
     if (focus === "composer" && key.leftArrow) {
-      setCursor((currentCursor) => Math.max(0, currentCursor - 1));
+      dispatchComposer({ type: "left" });
+      return;
+    }
+
+    if (focus === "composer" && key.home) {
+      dispatchComposer({ type: "home" });
+      return;
+    }
+
+    if (focus === "composer" && key.end) {
+      dispatchComposer({ type: "end" });
       return;
     }
 
     if (focus === "composer" && key.backspace) {
-      setDraft((currentDraft) => {
-        const graphemes = splitGraphemes(currentDraft);
-        if (cursor > 0) {
-          graphemes.splice(cursor - 1, 1);
-        }
-        return graphemes.join("");
-      });
+      dispatchComposer({ type: "backspace" });
       return;
     }
 
-    if (focus === "composer" && input.length > 0) {
-      const insertedGraphemes = splitGraphemes(input);
-      setDraft((currentDraft) => {
-        const graphemes = splitGraphemes(currentDraft);
-        graphemes.splice(cursor, 0, ...insertedGraphemes);
-        return graphemes.join("");
-      });
-      setCursor((currentCursor) => currentCursor + insertedGraphemes.length);
+    if (focus === "composer" && key.delete) {
+      dispatchComposer({ type: "delete" });
+      return;
     }
+
+    if (focus === "composer" && !key.ctrl && !key.meta && input.length > 0) {
+      dispatchComposer({ text: input, type: "insert" });
+    }
+  });
+
+  usePaste((text) => {
+    if (focus !== "composer") {
+      return;
+    }
+    dispatchComposer({ text, type: "insert" });
   });
 
   useEffect(() => onReady?.(), [onReady]);
@@ -144,7 +154,7 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
       <Text>focus: {focus}</Text>
       <Text>approve: a</Text>
       {status === "denied" && <Text>Revise the task or request a safer action.</Text>}
-      {focus === "composer" && <Text>composer: {draft}</Text>}
+      {focus === "composer" && <Text>composer: {composer.text}</Text>}
       {status === "check-failed" && (
         <Box flexDirection="column">
           <Text>check: typecheck failed</Text>
