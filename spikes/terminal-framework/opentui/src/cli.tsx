@@ -31,6 +31,11 @@ if (unknownOption !== undefined) {
         renderer.destroy();
         process.exit(exitCode);
       }}
+      onReady={() => {
+        if (process.env.EDEN_TERMINAL_SPIKE_PROBE === "1") {
+          process.stderr.write("__EDEN_INPUT_READY__\n");
+        }
+      }}
     />,
   );
 }

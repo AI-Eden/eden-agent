@@ -25,6 +25,8 @@ type TaskkillRunner = (
 const runTaskkill: TaskkillRunner = (command, arguments_, options) =>
   spawnSync(command, arguments_, options);
 
+export const windowsProcessTreeTerminationTimeoutMs = 5_000;
+
 export function shouldUseBundledConpty(platform: NodeJS.Platform = process.platform): boolean {
   return platform === "win32";
 }
@@ -37,7 +39,7 @@ export function terminateWindowsProcessTree(
   const result = runner("taskkill.exe", ["/PID", String(pid), "/T", "/F"], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    timeout: 5_000,
+    timeout: windowsProcessTreeTerminationTimeoutMs,
     windowsHide: true,
   });
   if (result.error !== undefined) {

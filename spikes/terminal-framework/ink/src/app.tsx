@@ -4,7 +4,7 @@ import {
   terminalSpikeFixture,
 } from "@eden/terminal-spike-fixture";
 import { Box, Text, useInput, useWindowSize } from "ink";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const graphemeSegmenter = new Intl.Segmenter("zh", { granularity: "grapheme" });
 const splitGraphemes = (text: string) =>
@@ -16,13 +16,14 @@ type InkSpikeAppProps = {
     readonly status: string;
   };
   readonly onExit?: (result: "normal:0" | "cancelled:130") => void;
+  readonly onReady?: () => void;
   readonly viewport?: {
     readonly columns: number;
     readonly rows: number;
   };
 };
 
-export function InkSpikeApp({ initialState, onExit, viewport }: InkSpikeAppProps) {
+export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpikeAppProps) {
   const windowSize = useWindowSize();
   const visibleViewport = viewport ?? windowSize;
   const [status, setStatus] = useState(initialState?.status ?? "pending");
@@ -125,6 +126,8 @@ export function InkSpikeApp({ initialState, onExit, viewport }: InkSpikeAppProps
       setCursor((currentCursor) => currentCursor + insertedGraphemes.length);
     }
   });
+
+  useEffect(() => onReady?.(), [onReady]);
 
   return (
     <Box flexDirection="column">

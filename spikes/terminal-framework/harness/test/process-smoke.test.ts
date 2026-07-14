@@ -6,8 +6,9 @@ import {
   shouldUseBundledConpty,
   terminatePtyProcessGroup,
   terminateWindowsProcessTree,
+  windowsProcessTreeTerminationTimeoutMs,
 } from "../src/pty-cleanup.ts";
-import { ProcessHarnessTimeoutError } from "../src/pty-events.ts";
+import { ProcessHarnessTimeoutError, processHarnessEventTimeoutMs } from "../src/pty-events.ts";
 
 const candidateIds = [
   "ink-node",
@@ -124,7 +125,7 @@ it("bounds taskkill and rejects a failed Windows process-tree cleanup", () => {
   );
 
   // Then cleanup is bounded instead of silently leaving a descendant alive.
-  assert.equal(timeout, 5_000);
+  assert.equal(timeout, windowsProcessTreeTerminationTimeoutMs);
 });
 
 describe("terminal candidate process harness", () => {
@@ -198,7 +199,11 @@ describe("terminal candidate process harness", () => {
             return true;
           },
         );
-        assert.ok(Date.now() - timeoutStartedAt < 12_000);
+        const cleanupAllowanceMs =
+          process.platform === "win32" ? windowsProcessTreeTerminationTimeoutMs : 0;
+        assert.ok(
+          Date.now() - timeoutStartedAt < processHarnessEventTimeoutMs + cleanupAllowanceMs + 2_000,
+        );
         return;
       }
       const result = await runCandidateScenario({ candidateId, scenario: "stress" });

@@ -55,6 +55,8 @@ param([string]$SourcePath, [string]$OutputPath)
 Add-Type -Path $SourcePath -OutputAssembly $OutputPath -OutputType ConsoleApplication
 `;
 
+const windowsProcessedLineAndEchoInputMask = 0x0007;
+
 let preparedWindowsHelper:
   | { readonly directory: string; readonly executablePath: string }
   | undefined;
@@ -79,10 +81,19 @@ function captureWindowsConsoleMode(runner: SnapshotRunner, helperPath: string): 
     if (snapshot.status !== 0) {
       throw new TypeError(`Unable to capture terminal mode: ${snapshot.stderr.trim()}`);
     }
-    return readFileSync(snapshotPath, "utf8").trim();
+    return normalizeWindowsConsoleMode(readFileSync(snapshotPath, "utf8").trim());
   } finally {
     rmSync(snapshotDirectory, { force: true, recursive: true });
   }
+}
+
+function normalizeWindowsConsoleMode(mode: string): string {
+  const match = /^(\d+):(\d+)$/u.exec(mode);
+  if (match?.[1] === undefined || match[2] === undefined) {
+    throw new TypeError(`Unable to capture terminal mode: invalid Windows snapshot ${mode}`);
+  }
+  const inputMode = Number.parseInt(match[1], 10) & windowsProcessedLineAndEchoInputMask;
+  return `${inputMode}:${match[2]}`;
 }
 
 export function captureTerminalModeFingerprint(

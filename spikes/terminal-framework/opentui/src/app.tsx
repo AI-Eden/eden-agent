@@ -5,7 +5,7 @@ import {
 } from "@eden/terminal-spike-fixture";
 import { decodePasteBytes } from "@opentui/core";
 import { useKeyboard, usePaste, useTerminalDimensions } from "@opentui/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const graphemeSegmenter = new Intl.Segmenter("zh", { granularity: "grapheme" });
 const splitGraphemes = (text: string) =>
@@ -17,9 +17,10 @@ type OpenTuiSpikeAppProps = {
     readonly status: string;
   };
   readonly onExit?: (result: "normal:0" | "cancelled:130") => void;
+  readonly onReady?: () => void;
 };
 
-export function OpenTuiSpikeApp({ initialState, onExit }: OpenTuiSpikeAppProps) {
+export function OpenTuiSpikeApp({ initialState, onExit, onReady }: OpenTuiSpikeAppProps) {
   const { height, width } = useTerminalDimensions();
   const [status, setStatus] = useState(initialState?.status ?? "pending");
   const [focus, setFocus] = useState(initialState?.focus ?? "approval");
@@ -134,6 +135,8 @@ export function OpenTuiSpikeApp({ initialState, onExit }: OpenTuiSpikeAppProps) 
     });
     cursor.current += insertedGraphemes.length;
   });
+
+  useEffect(() => onReady?.(), [onReady]);
 
   return (
     <box style={{ flexDirection: "column" }}>

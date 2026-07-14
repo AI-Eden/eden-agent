@@ -22,6 +22,7 @@ type DriveCandidateScenarioOptions = {
 };
 
 const endKey = "\u001B[F";
+const inputReadyMarker = "__EDEN_INPUT_READY__";
 const viewportSequence = ["60x20", "100x30", "160x45"] as const;
 
 function assertNeverScenario(scenario: never): never {
@@ -30,16 +31,6 @@ function assertNeverScenario(scenario: never): never {
 
 function requestPtyCancellation(options: DriveCandidateScenarioOptions): void {
   options.terminal.write("\u0003");
-  if (process.platform !== "win32") {
-    const probePid = readNumericMarker(options.readTranscript(), "__EDEN_PROBE_PID__=");
-    try {
-      process.kill(probePid, "SIGINT");
-    } catch (error) {
-      if (!(error instanceof Error && "code" in error && error.code === "ESRCH")) {
-        throw error;
-      }
-    }
-  }
 }
 
 function readNumericMarker(transcript: string, prefix: string): number {
@@ -82,14 +73,24 @@ async function completeShellRecovery(options: DriveCandidateScenarioOptions): Pr
   return candidateExitCode;
 }
 
-async function prepareInteractiveCandidate(options: DriveCandidateScenarioOptions): Promise<Date> {
+async function waitForInteractiveCandidate(options: DriveCandidateScenarioOptions): Promise<Date> {
   await waitForText({
     candidateId: options.candidateId,
     expectedText: "approve: a",
     readTranscript: options.readTranscript,
     terminal: options.terminal,
   });
-  const readyAt = new Date();
+  await waitForText({
+    candidateId: options.candidateId,
+    expectedText: inputReadyMarker,
+    readTranscript: options.readTranscript,
+    terminal: options.terminal,
+  });
+  return new Date();
+}
+
+async function prepareInteractiveCandidate(options: DriveCandidateScenarioOptions): Promise<Date> {
+  const readyAt = await waitForInteractiveCandidate(options);
   const mediumFrame = waitForNextData(options.candidateId, options.terminal);
   options.terminal.resize(100, 30);
   await mediumFrame;
@@ -151,14 +152,6 @@ async function driveStressScenario(
     terminal: options.terminal,
   });
   requestPtyCancellation(options);
-  if (process.platform !== "win32") {
-    await waitForText({
-      candidateId: options.candidateId,
-      expectedText: "__EDEN_PROBE_INTERRUPT__=received",
-      readTranscript: options.readTranscript,
-      terminal: options.terminal,
-    });
-  }
   await waitForText({
     candidateId: options.candidateId,
     expectedText: "__EDEN_CANDIDATE_EXIT__=130",
@@ -183,13 +176,7 @@ export async function driveCandidateScenario(
       };
     }
     case "cancel": {
-      await waitForText({
-        candidateId: options.candidateId,
-        expectedText: "approve: a",
-        readTranscript: options.readTranscript,
-        terminal: options.terminal,
-      });
-      const readyAt = new Date();
+      const readyAt = await waitForInteractiveCandidate(options);
       requestPtyCancellation(options);
       const exitCode = await completeShellRecovery(options);
       return { exitCode, readiness: "observed", readyAt, viewportSequence: ["60x20"] };

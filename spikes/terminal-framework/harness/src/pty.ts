@@ -113,6 +113,7 @@ export async function runCandidateScenario(
 ): Promise<ProcessSmokeResult> {
   const startedAt = new Date();
   const environment = createInteractiveTerminalEnvironment(process.env);
+  environment.EDEN_TERMINAL_SPIKE_PROBE = "1";
   const windowsConsoleModeHelper = prepareWindowsConsoleModeHelper();
   if (windowsConsoleModeHelper !== undefined) {
     environment.EDEN_CONSOLE_MODE_HELPER = windowsConsoleModeHelper;
@@ -174,6 +175,8 @@ export async function runCandidateScenario(
     try {
       if (!exited) {
         terminatePtyProcessGroup(terminal);
+      } else if (shouldUseBundledConpty()) {
+        terminal.kill();
       }
     } finally {
       shellSession.cleanup();

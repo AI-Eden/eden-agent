@@ -16,6 +16,11 @@ if (argument === "--help") {
         process.exitCode = result === "normal:0" ? 0 : 130;
         terminal?.unmount();
       }}
+      onReady={() => {
+        if (process.env.EDEN_TERMINAL_SPIKE_PROBE === "1") {
+          process.stderr.write("__EDEN_INPUT_READY__\n");
+        }
+      }}
     />,
     { exitOnCtrlC: false },
   );

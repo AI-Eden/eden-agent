@@ -122,7 +122,9 @@ async function main(): Promise<void> {
   const serialized = `${JSON.stringify(result, null, 2)}\n`;
   try {
     await writeFile(workspace.resultPath, serialized, "utf8");
-    process.stdout.write(serialized);
+    await new Promise<void>((resolveOutput) => {
+      process.stdout.write(serialized, () => resolveOutput());
+    });
   } finally {
     await cleanupPackageWorkspace(workspace);
   }
@@ -218,4 +220,14 @@ function resolveNativePackage(config: CandidatePackageConfig): string | null {
   return `@opentui/core-${platform}-${process.arch}`;
 }
 
-await main();
+// node-pty 1.1.0 leaves its bundled-ConPTY worker ref'd after the PTY exits.
+try {
+  await main();
+} catch (cause: unknown) {
+  const error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
+  await new Promise<void>((resolveOutput) => {
+    process.stderr.write(`${error}\n`, () => resolveOutput());
+  });
+  process.exitCode = 1;
+}
+process.exit(process.exitCode ?? 0);

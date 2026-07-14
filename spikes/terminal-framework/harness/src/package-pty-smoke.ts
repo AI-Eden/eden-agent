@@ -7,7 +7,7 @@ import {
 import { shouldUseBundledConpty, terminatePtyProcessGroup } from "./pty-cleanup.ts";
 
 const outputLimit = 32 * 1024;
-const inputReadinessDelayMs = 100;
+const inputReadyMarker = "__EDEN_INPUT_READY__";
 const timeoutMs = 15_000;
 
 export async function runInteractivePackageSmoke(
@@ -16,10 +16,12 @@ export async function runInteractivePackageSmoke(
   cwd: string,
 ): Promise<PackageCommandResult> {
   const startedAt = performance.now();
+  const environment = createInteractiveTerminalEnvironment(process.env);
+  environment.EDEN_TERMINAL_SPIKE_PROBE = "1";
   const terminal = spawn(command, [...arguments_], {
     cols: 60,
     cwd,
-    env: createInteractiveTerminalEnvironment(process.env),
+    env: environment,
     name: "xterm-256color",
     rows: 20,
     useConptyDll: shouldUseBundledConpty(),
@@ -27,7 +29,6 @@ export async function runInteractivePackageSmoke(
   let complete = false;
   let sentExit = false;
   let transcript = "";
-  let exitTimer: ReturnType<typeof setTimeout> | undefined;
 
   return new Promise((resolve) => {
     const finish = (exitCode: number, stderr: string) => {
@@ -36,7 +37,6 @@ export async function runInteractivePackageSmoke(
       }
       complete = true;
       clearTimeout(timeout);
-      clearTimeout(exitTimer);
       outputSubscription.dispose();
       exitSubscription.dispose();
       resolve({
@@ -51,12 +51,15 @@ export async function runInteractivePackageSmoke(
     };
     const outputSubscription = terminal.onData((data) => {
       transcript = `${transcript}${data}`.slice(-outputLimit);
-      if (!sentExit && transcript.includes("status: pending")) {
+      if (!sentExit && transcript.includes(inputReadyMarker)) {
         sentExit = true;
-        exitTimer = setTimeout(() => terminal.write("q"), inputReadinessDelayMs);
+        terminal.write("q");
       }
     });
     const exitSubscription = terminal.onExit((event) => {
+      if (shouldUseBundledConpty()) {
+        terminal.kill();
+      }
       finish(event.exitCode, sentExit ? "" : "Packaged renderer exited before readiness");
     });
     const timeout = setTimeout(() => {

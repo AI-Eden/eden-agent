@@ -1,7 +1,7 @@
 import type { IPty } from "node-pty";
 import type { CandidateId } from "./pty.ts";
 
-const timeoutMs = 10_000;
+export const processHarnessEventTimeoutMs = 10_000;
 
 export class ProcessHarnessTimeoutError extends Error {
   readonly candidateId: CandidateId;
@@ -31,7 +31,7 @@ export function waitForText(options: WaitForTextOptions): Promise<void> {
     const timer = setTimeout(() => {
       subscription.dispose();
       reject(new ProcessHarnessTimeoutError(options.candidateId, options.expectedText));
-    }, timeoutMs);
+    }, processHarnessEventTimeoutMs);
     const subscription = options.terminal.onData(() => {
       if (options.readTranscript().includes(options.expectedText)) {
         clearTimeout(timer);
@@ -47,7 +47,7 @@ export function waitForNextData(candidateId: CandidateId, terminal: IPty): Promi
     const timer = setTimeout(() => {
       subscription.dispose();
       reject(new ProcessHarnessTimeoutError(candidateId, "the next rendered frame"));
-    }, timeoutMs);
+    }, processHarnessEventTimeoutMs);
     const subscription = terminal.onData(() => {
       clearTimeout(timer);
       subscription.dispose();
@@ -61,7 +61,7 @@ export function waitForExit(candidateId: CandidateId, terminal: IPty): Promise<n
     const timer = setTimeout(() => {
       subscription.dispose();
       reject(new ProcessHarnessTimeoutError(candidateId, "process exit"));
-    }, timeoutMs);
+    }, processHarnessEventTimeoutMs);
     const subscription = terminal.onExit(({ exitCode }) => {
       clearTimeout(timer);
       subscription.dispose();

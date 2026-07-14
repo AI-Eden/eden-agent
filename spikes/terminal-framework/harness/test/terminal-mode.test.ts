@@ -31,3 +31,32 @@ it("captures Windows console mode through inherited PTY handles", () => {
   assert.deepEqual(invocations[0]?.stdio, ["inherit", "inherit", "pipe"]);
   assert.equal(existsSync(invocations[0]?.snapshotPath ?? "missing"), false);
 });
+
+it("treats a cooked Windows shell as restored when optional input flags change", () => {
+  // Given ConPTY starts with optional editing flags that Node does not restore after raw mode.
+  const before = captureTerminalModeFingerprint(
+    "win32",
+    (_command, arguments_) => {
+      const snapshotPath = arguments_[0];
+      assert.ok(snapshotPath !== undefined);
+      writeFileSync(snapshotPath, "503:7\n", "utf8");
+      return { error: undefined, status: 0, stderr: "", stdout: "" };
+    },
+    "C:\\temp\\eden-console-mode.exe",
+  );
+
+  // When Node restores the required processed, line, and echo input flags.
+  const after = captureTerminalModeFingerprint(
+    "win32",
+    (_command, arguments_) => {
+      const snapshotPath = arguments_[0];
+      assert.ok(snapshotPath !== undefined);
+      writeFileSync(snapshotPath, "7:7\n", "utf8");
+      return { error: undefined, status: 0, stderr: "", stdout: "" };
+    },
+    "C:\\temp\\eden-console-mode.exe",
+  );
+
+  // Then the harness accepts the shell-safe equivalent instead of a byte-identical mode.
+  assert.equal(after, before);
+});
