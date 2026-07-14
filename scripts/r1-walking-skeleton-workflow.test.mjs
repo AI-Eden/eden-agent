@@ -59,6 +59,8 @@ test("R1 workflow freezes the cross-platform standalone evidence contract", asyn
 
   // When and Then: every required clean-machine lane and proof step is explicit.
   match(workflow, /os: \[ubuntu-latest, windows-latest, macos-latest\]/u);
+  match(workflow, /oven-sh\/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6/u);
+  match(workflow, /bun-version: 1\.3\.14/u);
   match(workflow, /pnpm install --frozen-lockfile/u);
   match(workflow, /chmod \+x node_modules\/\.pnpm\/node-pty@1\.1\.0/u);
   match(workflow, /pnpm test/u);
