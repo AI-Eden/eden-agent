@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   candidatePackageIds,
@@ -35,6 +36,15 @@ describe("terminal candidate package configuration", () => {
     // Then the configuration makes native embedding explicit.
     assert.equal(config.runtime, "bun");
     assert.equal(config.nativeEmbedding, "opentui");
+  });
+
+  it("uses shell-independent Bun test discovery for OpenTUI", () => {
+    const packageManifest = JSON.parse(
+      readFileSync(new URL("../../opentui/package.json", import.meta.url), "utf8"),
+    ) as { readonly scripts: Readonly<Record<string, string>> };
+
+    assert.equal(packageManifest.scripts.test, "bun test ./test");
+    assert.equal(packageManifest.scripts["test:bun"], "bun test ./test");
   });
 
   it("pins every runtime used by local and hosted packaging", () => {
