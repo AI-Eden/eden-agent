@@ -4,7 +4,7 @@ import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
 import { spawn } from "node-pty";
 import { driveCandidateScenario } from "./drive-scenario.ts";
 import { createInteractiveTerminalEnvironment } from "./package-command.ts";
-import { terminatePtyProcessGroup } from "./pty-cleanup.ts";
+import { shouldUseBundledConpty, terminatePtyProcessGroup } from "./pty-cleanup.ts";
 import { createShellSession } from "./shell-session.ts";
 import { prepareWindowsConsoleModeHelper } from "./terminal-mode.ts";
 
@@ -136,6 +136,7 @@ export async function runCandidateScenario(
       env: environment,
       name: "xterm-256color",
       rows: 20,
+      useConptyDll: shouldUseBundledConpty(),
     });
   } catch (error) {
     shellSession.cleanup();

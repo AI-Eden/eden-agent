@@ -25,6 +25,10 @@ type TaskkillRunner = (
 const runTaskkill: TaskkillRunner = (command, arguments_, options) =>
   spawnSync(command, arguments_, options);
 
+export function shouldUseBundledConpty(platform: NodeJS.Platform = process.platform): boolean {
+  return platform === "win32";
+}
+
 export function terminateWindowsProcessTree(
   pid: number,
   runner: TaskkillRunner = runTaskkill,

@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
 import { type CandidateId, runCandidateScenario } from "../src/pty.ts";
-import { terminatePtyProcessGroup, terminateWindowsProcessTree } from "../src/pty-cleanup.ts";
+import {
+  shouldUseBundledConpty,
+  terminatePtyProcessGroup,
+  terminateWindowsProcessTree,
+} from "../src/pty-cleanup.ts";
 import { ProcessHarnessTimeoutError } from "../src/pty-events.ts";
 
 const candidateIds = [
@@ -10,6 +14,15 @@ const candidateIds = [
   "ink-bun",
   "opentui-bun",
 ] as const satisfies readonly CandidateId[];
+
+it("uses bundled ConPTY only on Windows", () => {
+  // Given the harness may run on either Windows or a POSIX host.
+  // When it selects the node-pty backend used by real and packaged smoke tests.
+  // Then Windows avoids the system ConPTY AttachConsole cleanup path.
+  assert.equal(shouldUseBundledConpty("win32"), true);
+  assert.equal(shouldUseBundledConpty("linux"), false);
+  assert.equal(shouldUseBundledConpty("darwin"), false);
+});
 
 it("terminates the complete POSIX PTY process group after an interactive timeout", {
   skip: process.platform === "win32",

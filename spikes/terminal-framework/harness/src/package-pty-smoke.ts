@@ -4,7 +4,7 @@ import {
   type PackageCommandResult,
   redactPackageOutput,
 } from "./package-command.ts";
-import { terminatePtyProcessGroup } from "./pty-cleanup.ts";
+import { shouldUseBundledConpty, terminatePtyProcessGroup } from "./pty-cleanup.ts";
 
 const outputLimit = 32 * 1024;
 const inputReadinessDelayMs = 100;
@@ -22,6 +22,7 @@ export async function runInteractivePackageSmoke(
     env: createInteractiveTerminalEnvironment(process.env),
     name: "xterm-256color",
     rows: 20,
+    useConptyDll: shouldUseBundledConpty(),
   });
   let complete = false;
   let sentExit = false;
