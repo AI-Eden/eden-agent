@@ -3,24 +3,28 @@ name: Terminal framework spike
 on:
   pull_request:
     paths:
-      - ".codex/hooks/**"
       - ".github/workflows/terminal-framework-spike.yml"
-      - "biome.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - "scripts/**"
+      - "tsconfig.base.json"
+      - "scripts/terminal-framework-workflow.test.mjs"
       - "spikes/terminal-framework/**"
+      - "!spikes/terminal-framework/results/**"
+      - "spikes/terminal-framework/results/result.schema.json"
   push:
+    branches:
+      - "**"
     paths:
-      - ".codex/hooks/**"
       - ".github/workflows/terminal-framework-spike.yml"
-      - "biome.json"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - "scripts/**"
+      - "tsconfig.base.json"
+      - "scripts/terminal-framework-workflow.test.mjs"
       - "spikes/terminal-framework/**"
+      - "!spikes/terminal-framework/results/**"
+      - "spikes/terminal-framework/results/result.schema.json"
   workflow_dispatch:
 
 permissions:
