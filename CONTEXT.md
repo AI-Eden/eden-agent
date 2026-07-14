@@ -2,7 +2,7 @@
 
 ## Current stage
 
-R0: Product Contract and Architecture Spikes.
+R0 is complete. R1, Installable Walking Skeleton, is the next stage pending the R0 exit review.
 
 ## Current truth
 
@@ -15,14 +15,15 @@ R0: Product Contract and Architecture Spikes.
 - The terminal spike is complete. ADR 0008 selects Bun and OpenTUI for the first terminal product, with the named residual platform-evidence risks accepted for R0.
 - Node.js and pnpm remain the development baseline; Bun, OpenTUI, React, keymap, and native renderer types stay inside the terminal application boundary.
 - TypeBox 1.x is the runtime-schema library for product contracts on TypeScript 7. Node's built-in test runner remains the initial runner; add property testing only when a concrete invariant requires it.
+- The version 1 product boundary now has executable schemas, non-throwing decoders, and deterministic awaiting-approval, executing, and review fixtures. Renderer and runtime authority remain outside the contracts package.
 
 ## Next decision
 
-Review the completed executable product contracts and three deterministic `ProductView` scenarios at the R0 exit checkpoint. No further R0 architecture choice is expected unless implementation evidence invalidates an accepted boundary.
+Complete the R0 exit review and confirm entry into R1. No unresolved R0 architecture choice remains.
 
 ## Next implementation slice
 
-Implement the accepted plan's smallest versioned command, event, error, and `ProductView` schema surface plus deterministic fake views and scenarios. Completing their acceptance checks closes R0 and moves the project to the R1 installable walking skeleton; do not integrate the production TUI, real provider, or autonomous loop into the R0 slice.
+After the exit review, freeze the first R1 vertical slice for the installable walking skeleton. Fake data must travel through the executable product contracts; do not add a real provider before the deterministic reducer, journal, replay, client, and terminal path exist.
 
 ## Known open questions
 

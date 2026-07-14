@@ -1,9 +1,10 @@
 # R0 Executable Product Contracts and View Fixtures Plan
 
-- Status: Accepted
+- Status: Complete
 - Date: 2026-07-14
+- Completed: 2026-07-15
 - Roadmap stage: R0, Product Contract and Architecture Spikes
-- Human checkpoint: approved on 2026-07-15; the next human review is the R0 exit review
+- Human checkpoint: implementation approved on 2026-07-15; the R0 exit review is next
 
 ## Goal and R0 exit outcome
 
@@ -13,6 +14,23 @@ client one versioned boundary without implementing either client or a second sta
 
 This is the final R0 implementation plan. After its acceptance checks pass, update `CONTEXT.md` to close
 R0 and enter R1, Installable Walking Skeleton.
+
+## Completion record
+
+- Commit `07ce11a` implements the executable schemas, non-throwing decoders, and three deterministic
+  `ProductView` fixtures through the public `@eden/contracts` entrypoint.
+- The focused suite passes eight protocol and scenario cases, including version, authority-field,
+  closed-object, verifier-evidence, immutability, JSON round-trip, and renderer-leak boundaries. The
+  existing three deterministic kernel scenarios also pass.
+- A temporary public-entrypoint driver accepted a valid command, returned the stable
+  `unsupported_protocol_version` error for an invalid command, and decoded all three fixtures after a
+  JSON round-trip. The driver was removed after the matching-surface check.
+- [Hosted run 29351511088](https://github.com/AI-Eden/eden-agent/actions/runs/29351511088) passes frozen
+  installation, peer policy, TypeScript 7 startup, typecheck, full tests, and all three package paths on
+  Ubuntu x64, Windows x64, and macOS arm64.
+- The temporary `packages/contracts/**` workflow trigger was removed after that run. Manifest, lockfile,
+  workspace policy, compiler configuration, workflow, and terminal-spike changes retain their normal
+  three-platform triggers.
 
 ## Locked decisions
 
@@ -120,7 +138,7 @@ the package further without a demonstrated need.
 
 ## Test-first implementation slices
 
-### Slice 1: executable schema and decoder foundation
+### Slice 1: executable schema and decoder foundation — complete
 
 - Public seam: import protocol version, identifier, error, decoder-result schemas and derived types from
   `@eden/contracts`.
@@ -135,7 +153,7 @@ the package further without a demonstrated need.
 - Matching surface: run a Node driver through the package export, decode one valid and one invalid JSON
   value, and observe a typed success and stable structured error.
 
-### Slice 2: versioned product commands and events
+### Slice 2: versioned product commands and events — complete
 
 - Public seam: decode `unknown` through exported command and event schemas.
 - Independent expected result: `docs/product-contracts.md`, `docs/event-model.md`, ADR 0004, and ADR 0006
@@ -153,7 +171,7 @@ the package further without a demonstrated need.
 - Matching surface: JSON-stringify and decode one command and one event through the package entrypoint;
   malformed or forged variants return errors without throwing.
 
-### Slice 3: three `ProductView` fixtures and R0 scenarios
+### Slice 3: three `ProductView` fixtures and R0 scenarios — complete
 
 - Public seam: import and decode the named awaiting-approval, executing, and review fixtures from
   `@eden/contracts`.
@@ -175,7 +193,7 @@ the package further without a demonstrated need.
 - Matching surface: serialize all three fixtures, parse the JSON back through `decodeProductView`, and
   print a bounded redacted summary proving the scenario identity, phase, and available next action.
 
-### Slice 4: R0 closeout
+### Slice 4: R0 closeout — complete
 
 - Run the focused contracts suite, full repository verification, and the matching-surface driver after
   the final implementation change.

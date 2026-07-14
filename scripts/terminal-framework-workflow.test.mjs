@@ -16,7 +16,6 @@ const expectedPaths = [
   "pnpm-workspace.yaml",
   "tsconfig.base.json",
   "scripts/terminal-framework-workflow.test.mjs",
-  "packages/contracts/**",
   "spikes/terminal-framework/**",
   "!spikes/terminal-framework/results/**",
   "spikes/terminal-framework/results/result.schema.json",
