@@ -70,6 +70,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Diagnose Windows primary PTY scenarios
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: pnpm --dir spikes/terminal-framework/harness exec node --import tsx src/diagnose-primary.ts
+
       - name: Run tests
         run: pnpm test
 
