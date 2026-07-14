@@ -21,8 +21,8 @@ const expectedPaths = [
   "spikes/terminal-framework/results/result.schema.json",
 ];
 
-function readEventList(eventName, key) {
-  const lines = workflowSource.split("\n");
+function readEventList(source, eventName, key) {
+  const lines = source.split(/\r?\n/u);
   const eventStart = lines.indexOf(`  ${eventName}:`);
   notStrictEqual(eventStart, -1);
   const listStart = lines.indexOf(`    ${key}:`, eventStart);
@@ -40,12 +40,19 @@ function readEventList(eventName, key) {
 }
 
 test("limits automatic terminal-framework runs to spike inputs", () => {
-  deepStrictEqual(readEventList("pull_request", "paths"), expectedPaths);
-  deepStrictEqual(readEventList("push", "paths"), expectedPaths);
+  deepStrictEqual(readEventList(workflowSource, "pull_request", "paths"), expectedPaths);
+  deepStrictEqual(readEventList(workflowSource, "push", "paths"), expectedPaths);
 });
 
 test("limits automatic terminal-framework pushes to branches", () => {
-  deepStrictEqual(readEventList("push", "branches"), ["**"]);
+  deepStrictEqual(readEventList(workflowSource, "push", "branches"), ["**"]);
+});
+
+test("reads workflow lists from a CRLF checkout", () => {
+  const crlfSource = workflowSource.replaceAll("\n", "\r\n");
+
+  deepStrictEqual(readEventList(crlfSource, "pull_request", "paths"), expectedPaths);
+  deepStrictEqual(readEventList(crlfSource, "push", "branches"), ["**"]);
 });
 
 test("keeps manual terminal-framework runs available", () => {
