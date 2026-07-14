@@ -8,3 +8,6 @@ allowBuilds:
   node-pty: true
 minimumReleaseAgeExclude:
   - tsx@4.23.1
+peerDependencyRules:
+  allowedVersions:
+    "bun-ffi-structs>typescript": "7.0.2"

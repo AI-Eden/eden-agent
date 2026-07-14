@@ -16,6 +16,7 @@ const expectedPaths = [
   "pnpm-workspace.yaml",
   "tsconfig.base.json",
   "scripts/terminal-framework-workflow.test.mjs",
+  "packages/contracts/**",
   "spikes/terminal-framework/**",
   "!spikes/terminal-framework/results/**",
   "spikes/terminal-framework/results/result.schema.json",
@@ -39,7 +40,7 @@ function readEventList(source, eventName, key) {
   return values;
 }
 
-test("limits automatic terminal-framework runs to spike inputs", () => {
+test("limits automatic runs to accepted toolchain and terminal inputs", () => {
   deepStrictEqual(readEventList(workflowSource, "pull_request", "paths"), expectedPaths);
   deepStrictEqual(readEventList(workflowSource, "push", "paths"), expectedPaths);
 });
@@ -57,4 +58,9 @@ test("reads workflow lists from a CRLF checkout", () => {
 
 test("keeps manual terminal-framework runs available", () => {
   match(workflowSource, /^ {2}workflow_dispatch:$/m);
+});
+
+test("proves peer policy and native compiler startup in the packaging matrix", () => {
+  match(workflowSource, /^ {8}run: pnpm peers check$/m);
+  match(workflowSource, /^ {8}run: pnpm exec tsc --version$/m);
 });
