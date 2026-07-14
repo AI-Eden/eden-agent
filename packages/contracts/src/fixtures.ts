@@ -1,0 +1,117 @@
+import type { ProductView } from "./protocol.ts";
+
+const workspace = {
+  workspaceId: "workspace-eden-agent",
+  name: "eden-agent",
+  trust: "trusted",
+} as const;
+const budget = { used: 320, total: 2_000, unit: "actions" } as const;
+const action = {
+  actionId: "action-test-1",
+  display: "pnpm --filter @eden/contracts test",
+  cwd: ".",
+  reason: "Run the executable product contract checks.",
+  scope: "packages/contracts only",
+} as const;
+
+export const awaitingApprovalProductView = {
+  protocolVersion: 1,
+  viewId: "view-awaiting-approval",
+  runId: "run-contracts-1",
+  revision: 2,
+  workspace,
+  phase: "awaiting-approval",
+  progress: { completed: 1, total: 3, summary: "Contract schemas are ready for verification." },
+  currentAction: action,
+  approval: {
+    approvalId: "approval-test-1",
+    actionId: action.actionId,
+    canonicalDisplay: action.display,
+    cwd: action.cwd,
+    reason: action.reason,
+    scope: action.scope,
+    digest: "sha256:action-test-1",
+    recoveryAction: "Revise the verification scope or deny this action.",
+  },
+  changedFiles: [{ path: "packages/contracts/src/protocol.ts", status: "added" }],
+  checks: [
+    {
+      checkId: "check-contracts",
+      name: "Contracts test suite",
+      requirement: "required",
+      status: "pending",
+      summary: "Awaiting approval to run.",
+    },
+  ],
+  budget,
+  nextActions: ["Approve or deny the scoped verification action."],
+  residualRisk: null,
+  terminalOutcome: null,
+} satisfies ProductView;
+
+export const executingProductView = {
+  protocolVersion: 1,
+  viewId: "view-executing",
+  runId: "run-contracts-1",
+  revision: 3,
+  workspace,
+  phase: "executing",
+  progress: { completed: 2, total: 3, summary: "Running contract verification." },
+  currentAction: action,
+  approval: null,
+  changedFiles: [
+    { path: "packages/contracts/src/protocol.ts", status: "added" },
+    { path: "packages/contracts/src/fixtures.ts", status: "added" },
+  ],
+  checks: [
+    {
+      checkId: "check-contracts",
+      name: "Contracts test suite",
+      requirement: "required",
+      status: "pending",
+      summary: "Verification is running.",
+    },
+  ],
+  budget: { ...budget, used: 480 },
+  nextActions: ["Wait for the required check result."],
+  residualRisk: null,
+  terminalOutcome: null,
+} satisfies ProductView;
+
+export const reviewProductView = {
+  protocolVersion: 1,
+  viewId: "view-review",
+  runId: "run-contracts-1",
+  revision: 4,
+  workspace,
+  phase: "review",
+  progress: { completed: 3, total: 3, summary: "Implementation and verification are complete." },
+  currentAction: null,
+  approval: null,
+  changedFiles: [
+    { path: "packages/contracts/src/protocol.ts", status: "added" },
+    { path: "packages/contracts/src/fixtures.ts", status: "added" },
+  ],
+  checks: [
+    {
+      checkId: "check-contracts",
+      name: "Contracts test suite",
+      requirement: "required",
+      status: "passed",
+      summary: "All product contract scenarios passed.",
+      evidenceRef: "evidence-contracts-test",
+    },
+    {
+      checkId: "check-package-smoke",
+      name: "Package smoke",
+      requirement: "optional",
+      status: "passed",
+      summary: "The public package decoded JSON values.",
+      evidenceRef: "evidence-package-smoke",
+    },
+  ],
+  budget: { ...budget, used: 610 },
+  nextActions: ["Review the contract diff and accept the R0 exit."],
+  residualRisk: "Semantic stale-command enforcement begins with AgentClient in R1.",
+  terminalOutcome: { state: "succeeded", evidenceRef: "evidence-r0-contracts" },
+} satisfies ProductView;
