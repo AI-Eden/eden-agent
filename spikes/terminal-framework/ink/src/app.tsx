@@ -5,6 +5,7 @@ import {
 } from "@eden/terminal-spike-fixture";
 import { Box, Text, useInput, usePaste, useWindowSize } from "ink";
 import { useEffect, useReducer, useState } from "react";
+import { InkComposer } from "./composer.tsx";
 import { composerReducer, createComposerState } from "./composer-state.ts";
 
 type InkSpikeAppProps = {
@@ -105,6 +106,11 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
       return;
     }
 
+    if (focus === "composer" && key.rightArrow) {
+      dispatchComposer({ type: "right" });
+      return;
+    }
+
     if (focus === "composer" && key.home) {
       dispatchComposer({ type: "home" });
       return;
@@ -154,7 +160,7 @@ export function InkSpikeApp({ initialState, onExit, onReady, viewport }: InkSpik
       <Text>focus: {focus}</Text>
       <Text>approve: a</Text>
       {status === "denied" && <Text>Revise the task or request a safer action.</Text>}
-      {focus === "composer" && <Text>composer: {composer.text}</Text>}
+      {focus === "composer" && <InkComposer state={composer} />}
       {status === "check-failed" && (
         <Box flexDirection="column">
           <Text>check: typecheck failed</Text>

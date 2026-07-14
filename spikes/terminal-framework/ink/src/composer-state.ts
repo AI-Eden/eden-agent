@@ -3,19 +3,33 @@ export type ComposerState = {
   readonly text: string;
 };
 
+export type ComposerCursorParts = {
+  readonly after: string;
+  readonly before: string;
+};
+
 export type ComposerAction =
   | { readonly type: "backspace" }
   | { readonly type: "delete" }
   | { readonly type: "end" }
   | { readonly type: "home" }
   | { readonly type: "insert"; readonly text: string }
-  | { readonly type: "left" };
+  | { readonly type: "left" }
+  | { readonly type: "right" };
 
 const graphemeSegmenter = new Intl.Segmenter("zh", { granularity: "grapheme" });
 const splitGraphemes = (text: string) =>
   Array.from(graphemeSegmenter.segment(text), ({ segment }) => segment);
 
 export const createComposerState = (text: string): ComposerState => ({ cursor: 0, text });
+
+export function splitComposerAtCursor(state: ComposerState): ComposerCursorParts {
+  const graphemes = splitGraphemes(state.text);
+  return {
+    after: graphemes.slice(state.cursor).join(""),
+    before: graphemes.slice(0, state.cursor).join(""),
+  };
+}
 
 export function composerReducer(state: ComposerState, action: ComposerAction): ComposerState {
   const graphemes = splitGraphemes(state.text);
@@ -49,5 +63,7 @@ export function composerReducer(state: ComposerState, action: ComposerAction): C
     }
     case "left":
       return { ...state, cursor: Math.max(0, state.cursor - 1) };
+    case "right":
+      return { ...state, cursor: Math.min(graphemes.length, state.cursor + 1) };
   }
 }

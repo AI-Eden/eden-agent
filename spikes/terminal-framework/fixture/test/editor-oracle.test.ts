@@ -63,6 +63,30 @@ test("repeated Backspace deletes consecutive graphemes before the cursor", () =>
   deepStrictEqual(repeatedDeletion, expectedRow);
 });
 
+test("Left and Right move the composer cursor across graphemes", () => {
+  const expectedRow = {
+    expectedState: {
+      allowedCollapsedContent: [],
+      canonicalActionText: "pnpm --filter @eden/kernel test",
+      exitResult: "running",
+      focus: "composer",
+      forbiddenVisibleText: [],
+      recoveryAction: null,
+      status: "composing",
+      visibleText: ["composer: 你好界"],
+    },
+    id: "bidirectional-grapheme-navigation",
+    initialState: { focus: "composer", status: "composing" },
+    inputSequence: ["type:你好", "ArrowLeft", "ArrowRight", "type:界"],
+  } as const;
+
+  const bidirectionalNavigation = terminalScenarioOracle.find(
+    (row) => row.id === "bidirectional-grapheme-navigation",
+  );
+
+  deepStrictEqual(bidirectionalNavigation, expectedRow);
+});
+
 test("Delete removes the grapheme after the composer cursor", () => {
   const expectedRow = {
     expectedState: {

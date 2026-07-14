@@ -87,6 +87,38 @@ describe("OpenTUI composer", () => {
     }
   });
 
+  it("moves the composer cursor left and right across graphemes", async () => {
+    const bidirectionalNavigationOracle = terminalScenarioOracle.find(
+      (row) => row.id === "bidirectional-grapheme-navigation",
+    );
+    expect(bidirectionalNavigationOracle).toBeDefined();
+    if (bidirectionalNavigationOracle === undefined) {
+      return;
+    }
+    const setup = await testRender(
+      <OpenTuiSpikeApp initialState={bidirectionalNavigationOracle.initialState} />,
+      { height: 30, width: 100 },
+    );
+    await act(async () => setup.flush());
+
+    try {
+      await act(async () => setup.mockInput.typeText("你好"));
+      act(() => setup.mockInput.pressArrow("left"));
+      await act(async () => setup.flush());
+      act(() => setup.mockInput.pressArrow("right"));
+      await act(async () => setup.flush());
+      await act(async () => setup.mockInput.typeText("界"));
+      await act(async () => setup.flush());
+      const frame = setup.captureCharFrame();
+
+      for (const visibleText of bidirectionalNavigationOracle.expectedState.visibleText) {
+        expect(frame).toContain(visibleText);
+      }
+    } finally {
+      act(() => setup.renderer.destroy());
+    }
+  });
+
   it("deletes the grapheme after the composer cursor", async () => {
     const forwardDeletionOracle = terminalScenarioOracle.find(
       (row) => row.id === "forward-grapheme-deletion",

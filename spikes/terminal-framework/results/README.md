@@ -70,10 +70,13 @@ pnpm --filter @eden/terminal-spike-opentui start
    failed check, failure summary, recovery action, changed-file path, and diff path remain tied to the
    same action.
 3. Restart, press `d`, then `Tab`. Confirm denial recovery and composer focus. Use a real Chinese IME
-   to compose `你好世界`; do not paste this text. Press Left once and Backspace once. Confirm the
-   composer contains `你好界` without replacement characters or a split grapheme. Press Backspace
-   twice more and confirm the composer changes to `你界`, then `界`; every keypress must move the
-   cursor and delete exactly one preceding grapheme.
+   to compose `你好世界`; do not paste this text. Confirm the terminal cursor is visible at the
+   composer insertion point and that IME preedit or candidate UI appears there, not at the lower-left
+   corner of the terminal. Press Left once, then Right once, and confirm the cursor returns after the
+   final grapheme. Press Left once and Backspace once. Confirm the composer contains `你好界` without
+   replacement characters or a split grapheme. Press Backspace twice more and confirm the composer
+   changes to `你界`, then `界`; every keypress must move the cursor and delete exactly one preceding
+   grapheme.
 4. Restart, press `d`, then `Tab`, and compose `你好` with the IME. Press Home and Delete. Confirm the
    composer contains `好`, proving forward deletion removes exactly one following grapheme.
 5. Restart, press `d`, then `Tab`, compose `你好世界`, press Left and Backspace, then press End. Open
@@ -90,8 +93,9 @@ pnpm --filter @eden/terminal-spike-opentui start
    is open. Record corruption, focus loss, unsafe action changes, stalls, or hidden recovery text.
 8. Exit normally with `q`, then run `printf 'exit=%s\n' "$?"` in the parent shell and confirm
    `exit=0`. Relaunch, cancel with Ctrl+C, run the same `printf` immediately, and confirm `exit=130`.
-   After each exit-code check, run `echo EDEN_TUI_RESTORED`. Confirm the sentinel appears, the cursor
-   and alternate-screen state are restored, and the real parent shell accepts input immediately.
+   After each exit-code check, run `echo EDEN_TUI_RESTORED`. Its expected command output is the single
+   line `EDEN_TUI_RESTORED`. Confirm that line appears, the cursor and alternate-screen state are
+   restored, and the real parent shell accepts input immediately.
 
 Copy `matching-surface.template.json` into each record's `matchingSurface` field, replace every
 observed case with `passed` or `failed`, add bounded notes for failures, set the overall status, and

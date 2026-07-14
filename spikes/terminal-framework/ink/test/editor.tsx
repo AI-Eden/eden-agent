@@ -1,9 +1,34 @@
 import assert from "node:assert/strict";
+import { PassThrough } from "node:stream";
 import { terminalScenarioOracle } from "@eden/terminal-spike-fixture/oracle";
-import { render } from "ink-testing-library";
+import { render as renderInk } from "ink";
+import { render as renderForText } from "ink-testing-library";
 import { InkSpikeApp } from "../src/app.tsx";
 
 const settleRender = () => new Promise<void>((resolve) => setImmediate(resolve));
+const render = renderForText;
+
+class InteractiveOutput extends PassThrough {
+  readonly columns = 100;
+  readonly isTTY = true;
+  readonly rows = 24;
+}
+
+class InteractiveInput extends PassThrough {
+  readonly isTTY = true;
+
+  ref() {
+    return this;
+  }
+
+  setRawMode() {
+    return this;
+  }
+
+  unref() {
+    return this;
+  }
+}
 
 const chineseOracle = terminalScenarioOracle.find((row) => row.id === "chinese-editing-paste");
 assert.ok(chineseOracle);
@@ -79,6 +104,73 @@ try {
   }
 } finally {
   forwardDeletion.unmount();
+}
+
+const bidirectionalNavigationOracle = terminalScenarioOracle.find(
+  (row) => row.id === "bidirectional-grapheme-navigation",
+);
+assert.ok(bidirectionalNavigationOracle);
+const bidirectionalNavigation = render(
+  <InkSpikeApp initialState={bidirectionalNavigationOracle.initialState} />,
+);
+
+try {
+  // Given the cursor is between two Chinese graphemes.
+  bidirectionalNavigation.stdin.write("你好");
+  await settleRender();
+  bidirectionalNavigation.stdin.write("\u001B[D");
+  await settleRender();
+
+  // When the operator moves right and inserts another grapheme.
+  bidirectionalNavigation.stdin.write("\u001B[C");
+  await settleRender();
+  bidirectionalNavigation.stdin.write("界");
+  await settleRender();
+
+  // Then insertion occurs after the second grapheme.
+  const bidirectionalFrame = bidirectionalNavigation.lastFrame() ?? "";
+  for (const visibleText of bidirectionalNavigationOracle.expectedState.visibleText) {
+    assert.ok(bidirectionalFrame.includes(visibleText), bidirectionalFrame);
+  }
+} finally {
+  bidirectionalNavigation.unmount();
+}
+
+const interactiveStdout = new InteractiveOutput();
+const interactiveStdin = new InteractiveInput();
+let interactiveOutput = "";
+interactiveStdout.on("data", (chunk: Buffer) => {
+  interactiveOutput += chunk.toString();
+});
+const cursorAnchoring = renderInk(<InkSpikeApp />, {
+  exitOnCtrlC: false,
+  interactive: true,
+  patchConsole: false,
+  stdin: interactiveStdin as unknown as NodeJS.ReadStream,
+  stdout: interactiveStdout as unknown as NodeJS.WriteStream,
+});
+
+try {
+  // Given the composer has focus at the end of two Chinese graphemes.
+  interactiveStdin.write("d");
+  await settleRender();
+  interactiveStdin.write("\t");
+  await settleRender();
+  await cursorAnchoring.waitUntilRenderFlush();
+  interactiveOutput = "";
+  interactiveStdin.write("你好");
+  await settleRender();
+  await cursorAnchoring.waitUntilRenderFlush();
+
+  // When Ink commits the updated composer frame.
+  // Then the terminal cursor is shown after the ten-column label and four grapheme columns.
+  assert.ok(interactiveOutput.includes("\u001B[15G\u001B[?25h"), JSON.stringify(interactiveOutput));
+  assert.ok(
+    !interactiveOutput.includes("\u001B[11G\u001B[?25h"),
+    JSON.stringify(interactiveOutput),
+  );
+} finally {
+  cursorAnchoring.unmount();
 }
 
 const shortcutText = render(
