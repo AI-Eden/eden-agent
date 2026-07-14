@@ -10,6 +10,7 @@ export type EdenTuiAppProps = {
   readonly client: AgentClient;
   readonly onExit?: (code: 0 | 130) => void;
   readonly onReady?: (() => void) | undefined;
+  readonly onViewChange?: ((view: ProductView) => void) | undefined;
   readonly runId: RunId;
 };
 
@@ -23,7 +24,7 @@ export function EdenTuiApp(props: EdenTuiAppProps) {
   );
 }
 
-function EdenTuiSurface({ client, onExit, onReady, runId }: EdenTuiAppProps) {
+function EdenTuiSurface({ client, onExit, onReady, onViewChange, runId }: EdenTuiAppProps) {
   const { height, width } = useTerminalDimensions();
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +35,14 @@ function EdenTuiSurface({ client, onExit, onReady, runId }: EdenTuiAppProps) {
   const start = async (task: string) => {
     if (task.trim().length === 0) return;
     try {
-      setView(
-        await client.submit({
-          commandId: randomUUID(),
-          protocolVersion: 1,
-          task,
-          type: "run.start",
-        }),
-      );
+      const nextView = await client.submit({
+        commandId: randomUUID(),
+        protocolVersion: 1,
+        task,
+        type: "run.start",
+      });
+      setView(nextView);
+      onViewChange?.(nextView);
       setFollowing(true);
       setError(null);
     } catch (cause) {
@@ -52,17 +53,17 @@ function EdenTuiSurface({ client, onExit, onReady, runId }: EdenTuiAppProps) {
   const resolveApproval = async (decision: "approve" | "deny") => {
     if (view?.approval === null || view === null) return;
     try {
-      setView(
-        await client.submit({
-          approvalId: view.approval.approvalId,
-          commandId: randomUUID(),
-          decision,
-          expectedRevision: view.revision,
-          protocolVersion: 1,
-          runId,
-          type: "approval.resolve",
-        }),
-      );
+      const nextView = await client.submit({
+        approvalId: view.approval.approvalId,
+        commandId: randomUUID(),
+        decision,
+        expectedRevision: view.revision,
+        protocolVersion: 1,
+        runId,
+        type: "approval.resolve",
+      });
+      setView(nextView);
+      onViewChange?.(nextView);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The approval could not be resolved.");
