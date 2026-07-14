@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -95,7 +95,7 @@ describe("terminal candidate measurement command", () => {
         "--host-load-policy",
         "isolated-test",
         "--output-dir",
-        outputDirectory,
+        relative(repoRoot, outputDirectory),
         ...artifactArguments,
       ],
       { cwd: harnessRoot, encoding: "utf8", timeout: measurementTimeoutMs },

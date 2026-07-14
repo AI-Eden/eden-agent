@@ -34,7 +34,10 @@ const optionDefinitions = {
   warmups: { type: "string" },
 } as const;
 
-export function parseMeasurementOptions(arguments_: readonly string[]): MeasurementOptions {
+export function parseMeasurementOptions(
+  arguments_: readonly string[],
+  pathBaseDirectory: string,
+): MeasurementOptions {
   const values = parseOptionValues(arguments_);
 
   const missing = [
@@ -86,10 +89,10 @@ export function parseMeasurementOptions(arguments_: readonly string[]): Measurem
   }
 
   return {
-    artifactEvidence: artifactEvidence.map((path) => resolve(path)),
+    artifactEvidence: artifactEvidence.map((path) => resolve(pathBaseDirectory, path)),
     fixtureId,
     hostLoadPolicy,
-    outputDirectory: resolve(outputDirectory),
+    outputDirectory: resolve(pathBaseDirectory, outputDirectory),
     runtimeVersions: parseRuntimeVersions(runtimeVersions),
     terminalId,
     trialCount: parseCount("trials", trials, 1),

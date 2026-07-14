@@ -19,7 +19,7 @@ import { type CandidateId, candidateIds, runCandidateScenario } from "./pty.ts";
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 
 async function main(): Promise<void> {
-  const options = parseMeasurementOptions(process.argv.slice(2));
+  const options = parseMeasurementOptions(process.argv.slice(2), repoRoot);
   const source = captureMeasurementSource(repoRoot);
   const environment = captureMeasurementEnvironment(options);
   const artifacts = await readArtifactEvidenceSet(
