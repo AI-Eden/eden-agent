@@ -46,22 +46,42 @@ it("falls back to node-pty cleanup when POSIX process-group signaling is denied"
   assert.equal(terminalKillCount, 1);
 });
 
-it("terminates the Windows PTY process tree without node-pty console enumeration", () => {
+it("terminates the Windows PTY process tree before releasing node-pty handles", () => {
   // Given one timed-out ConPTY and a platform process-tree terminator.
-  const terminatedPids: number[] = [];
-  let terminalKillCount = 0;
+  const cleanupOrder: string[] = [];
 
   // When timeout cleanup runs on Windows.
   terminatePtyProcessGroup(
-    { kill: () => terminalKillCount++, pid: 321 },
+    { kill: () => cleanupOrder.push("release-handles"), pid: 321 },
     process.kill,
     "win32",
-    (pid) => terminatedPids.push(pid),
+    (pid) => cleanupOrder.push(`terminate-tree:${pid}`),
   );
 
-  // Then the process tree is terminated without node-pty's fragile AttachConsole helper.
-  assert.deepEqual(terminatedPids, [321]);
-  assert.equal(terminalKillCount, 0);
+  // Then descendants die before node-pty releases the owning ConPTY handles.
+  assert.deepEqual(cleanupOrder, ["terminate-tree:321", "release-handles"]);
+});
+
+it("releases Windows PTY handles when process-tree termination fails", () => {
+  // Given the platform process-tree terminator fails before cleanup completes.
+  let terminalKillCount = 0;
+
+  // When Windows timeout cleanup propagates that failure.
+  assert.throws(
+    () =>
+      terminatePtyProcessGroup(
+        { kill: () => terminalKillCount++, pid: 321 },
+        process.kill,
+        "win32",
+        () => {
+          throw new Error("tree termination failed");
+        },
+      ),
+    /tree termination failed/u,
+  );
+
+  // Then the owning ConPTY handles are still released.
+  assert.equal(terminalKillCount, 1);
 });
 
 it("bounds taskkill and rejects a failed Windows process-tree cleanup", () => {

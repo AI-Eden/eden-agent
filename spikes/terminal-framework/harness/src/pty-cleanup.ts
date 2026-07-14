@@ -62,7 +62,11 @@ export function terminatePtyProcessGroup(
   terminateWindowsTree: WindowsProcessTreeTerminator = terminateWindowsProcessTree,
 ): void {
   if (platform === "win32") {
-    terminateWindowsTree(terminal.pid);
+    try {
+      terminateWindowsTree(terminal.pid);
+    } finally {
+      terminal.kill();
+    }
     return;
   }
   try {

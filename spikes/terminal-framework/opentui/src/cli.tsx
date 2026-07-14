@@ -26,9 +26,10 @@ if (unknownOption !== undefined) {
   root.render(
     <OpenTuiSpikeApp
       onExit={(result) => {
-        process.exitCode = result === "normal:0" ? 0 : 130;
+        const exitCode = result === "normal:0" ? 0 : 130;
         root.unmount();
         renderer.destroy();
+        process.exit(exitCode);
       }}
     />,
   );
