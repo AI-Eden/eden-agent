@@ -1,6 +1,6 @@
 # R1 Fake-Task Vertical Slice Plan
 
-- Status: Local implementation and evidence complete; slice review and hosted evidence pending
+- Status: Implementation and hosted evidence complete; slice review pending
 - Date: 2026-07-15
 - Roadmap stage: R1, Installable Walking Skeleton
 - Baseline: `03c5c0c2ef6b8551392dfe5bbf2823bf70f73718`
@@ -512,9 +512,29 @@ Evidence captured on 2026-07-15 against baseline `03c5c0c2ef6b8551392dfe5bbf2823
 - Workflow: `scripts/r1-walking-skeleton-workflow.test.mjs` passes and freezes Ubuntu, Windows, and macOS
   install/build/test/package/smoke/upload lanes without a spike dependency.
 
-Hosted workflow evidence is intentionally pending. This plan did not authorize a commit or push, so no
-honest hosted workflow URL or immutable source commit exists yet. The first R1 slice must remain short of
-final completion until publication is separately authorized and all three hosted lanes pass.
+## Hosted implementation evidence
+
+Publication was authorized on 2026-07-15. The implementation began at `3fe6b23` and the final R1
+dependency-closure change is `959cc7c64628977366862f6db1682aa7c4b97953`. The hosted
+[`R1 walking skeleton` run 29372282206](https://github.com/AI-Eden/eden-agent/actions/runs/29372282206)
+completed successfully against that commit:
+
+- `standalone (macos-latest)` passed in 1m24s and uploaded `eden-macOS-ARM64` (26,503,579 bytes).
+- `standalone (ubuntu-latest)` passed in 1m57s and uploaded `eden-Linux-X64` (41,328,739 bytes).
+- `standalone (windows-latest)` passed in 4m19s and uploaded `eden-Windows-X64` (41,180,088 bytes).
+- Every lane completed frozen install, peer checks, the full workspace tests, typecheck, build, Biome,
+  Markdown, Bun standalone packaging, isolated artifact smoke, and artifact upload.
+
+Hosted evidence exposed and closed five portability gaps without changing the accepted product
+architecture: pnpm setup now follows the root `packageManager`, macOS restores the packaged node-pty
+helper permission, repository text checkouts are LF-normalized, the R1 matrix installs pinned Bun, and
+OpenTUI integration tests synchronize on accepted `ProductView` updates instead of fixed sleeps.
+
+The shared checkout and toolchain changes also exercised the closed terminal-spike workflow. Historical
+R0 measurements remain pinned to pnpm 11.7.0, while current packaging follows pnpm 11.13.0. The hosted
+[`Terminal framework spike` run 29372727708](https://github.com/AI-Eden/eden-agent/actions/runs/29372727708)
+passed macOS 15, Ubuntu 24.04, and Windows 2025 packaging at
+`594e9f77a6deaf5966c8b76840cebafbf534018a` and uploaded all three evidence bundles.
 
 ## Explicit non-goals
 
@@ -566,9 +586,11 @@ v2 migration and cannot be handled by editing v1 in place.
 1. **Plan review, complete:** D1 complete causal envelope, D2 explicit reconciliation, D3 NDJSON output,
    the test strategy, matching surfaces, and non-goals were approved on 2026-07-15. This approval does not
    authorize a commit or push.
-2. **Architecture exception only:** pause only if evidence invalidates the accepted architecture or
+2. **Publication and hosted evidence, complete:** separate authorization was granted on 2026-07-15;
+   public `origin/main` and `github/main` were updated, and both hosted three-platform workflows passed.
+3. **Architecture exception only:** pause only if evidence invalidates the accepted architecture or
    creates a new product, trust, or public-contract decision.
-3. **Slice review:** review final diff, crash ledger, standalone headless/TUI evidence, hosted install result,
+4. **Slice review:** review final diff, crash ledger, standalone headless/TUI evidence, hosted install result,
    and residual risk before selecting the next R1 slice.
 
 ## Completion criteria

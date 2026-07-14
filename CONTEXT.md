@@ -2,8 +2,8 @@
 
 ## Current stage
 
-R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice is implemented and
-locally verified; its slice review and hosted clean-machine evidence remain open.
+R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice implementation and
+clean-machine evidence are complete; its slice review remains open.
 
 ## Current truth
 
@@ -19,13 +19,15 @@ locally verified; its slice review and hosted clean-machine evidence remain open
 - The version 1 product boundary now has executable schemas, non-throwing decoders, and deterministic awaiting-approval, executing, and review fixtures. Renderer and runtime authority remain outside the contracts package.
 - One fake task now traverses the deterministic kernel, JSONL journal, replay, explicit effect
   reconciliation, in-process `AgentClient`, headless NDJSON, and Bun/OpenTUI surfaces.
-- Local crash, renderer, standalone artifact, and full-workspace evidence is green. Hosted Ubuntu, Windows,
-  and macOS evidence requires a separately authorized commit and push.
+- Local crash, renderer, standalone artifact, and full-workspace evidence is green. Hosted Ubuntu,
+  Windows, and macOS standalone evidence is green in R1 run 29372282206 at `959cc7c`.
+- The shared terminal packaging workflow is green on macOS 15, Ubuntu 24.04, and Windows 2025 in run
+  29372727708 at `594e9f7`; historical R0 measurement versions remain frozen independently.
 
 ## Next decision
 
-Review the completed local evidence for `docs/plans/2026-07-15-r1-fake-task-vertical-slice.md` and decide
-whether to authorize publication for hosted clean-machine verification.
+Review the completed local and hosted evidence for
+`docs/plans/2026-07-15-r1-fake-task-vertical-slice.md` and decide whether to accept the first R1 slice.
 
 ## Next implementation slice
 
@@ -34,7 +36,7 @@ selection. Do not add a real provider or claim R1 completion in that slice witho
 
 ## Known open questions
 
-- Hosted distribution evidence has no URL until a commit and push are separately authorized.
+- None for the first fake-task slice. The next slice requires its own Explore and Freeze work.
 
 ## Update rule
 
