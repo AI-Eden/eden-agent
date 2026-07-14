@@ -61,60 +61,160 @@
       "width": null
     }
   },
-  "recordedAt": "2026-07-14T13:17:24.795Z",
+  "recordedAt": "2026-07-14T14:25:03.899Z",
   "schemaVersion": "1",
   "source": {
-    "commit": "643d1e43444ba27cdb47aa8e33917bd973a4dd3a",
+    "commit": "1a961f41743eb888c7e9dcd3b8029c52cbef0156",
     "dirty": false,
     "artifactDirty": false
   },
   "summary": {
     "stableResidentSetBytes": {
       "failureCount": 0,
-      "median": 171773952,
-      "p95": 173608960,
+      "median": 171786240,
+      "p95": 173219840,
       "successCount": 30
     },
     "startupMs": {
       "failureCount": 0,
-      "median": 250,
-      "p95": 262,
+      "median": 247,
+      "p95": 271,
       "successCount": 30
     },
     "stateUpdateMs": {
       "failureCount": 0,
-      "median": 15.37077700000009,
-      "p95": 16.08578199999829,
+      "median": 15.481588999999076,
+      "p95": 16.131523000000016,
       "successCount": 30
     }
   },
   "trialCount": 30,
   "trials": [
     {
-      "durationMs": 408,
-      "endedAt": "2026-07-14T13:16:51.772Z",
+      "durationMs": 399,
+      "endedAt": "2026-07-14T14:24:29.904Z",
       "exitCode": 0,
       "index": 1,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173318144,
+        "residentSetBytes": 171401216,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:51.364Z",
-      "startupMs": 246,
-      "stateUpdateMs": 14.598066000000472,
+      "startedAt": "2026-07-14T14:24:29.505Z",
+      "startupMs": 238,
+      "stateUpdateMs": 14.650373999999829,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "22f0e18013447fdc69a121516639a58177f526b9d41fbb94cab9a0f4688f9bea"
+      "transcriptSha256": "8ac23fc380552824a354c082ac2846a538f9954713720cfc18d57678fd5b7d89"
     },
     {
-      "durationMs": 417,
-      "endedAt": "2026-07-14T13:16:52.533Z",
+      "durationMs": 403,
+      "endedAt": "2026-07-14T14:24:30.627Z",
       "exitCode": 0,
       "index": 2,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171921408,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:30.224Z",
+      "startupMs": 243,
+      "stateUpdateMs": 15.814007000000856,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "36fa18d1c3880e4e12c94bfd3f75e3814851fe3765095e615b1ef89ff539d197"
+    },
+    {
+      "durationMs": 413,
+      "endedAt": "2026-07-14T14:24:31.516Z",
+      "exitCode": 0,
+      "index": 3,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171597824,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:31.103Z",
+      "startupMs": 255,
+      "stateUpdateMs": 14.705022000000099,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "f1fef9362e811138a6657b56b8def13574e15fda11528f0d5a4f21ebe00d5125"
+    },
+    {
+      "durationMs": 404,
+      "endedAt": "2026-07-14T14:24:33.516Z",
+      "exitCode": 0,
+      "index": 4,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171986944,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:33.112Z",
+      "startupMs": 243,
+      "stateUpdateMs": 14.724155999998402,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "351f1e6e38772ed84c7a517aaf10b2aa7bf0255ff1d163b22f3c1370aacbe7b0"
+    },
+    {
+      "durationMs": 408,
+      "endedAt": "2026-07-14T14:24:34.257Z",
+      "exitCode": 0,
+      "index": 5,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 170508288,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:33.849Z",
+      "startupMs": 249,
+      "stateUpdateMs": 15.416814000000159,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "cea02500c2d71d4766ec7b417fd3a661bb54b0e15945e98afe6ac1db78c1e53e"
+    },
+    {
+      "durationMs": 410,
+      "endedAt": "2026-07-14T14:24:35.142Z",
+      "exitCode": 0,
+      "index": 6,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171921408,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:34.732Z",
+      "startupMs": 248,
+      "stateUpdateMs": 15.493056000001161,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "aa4607308fe51566675c6a1503348da20775295913b7a25a7cdf9c5f2a3c9780"
+    },
+    {
+      "durationMs": 415,
+      "endedAt": "2026-07-14T14:24:37.161Z",
+      "exitCode": 0,
+      "index": 7,
       "memory": {
         "method": "linux-procfs-rss",
         "residentSetBytes": 171667456,
@@ -123,458 +223,98 @@
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:52.116Z",
-      "startupMs": 257,
-      "stateUpdateMs": 15.16453200000069,
+      "startedAt": "2026-07-14T14:24:36.746Z",
+      "startupMs": 254,
+      "stateUpdateMs": 15.68742899999961,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "5faf935385e493944b6b323d3c8da159fcef1c146b4d8e5866710fa2e76bccee"
+      "transcriptSha256": "ceaa9c79a0ec49c2ae79abac044096869aa42db31d0fae05a354664134bfa672"
     },
     {
-      "durationMs": 0,
-      "endedAt": "2026-07-14T13:16:53.017Z",
-      "exitCode": 0,
-      "index": 3,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 173604864,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:53.017Z",
-      "startupMs": 0,
-      "stateUpdateMs": 15.757644000001164,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "da0bca1372f64bbbf16050589a07ef09aeb404f5f5a3a2ca1e9dda20db7029e4"
-    },
-    {
-      "durationMs": 433,
-      "endedAt": "2026-07-14T13:16:54.128Z",
-      "exitCode": 0,
-      "index": 4,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 171749376,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:53.695Z",
-      "startupMs": 272,
-      "stateUpdateMs": 14.981420000000071,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "54ac0bebb523183e80a6bc008ba3eeb1276e3cec2b975bec0b34530528a1aaa8"
-    },
-    {
-      "durationMs": 410,
-      "endedAt": "2026-07-14T13:16:54.861Z",
-      "exitCode": 0,
-      "index": 5,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 170967040,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:54.451Z",
-      "startupMs": 248,
-      "stateUpdateMs": 15.414339999999356,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "c0817e0241e7164b4f118f61436637916e3771e725e14264e84c123c2674960c"
-    },
-    {
-      "durationMs": 418,
-      "endedAt": "2026-07-14T13:16:55.763Z",
-      "exitCode": 0,
-      "index": 6,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 173051904,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:55.345Z",
-      "startupMs": 257,
-      "stateUpdateMs": 14.194363999999041,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "c56653073f54e87b4e96803a9f6b024c6dc6f08a0c0bf341574e84892cb8c940"
-    },
-    {
-      "durationMs": 424,
-      "endedAt": "2026-07-14T13:16:57.816Z",
-      "exitCode": 0,
-      "index": 7,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 172503040,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:57.392Z",
-      "startupMs": 262,
-      "stateUpdateMs": 14.67004199999974,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "137eba60f57d48ac4027451333e9ee08c65c442d967a7ca04dbb633d291f129b"
-    },
-    {
-      "durationMs": 403,
-      "endedAt": "2026-07-14T13:16:58.551Z",
+      "durationMs": 405,
+      "endedAt": "2026-07-14T14:24:37.892Z",
       "exitCode": 0,
       "index": 8,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173608960,
+        "residentSetBytes": 171659264,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:58.148Z",
-      "startupMs": 242,
-      "stateUpdateMs": 15.770645000000513,
+      "startedAt": "2026-07-14T14:24:37.487Z",
+      "startupMs": 245,
+      "stateUpdateMs": 15.207781000000978,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "f13bdfa40a64201b784ccf024ff0f48e4715f72ed434108db1c453c28a07946d"
+      "transcriptSha256": "849eaafc836bdf28dc82c0ac31d710aeca6d5abf89dcc4af426c1424db711dad"
     },
     {
-      "durationMs": 401,
-      "endedAt": "2026-07-14T13:16:59.432Z",
+      "durationMs": 404,
+      "endedAt": "2026-07-14T14:24:38.776Z",
       "exitCode": 0,
       "index": 9,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 171126784,
+        "residentSetBytes": 171745280,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:59.031Z",
-      "startupMs": 240,
-      "stateUpdateMs": 16.08578199999829,
+      "startedAt": "2026-07-14T14:24:38.372Z",
+      "startupMs": 245,
+      "stateUpdateMs": 15.616126000000804,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "08f1d1c9ab1f5bdca92e69c7e1f2498b498a109de7bb5efcd8d7158fc2aa9960"
+      "transcriptSha256": "5d12b9c12beb88c4ed4f3fd62d38062ec68eaeb9cd6947a9f1e7776ba8aef2c2"
     },
     {
-      "durationMs": 420,
-      "endedAt": "2026-07-14T13:17:01.519Z",
+      "durationMs": 406,
+      "endedAt": "2026-07-14T14:24:40.791Z",
       "exitCode": 0,
       "index": 10,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 170868736,
+        "residentSetBytes": 169766912,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:01.099Z",
-      "startupMs": 258,
-      "stateUpdateMs": 15.125615000000835,
+      "startedAt": "2026-07-14T14:24:40.385Z",
+      "startupMs": 243,
+      "stateUpdateMs": 15.52777100000094,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "2b704135456a61a562260a455bdd045ddc1c03c3c5e9914c92e862c0dd486283"
+      "transcriptSha256": "57df8fe0e2a7729ff6487449c3275f03a43db58f1404291288796dfde3290b04"
     },
     {
-      "durationMs": 413,
-      "endedAt": "2026-07-14T13:17:02.268Z",
+      "durationMs": 435,
+      "endedAt": "2026-07-14T14:24:41.530Z",
       "exitCode": 0,
       "index": 11,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173502464,
+        "residentSetBytes": 171880448,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:01.855Z",
-      "startupMs": 252,
-      "stateUpdateMs": 14.73530799999935,
+      "startedAt": "2026-07-14T14:24:41.095Z",
+      "startupMs": 271,
+      "stateUpdateMs": 16.007947000001877,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "69dd3482694f72b7b98489de99a9949f5bf4dc5080b887cdcd71422c9f3b01f1"
+      "transcriptSha256": "ac369fd264bee453e598efb7d3cdb4a83582379353371542fcc831a742920db4"
     },
     {
       "durationMs": 407,
-      "endedAt": "2026-07-14T13:17:03.155Z",
+      "endedAt": "2026-07-14T14:24:42.435Z",
       "exitCode": 0,
       "index": 12,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 172457984,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:02.748Z",
-      "startupMs": 243,
-      "stateUpdateMs": 15.448230000001786,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "01609d4e6a1a9b8c762b1daad6958521c3dc8d828ddb1dfc6705f4fd84d35c8a"
-    },
-    {
-      "durationMs": 411,
-      "endedAt": "2026-07-14T13:17:05.221Z",
-      "exitCode": 0,
-      "index": 13,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 172445696,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:04.810Z",
-      "startupMs": 250,
-      "stateUpdateMs": 15.82465400000001,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "d37e0de1228a1750581408119d023bcf94533babb60af68be6c03359a949b4fe"
-    },
-    {
-      "durationMs": 414,
-      "endedAt": "2026-07-14T13:17:05.962Z",
-      "exitCode": 0,
-      "index": 14,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 171302912,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:05.548Z",
-      "startupMs": 252,
-      "stateUpdateMs": 15.968496000001323,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "af5085f7f85503a414b96d6e5b094aed9590e101f0fb15ed41bb62b1cf75944f"
-    },
-    {
-      "durationMs": 425,
-      "endedAt": "2026-07-14T13:17:06.873Z",
-      "exitCode": 0,
-      "index": 15,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 171790336,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:06.448Z",
-      "startupMs": 260,
-      "stateUpdateMs": 15.757260999998834,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "e1602155b4ac902a749a03fb7cb27ec41a4cb51ad367e36230fe7441800ace03"
-    },
-    {
-      "durationMs": 408,
-      "endedAt": "2026-07-14T13:17:08.911Z",
-      "exitCode": 0,
-      "index": 16,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 171606016,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:08.503Z",
-      "startupMs": 246,
-      "stateUpdateMs": 14.236362999999983,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "09d7128653d248829c8cd7fcf748e56fb3b7f15e2dedb662e306f17b5e840f2f"
-    },
-    {
-      "durationMs": 414,
-      "endedAt": "2026-07-14T13:17:09.650Z",
-      "exitCode": 0,
-      "index": 17,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 170803200,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:09.236Z",
-      "startupMs": 251,
-      "stateUpdateMs": 15.699400000001333,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "a7c6f6ef4805fb021afcba3f64c22fea5557a555038a22ebafc688b9f7ab6dba"
-    },
-    {
-      "durationMs": 420,
-      "endedAt": "2026-07-14T13:17:10.551Z",
-      "exitCode": 0,
-      "index": 18,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 170287104,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:10.131Z",
-      "startupMs": 259,
-      "stateUpdateMs": 15.327214000000822,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "e0a2a6a14fc8c1272742bd6b3e95ae883e89122333bd48830c6a413450223943"
-    },
-    {
-      "durationMs": 418,
-      "endedAt": "2026-07-14T13:17:12.599Z",
-      "exitCode": 0,
-      "index": 19,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 172261376,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:12.181Z",
-      "startupMs": 254,
-      "stateUpdateMs": 15.986664000000019,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "2726b504f1e02d163251e0adf17bbffc8d4b4798c3bc3a471644f1c4072dac7a"
-    },
-    {
-      "durationMs": 410,
-      "endedAt": "2026-07-14T13:17:13.341Z",
-      "exitCode": 0,
-      "index": 20,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 173330432,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:12.931Z",
-      "startupMs": 249,
-      "stateUpdateMs": 15.014218999996956,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "761d42aebfd96d23aaf2e10ddafc92991080f6e1794bbe390736f2a48a6e7587"
-    },
-    {
-      "durationMs": 412,
-      "endedAt": "2026-07-14T13:17:14.240Z",
-      "exitCode": 0,
-      "index": 21,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 171216896,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:13.828Z",
-      "startupMs": 250,
-      "stateUpdateMs": 15.924005000000761,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "348e0ea50b653f3bcaf1a9505dd5047705d49dc633127ddc7bb947717344806c"
-    },
-    {
-      "durationMs": 416,
-      "endedAt": "2026-07-14T13:17:16.318Z",
-      "exitCode": 0,
-      "index": 22,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 172818432,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:15.902Z",
-      "startupMs": 254,
-      "stateUpdateMs": 15.77610700000514,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "00a57727b53f3a982e73d141493a0717794f316d69371914164f87f0bef9837a"
-    },
-    {
-      "durationMs": 413,
-      "endedAt": "2026-07-14T13:17:17.056Z",
-      "exitCode": 0,
-      "index": 23,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 170471424,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:16.643Z",
-      "startupMs": 250,
-      "stateUpdateMs": 14.648003999995126,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "83ffa3f7cc7fc45b8f3c47e96dbbf3a5eeabc8d603675ecb8d2833e9d18c655d"
-    },
-    {
-      "durationMs": 406,
-      "endedAt": "2026-07-14T13:17:17.954Z",
-      "exitCode": 0,
-      "index": 24,
-      "memory": {
-        "method": "linux-procfs-rss",
-        "residentSetBytes": 171724800,
-        "status": "observed"
-      },
-      "outcome": "passed",
-      "phase": "recorded",
-      "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:17.548Z",
-      "startupMs": 243,
-      "stateUpdateMs": 15.236100000001898,
-      "terminalCleanup": "restored",
-      "transcriptBytes": 6344,
-      "transcriptSha256": "45be34a674f744d5fdb559cce65fc390b621c7cebf16c79504387ec6ccc74fc2"
-    },
-    {
-      "durationMs": 407,
-      "endedAt": "2026-07-14T13:17:19.983Z",
-      "exitCode": 0,
-      "index": 25,
       "memory": {
         "method": "linux-procfs-rss",
         "residentSetBytes": 171372544,
@@ -583,112 +323,372 @@
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:19.576Z",
+      "startedAt": "2026-07-14T14:24:42.028Z",
       "startupMs": 247,
-      "stateUpdateMs": 14.595878000000084,
+      "stateUpdateMs": 14.87208499999906,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "328a5af906cb904aba94aacf397b4f153032f65b36f7c860203e8284d02be210"
+      "transcriptSha256": "04a50d895328274c0f0fe80b35909ab1940214e3a049cd6b0fd6d8ea0257000f"
     },
     {
-      "durationMs": 408,
-      "endedAt": "2026-07-14T13:17:20.712Z",
+      "durationMs": 407,
+      "endedAt": "2026-07-14T14:24:44.484Z",
+      "exitCode": 0,
+      "index": 13,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 170455040,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:44.077Z",
+      "startupMs": 247,
+      "stateUpdateMs": 14.693219000000681,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "b9c7a3fe7dc5005c0d681cc0b5252c25c85717043266ae2ac530a520ae1e4e7e"
+    },
+    {
+      "durationMs": 411,
+      "endedAt": "2026-07-14T14:24:45.214Z",
+      "exitCode": 0,
+      "index": 14,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 172384256,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:44.803Z",
+      "startupMs": 249,
+      "stateUpdateMs": 15.492248999998992,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "835ab99909beef2bf08ebbde5aba60e680390e831987d302f63488a959e57b90"
+    },
+    {
+      "durationMs": 418,
+      "endedAt": "2026-07-14T14:24:46.119Z",
+      "exitCode": 0,
+      "index": 15,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171483136,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:45.701Z",
+      "startupMs": 248,
+      "stateUpdateMs": 15.47092899999916,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "6020279b93fb5d442c3b44303326239c4c436c9c6da33f07bab13c325027791e"
+    },
+    {
+      "durationMs": 405,
+      "endedAt": "2026-07-14T14:24:48.143Z",
+      "exitCode": 0,
+      "index": 16,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 172158976,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:47.738Z",
+      "startupMs": 244,
+      "stateUpdateMs": 15.343440000000555,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "6a493b6ec0608a2e78f7d497972fe756046f644ee2f535a732dcf51392453747"
+    },
+    {
+      "durationMs": 400,
+      "endedAt": "2026-07-14T14:24:48.859Z",
+      "exitCode": 0,
+      "index": 17,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 173219840,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:48.459Z",
+      "startupMs": 239,
+      "stateUpdateMs": 15.342678999997588,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "a7cbbd27e7d63d08a2c467d10b2872c866741da6948b6b0db3f3acfab2070d7c"
+    },
+    {
+      "durationMs": 419,
+      "endedAt": "2026-07-14T14:24:49.753Z",
+      "exitCode": 0,
+      "index": 18,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 172425216,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:49.334Z",
+      "startupMs": 256,
+      "stateUpdateMs": 16.131523000000016,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "8dbb96f2ca83060338c8d8796121ef0949d1f2a93864792160cb3cfa2982a775"
+    },
+    {
+      "durationMs": 403,
+      "endedAt": "2026-07-14T14:24:51.763Z",
+      "exitCode": 0,
+      "index": 19,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 170848256,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:51.360Z",
+      "startupMs": 244,
+      "stateUpdateMs": 14.30762699999832,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "d6532b10f13ac766a3b68c5d8afbda5a74a0fae4e472a4578f1f7847c5e6280d"
+    },
+    {
+      "durationMs": 427,
+      "endedAt": "2026-07-14T14:24:52.513Z",
+      "exitCode": 0,
+      "index": 20,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171573248,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:52.086Z",
+      "startupMs": 267,
+      "stateUpdateMs": 15.14837500000067,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "07d206b3fcb86e0e2206832c311f069607ef58e8cc765535d8006aaa93b742c0"
+    },
+    {
+      "durationMs": 403,
+      "endedAt": "2026-07-14T14:24:53.393Z",
+      "exitCode": 0,
+      "index": 21,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 172609536,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:52.990Z",
+      "startupMs": 244,
+      "stateUpdateMs": 15.738713000002463,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "6999112300bb70bf273b4f44b99c93f1c3d97e6c8f2fb3ced141c5e03ca872a7"
+    },
+    {
+      "durationMs": 410,
+      "endedAt": "2026-07-14T14:24:55.407Z",
+      "exitCode": 0,
+      "index": 22,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171958272,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:54.997Z",
+      "startupMs": 248,
+      "stateUpdateMs": 15.67164700000285,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "97b94ba42c74b38071f70f53b307c7f84c6f273c825c8512364e418fa7fa1ba6"
+    },
+    {
+      "durationMs": 401,
+      "endedAt": "2026-07-14T14:24:56.124Z",
+      "exitCode": 0,
+      "index": 23,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 173076480,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:55.723Z",
+      "startupMs": 242,
+      "stateUpdateMs": 14.666367000005266,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "79dcc570d6aad67c0969bfe01e94421bd6abeb82498e4827d5d35e8f28e08ec8"
+    },
+    {
+      "durationMs": 418,
+      "endedAt": "2026-07-14T14:24:57.023Z",
+      "exitCode": 0,
+      "index": 24,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 171749376,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:56.605Z",
+      "startupMs": 257,
+      "stateUpdateMs": 14.278807000002416,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "06d8558c070ed2c737c25da764a837fd970678cb10ba3f790d40a96018dee728"
+    },
+    {
+      "durationMs": 0,
+      "endedAt": "2026-07-14T14:24:58.640Z",
+      "exitCode": 0,
+      "index": 25,
+      "memory": {
+        "method": "linux-procfs-rss",
+        "residentSetBytes": 173826048,
+        "status": "observed"
+      },
+      "outcome": "passed",
+      "phase": "recorded",
+      "shellSentinel": "observed",
+      "startedAt": "2026-07-14T14:24:58.640Z",
+      "startupMs": 0,
+      "stateUpdateMs": 15.747548999999708,
+      "terminalCleanup": "restored",
+      "transcriptBytes": 6344,
+      "transcriptSha256": "9d3d0a253108166c470fb1392dd10ff4216ed9684f6d2875a26c3bdfcd8e888e"
+    },
+    {
+      "durationMs": 455,
+      "endedAt": "2026-07-14T14:24:58.377Z",
       "exitCode": 0,
       "index": 26,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 171757568,
+        "residentSetBytes": 171102208,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:20.304Z",
-      "startupMs": 247,
-      "stateUpdateMs": 15.29990700000053,
+      "startedAt": "2026-07-14T14:24:57.922Z",
+      "startupMs": 287,
+      "stateUpdateMs": 14.773337000005995,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "8d09077ff6a65356226564a3b9cbc6ac98a99e5c0c260c1ae3b8f75ef28476e4"
+      "transcriptSha256": "4eb5c78d9d0a6fc85b811d3ab79093e0d853ca63617bfc5c4f7a29f5f4a76eac"
     },
     {
-      "durationMs": 249,
-      "endedAt": "2026-07-14T13:17:21.452Z",
+      "durationMs": 421,
+      "endedAt": "2026-07-14T14:24:59.381Z",
       "exitCode": 0,
       "index": 27,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 172896256,
+        "residentSetBytes": 170930176,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:21.203Z",
-      "startupMs": 249,
-      "stateUpdateMs": 16.209835000001476,
+      "startedAt": "2026-07-14T14:24:58.960Z",
+      "startupMs": 258,
+      "stateUpdateMs": 16.072885000001406,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "45f49f9eed6579863f6f504d6fab7fa20b8fd4fbeed999c71845c9b87a343104"
+      "transcriptSha256": "68508e316e9519a6f4973c38da4874f4d42be1829abfb95737ca24e1c7c91a33"
     },
     {
-      "durationMs": 408,
-      "endedAt": "2026-07-14T13:17:22.290Z",
+      "durationMs": 405,
+      "endedAt": "2026-07-14T14:25:01.417Z",
       "exitCode": 0,
       "index": 28,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 172691456,
+        "residentSetBytes": 173039616,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:21.882Z",
-      "startupMs": 247,
-      "stateUpdateMs": 15.675742999999784,
+      "startedAt": "2026-07-14T14:25:01.012Z",
+      "startupMs": 244,
+      "stateUpdateMs": 15.737413000002562,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "5809b88fd0c53c064d7bb61f366d51ce1463ceb5a5fb0b3a81acadd7f2ac5d51"
+      "transcriptSha256": "413caa1033ee675de86f5939eeb747fdcf2a3ae665e46664479fc56aed27150b"
     },
     {
-      "durationMs": 409,
-      "endedAt": "2026-07-14T13:17:23.027Z",
+      "durationMs": 404,
+      "endedAt": "2026-07-14T14:25:02.144Z",
       "exitCode": 0,
       "index": 29,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173715456,
+        "residentSetBytes": 171823104,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:22.618Z",
-      "startupMs": 248,
-      "stateUpdateMs": 15.537270000000717,
+      "startedAt": "2026-07-14T14:25:01.740Z",
+      "startupMs": 243,
+      "stateUpdateMs": 15.69070500000089,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "e71a110450aa625c447b6119e02ede25b06e137e60341c7d91e3d247ce3b17e2"
+      "transcriptSha256": "44960a67a603851fa4b1a1a017fc1ca193160058b9fe89cacd26096c7e1cbfa2"
     },
     {
-      "durationMs": 416,
-      "endedAt": "2026-07-14T13:17:23.927Z",
+      "durationMs": 415,
+      "endedAt": "2026-07-14T14:25:03.034Z",
       "exitCode": 0,
       "index": 30,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 171470848,
+        "residentSetBytes": 171909120,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "recorded",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:17:23.511Z",
-      "startupMs": 254,
-      "stateUpdateMs": 15.304468999995152,
+      "startedAt": "2026-07-14T14:25:02.619Z",
+      "startupMs": 252,
+      "stateUpdateMs": 16.14225599999918,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "1701aea4030f2bdd3028d7329eb2362b18956502f9423a837cf78082606c4eaf"
+      "transcriptSha256": "b64bb535830350b88cfab2c180b0be924a94570283d28b2f7028ff3de54513dc"
     }
   ],
   "viewport": {
@@ -698,104 +698,104 @@
   "warmupCount": 5,
   "warmups": [
     {
-      "durationMs": 412,
-      "endedAt": "2026-07-14T13:16:45.597Z",
+      "durationMs": 408,
+      "endedAt": "2026-07-14T14:24:25.199Z",
       "exitCode": 0,
       "index": 1,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173109248,
+        "residentSetBytes": 173481984,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "warmup",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:45.185Z",
-      "startupMs": 251,
-      "stateUpdateMs": 15.45668099999989,
+      "startedAt": "2026-07-14T14:24:24.791Z",
+      "startupMs": 248,
+      "stateUpdateMs": 14.816057,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "2ab291ed8341dad21f6b0d4ee4772202a25280b10dd450022bc32568f6799299"
+      "transcriptSha256": "df6f89a8ae801e22bcb294e4348be0e300cbfa8e91877ac9c3a7d01598b884fb"
     },
     {
       "durationMs": 414,
-      "endedAt": "2026-07-14T13:16:46.348Z",
+      "endedAt": "2026-07-14T14:24:25.941Z",
       "exitCode": 0,
       "index": 2,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 172724224,
+        "residentSetBytes": 172773376,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "warmup",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:45.934Z",
-      "startupMs": 252,
-      "stateUpdateMs": 15.185019000000011,
+      "startedAt": "2026-07-14T14:24:25.527Z",
+      "startupMs": 253,
+      "stateUpdateMs": 14.861057999999957,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "d5814f2be191e49ae8cbf4e796711ab2acc09f18520b261bd2e5151b61e7954f"
+      "transcriptSha256": "7b7c60788580ab4fa72d088dae8c3a91eab8e5fee7150da63b4fc69c386ab9e7"
     },
     {
-      "durationMs": 423,
-      "endedAt": "2026-07-14T13:16:47.284Z",
+      "durationMs": 405,
+      "endedAt": "2026-07-14T14:24:26.830Z",
       "exitCode": 0,
       "index": 3,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173469696,
+        "residentSetBytes": 172392448,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "warmup",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:46.861Z",
-      "startupMs": 262,
-      "stateUpdateMs": 14.776800999999978,
+      "startedAt": "2026-07-14T14:24:26.425Z",
+      "startupMs": 242,
+      "stateUpdateMs": 15.720460000000003,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "40193a2feb0ae4a0a36bf6fb65a63a0733acf25ec76f070a9c6c7f188c2f300f"
+      "transcriptSha256": "08fa30bff5face11228ae4ce7f4867fd28679d73433519db9d6138334bd69d7c"
     },
     {
-      "durationMs": 413,
-      "endedAt": "2026-07-14T13:16:49.317Z",
+      "durationMs": 408,
+      "endedAt": "2026-07-14T14:24:28.854Z",
       "exitCode": 0,
       "index": 4,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 172470272,
+        "residentSetBytes": 170528768,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "warmup",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:48.904Z",
-      "startupMs": 251,
-      "stateUpdateMs": 15.37067399999978,
+      "startedAt": "2026-07-14T14:24:28.446Z",
+      "startupMs": 247,
+      "stateUpdateMs": 15.72380499999963,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "332fb2d1952869438e6246b0403c9305cfa733b45d6ab309d16aaccf88cd3063"
+      "transcriptSha256": "bf07069f3564acd0bf53b9b7f34a66fc5e913b271640c81e41c83c87a501347a"
     },
     {
-      "durationMs": 404,
-      "endedAt": "2026-07-14T13:16:50.050Z",
+      "durationMs": 412,
+      "endedAt": "2026-07-14T14:24:29.595Z",
       "exitCode": 0,
       "index": 5,
       "memory": {
         "method": "linux-procfs-rss",
-        "residentSetBytes": 173547520,
+        "residentSetBytes": 171388928,
         "status": "observed"
       },
       "outcome": "passed",
       "phase": "warmup",
       "shellSentinel": "observed",
-      "startedAt": "2026-07-14T13:16:49.646Z",
-      "startupMs": 245,
-      "stateUpdateMs": 14.952338000000054,
+      "startedAt": "2026-07-14T14:24:29.183Z",
+      "startupMs": 252,
+      "stateUpdateMs": 15.720500000000357,
       "terminalCleanup": "restored",
       "transcriptBytes": 6344,
-      "transcriptSha256": "20cbf05f914d74cb30e9f5b2061517b4b331fc81fbf15d9ca81414510d56e935"
+      "transcriptSha256": "da7247338d7fce774a9f3da4d5c8fde7a57ea60ff4d273d5931e37f713457aef"
     }
   ]
 }
