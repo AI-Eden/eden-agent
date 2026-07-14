@@ -5,12 +5,14 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = dirname(dirname(fileURLToPath(import.meta.url)));
+const attributesSource = readFileSync(join(repositoryRoot, ".gitattributes"), "utf8");
 const workflowSource = readFileSync(
   join(repositoryRoot, ".github", "workflows", "terminal-framework-spike.yml"),
   "utf8",
 );
 const expectedPaths = [
   ".github/workflows/terminal-framework-spike.yml",
+  ".gitattributes",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
@@ -20,6 +22,10 @@ const expectedPaths = [
   "!spikes/terminal-framework/results/**",
   "spikes/terminal-framework/results/result.schema.json",
 ];
+
+test("keeps repository text checkouts LF-normalized on every runner", () => {
+  strictEqual(attributesSource, "* text=auto eol=lf\n");
+});
 
 function readEventList(source, eventName, key) {
   const lines = source.split(/\r?\n/u);

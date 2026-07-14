@@ -3,8 +3,10 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const workflowUrl = new URL("../.github/workflows/r1-walking-skeleton.yml", import.meta.url);
+const attributesUrl = new URL("../.gitattributes", import.meta.url);
 const expectedPaths = [
   ".github/workflows/r1-walking-skeleton.yml",
+  ".gitattributes",
   ".markdownlint-cli2.jsonc",
   ".markdownlint-cli2.mjs",
   "biome.json",
@@ -19,6 +21,10 @@ const expectedPaths = [
   "packages/contracts/**",
   "packages/kernel/**",
 ];
+
+test("keeps repository text checkouts LF-normalized on every runner", async () => {
+  strictEqual(await readFile(attributesUrl, "utf8"), "* text=auto eol=lf\n");
+});
 
 function readEventList(source, eventName, key) {
   const lines = source.split(/\r?\n/u);
