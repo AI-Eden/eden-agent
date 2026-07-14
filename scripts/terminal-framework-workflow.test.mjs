@@ -49,7 +49,7 @@ test("limits automatic terminal-framework pushes to branches", () => {
 });
 
 test("reads workflow lists from a CRLF checkout", () => {
-  const crlfSource = workflowSource.replaceAll("\n", "\r\n");
+  const crlfSource = workflowSource.replace(/\r?\n/gu, "\n").replaceAll("\n", "\r\n");
 
   deepStrictEqual(readEventList(crlfSource, "pull_request", "paths"), expectedPaths);
   deepStrictEqual(readEventList(crlfSource, "push", "branches"), ["**"]);
