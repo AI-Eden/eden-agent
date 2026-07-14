@@ -4,6 +4,7 @@ import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
 import { spawn } from "node-pty";
 import { driveCandidateScenario } from "./drive-scenario.ts";
 import { createInteractiveTerminalEnvironment } from "./package-command.ts";
+import { captureStableProcessMemory, type MemoryObservation } from "./process-memory.ts";
 import { shouldUseBundledConpty, terminatePtyProcessGroup } from "./pty-cleanup.ts";
 import { createShellSession } from "./shell-session.ts";
 import { prepareWindowsConsoleModeHelper } from "./terminal-mode.ts";
@@ -19,11 +20,14 @@ export type ProcessSmokeResult = {
   readonly endedAt: string;
   readonly exitCode: number;
   readonly fixtureId: string;
+  readonly memory: MemoryObservation;
   readonly readiness: "not-applicable" | "observed";
   readonly readyAt: string;
   readonly scenario: ProcessScenario;
   readonly shellSentinel: "missing" | "observed";
   readonly startedAt: string;
+  readonly startupMs: number;
+  readonly stateUpdateMs: number | null;
   readonly terminalCleanup: "failed" | "restored";
   readonly terminalModeAfter: string;
   readonly terminalModeBefore: string;
@@ -43,11 +47,16 @@ const harnessRoot = fileURLToPath(new URL("../", import.meta.url));
 type CompletedProcessObservation = {
   readonly candidateId: CandidateId;
   readonly exitCode: number;
+  readonly memory: MemoryObservation;
   readonly readiness: ProcessSmokeResult["readiness"];
   readonly readyAt: Date;
   readonly scenario: ProcessScenario;
   readonly shellExpectedResponse: string;
   readonly startedAt: Date;
+  readonly stateUpdate: {
+    readonly endedAt: Date;
+    readonly startedAt: Date;
+  } | null;
   readonly transcript: string;
   readonly viewportSequence: readonly string[];
 };
@@ -80,6 +89,7 @@ function createProcessSmokeResult(observation: CompletedProcessObservation): Pro
     endedAt: endedAt.toISOString(),
     exitCode: observation.exitCode,
     fixtureId: terminalSpikeFixture.fixtureId,
+    memory: observation.memory,
     readiness: observation.readiness,
     readyAt: readyAt.toISOString(),
     scenario: observation.scenario,
@@ -87,6 +97,11 @@ function createProcessSmokeResult(observation: CompletedProcessObservation): Pro
       ? "observed"
       : "missing",
     startedAt: observation.startedAt.toISOString(),
+    startupMs: readyAt.getTime() - observation.startedAt.getTime(),
+    stateUpdateMs:
+      observation.stateUpdate === null
+        ? null
+        : observation.stateUpdate.endedAt.getTime() - observation.stateUpdate.startedAt.getTime(),
     terminalCleanup:
       cursorRestored &&
       alternateScreenRestored &&
@@ -153,6 +168,7 @@ export async function runCandidateScenario(
   try {
     const drivenScenario = await driveCandidateScenario({
       candidateId: options.candidateId,
+      captureMemory: () => captureStableProcessMemory(terminal.pid),
       readTranscript: () => transcript,
       scenario: options.scenario,
       shellChallengeInput: shellSession.challengeInput,

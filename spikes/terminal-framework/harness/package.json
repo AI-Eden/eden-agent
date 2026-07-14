@@ -10,10 +10,12 @@
     "package": "node --import tsx src/package-candidate.ts",
     "test": "pnpm test:process",
     "test:process": "node --import tsx src/process-test-runner.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "validate:results": "node --import tsx src/validate-results.ts ../results"
   },
   "dependencies": {
     "@eden/terminal-spike-fixture": "workspace:*",
+    "ajv": "8.20.0",
     "node-pty": "1.1.0"
   },
   "devDependencies": {

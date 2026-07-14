@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { totalmem } from "node:os";
 import { describe, it } from "node:test";
 import { terminalSpikeFixture } from "@eden/terminal-spike-fixture";
 import { type CandidateId, runCandidateScenario } from "../src/pty.ts";
@@ -144,6 +145,11 @@ describe("terminal candidate process harness", () => {
       assert.ok(Date.parse(result.startedAt) <= Date.parse(result.readyAt));
       assert.ok(Date.parse(result.readyAt) <= Date.parse(result.endedAt));
       assert.ok(result.durationMs >= 0);
+      assert.ok(result.startupMs >= 0);
+      assert.ok(result.stateUpdateMs !== null && result.stateUpdateMs >= 0);
+      assert.equal(result.memory.status, "observed");
+      assert.ok(result.memory.residentSetBytes > 0);
+      assert.ok(result.memory.residentSetBytes < totalmem());
       assert.equal(result.exitCode, 0);
       assert.notEqual(result.terminalModeBefore, "missing");
       assert.equal(result.terminalModeBefore, result.terminalModeAfter);

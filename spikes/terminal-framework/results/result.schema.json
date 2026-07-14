@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/AI-Eden/eden-agent/spikes/terminal-framework/results/result.schema.json",
+  "title": "Eden terminal framework Slice 6 measurement record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact",
+    "candidateId",
+    "command",
+    "environment",
+    "fixtureId",
+    "hardGateObservations",
+    "matchingSurface",
+    "recordedAt",
+    "schemaVersion",
+    "source",
+    "summary",
+    "trialCount",
+    "trials",
+    "viewport",
+    "warmupCount",
+    "warmups"
+  ],
+  "properties": {
+    "artifact": { "$ref": "#/definitions/artifact" },
+    "candidateId": { "$ref": "#/definitions/candidateId" },
+    "command": { "type": "string", "minLength": 1 },
+    "environment": { "$ref": "#/definitions/environment" },
+    "fixtureId": { "const": "terminal-spike-r0-v1" },
+    "hardGateObservations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["automatedPrimary", "realTerminalQa", "stressNavigation"],
+      "properties": {
+        "automatedPrimary": { "enum": ["failed", "passed"] },
+        "realTerminalQa": { "$ref": "#/definitions/observationStatus" },
+        "stressNavigation": { "$ref": "#/definitions/observationStatus" }
+      }
+    },
+    "matchingSurface": { "$ref": "#/definitions/matchingSurface" },
+    "recordedAt": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "const": "1" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactDirty", "commit", "dirty"],
+      "properties": {
+        "artifactDirty": { "type": "boolean" },
+        "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "dirty": { "type": "boolean" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stableResidentSetBytes", "startupMs", "stateUpdateMs"],
+      "properties": {
+        "stableResidentSetBytes": { "$ref": "#/definitions/summary" },
+        "startupMs": { "$ref": "#/definitions/summary" },
+        "stateUpdateMs": { "$ref": "#/definitions/summary" }
+      }
+    },
+    "trialCount": { "type": "integer", "minimum": 1 },
+    "trials": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/trial" }
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["columns", "rows"],
+      "properties": {
+        "columns": { "const": 100 },
+        "rows": { "const": 30 }
+      }
+    },
+    "warmupCount": { "type": "integer", "minimum": 0 },
+    "warmups": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/trial" }
+    }
+  },
+  "definitions": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["installedSizeBytes", "sha256", "sizeBytes"],
+      "properties": {
+        "installedSizeBytes": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "candidateId": { "enum": ["ink-node", "ink-bun", "opentui-bun"] },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arch",
+        "cpuCount",
+        "cpuModel",
+        "hostLoadPolicy",
+        "hostname",
+        "locale",
+        "osRelease",
+        "platform",
+        "runner",
+        "shell",
+        "terminalId",
+        "totalMemoryBytes",
+        "versions"
+      ],
+      "properties": {
+        "arch": { "type": "string", "minLength": 1 },
+        "cpuCount": { "type": "integer", "minimum": 1 },
+        "cpuModel": { "type": "string", "minLength": 1 },
+        "hostLoadPolicy": { "type": "string", "minLength": 1 },
+        "hostname": { "type": "string", "minLength": 1 },
+        "locale": { "type": "string", "minLength": 1 },
+        "osRelease": { "type": "string", "minLength": 1 },
+        "platform": { "enum": ["darwin", "linux", "win32"] },
+        "runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["imageOs", "imageVersion", "name"],
+          "properties": {
+            "imageOs": { "type": ["string", "null"] },
+            "imageVersion": { "type": ["string", "null"] },
+            "name": { "type": ["string", "null"] }
+          }
+        },
+        "shell": { "type": "string", "minLength": 1 },
+        "terminalId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "totalMemoryBytes": { "type": "integer", "minimum": 1 },
+        "versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["bun", "node", "pnpm"],
+          "properties": {
+            "bun": { "const": "1.3.14" },
+            "node": { "const": "v24.15.0" },
+            "pnpm": { "const": "11.7.0" }
+          }
+        }
+      }
+    },
+    "matchingSurface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cases", "notes", "observedAt", "operator", "status", "terminal"],
+      "properties": {
+        "cases": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cancellationCleanup",
+            "chineseIme",
+            "graphemeEditing",
+            "largeDiff",
+            "largeOutput",
+            "navigationEscapeAlt",
+            "pasteAndMultiline",
+            "rapidResize"
+          ],
+          "properties": {
+            "cancellationCleanup": { "$ref": "#/definitions/observationStatus" },
+            "chineseIme": { "$ref": "#/definitions/observationStatus" },
+            "graphemeEditing": { "$ref": "#/definitions/observationStatus" },
+            "largeDiff": { "$ref": "#/definitions/observationStatus" },
+            "largeOutput": { "$ref": "#/definitions/observationStatus" },
+            "navigationEscapeAlt": { "$ref": "#/definitions/observationStatus" },
+            "pasteAndMultiline": { "$ref": "#/definitions/observationStatus" },
+            "rapidResize": { "$ref": "#/definitions/observationStatus" }
+          }
+        },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "observedAt": { "type": ["string", "null"] },
+        "operator": { "type": ["string", "null"] },
+        "status": { "$ref": "#/definitions/observationStatus" },
+        "terminal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "enhancedProtocols",
+            "font",
+            "height",
+            "locale",
+            "name",
+            "shell",
+            "version",
+            "width"
+          ],
+          "properties": {
+            "enhancedProtocols": { "type": ["string", "null"] },
+            "font": { "type": ["string", "null"] },
+            "height": { "type": ["integer", "null"], "minimum": 1 },
+            "locale": { "type": "string", "minLength": 1 },
+            "name": { "type": "string", "minLength": 1 },
+            "shell": { "type": "string", "minLength": 1 },
+            "version": { "type": ["string", "null"] },
+            "width": { "type": ["integer", "null"], "minimum": 1 }
+          }
+        }
+      }
+    },
+    "memory": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "residentSetBytes", "status"],
+          "properties": {
+            "method": {
+              "enum": ["linux-procfs-rss", "macos-ps-rss", "windows-working-set"]
+            },
+            "residentSetBytes": { "type": "integer", "minimum": 1 },
+            "status": { "const": "observed" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "residentSetBytes", "status"],
+          "properties": {
+            "method": { "const": "unsupported-platform" },
+            "residentSetBytes": { "type": "null" },
+            "status": { "const": "not-run" }
+          }
+        }
+      ]
+    },
+    "observationStatus": { "enum": ["failed", "not-run", "passed"] },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["failureCount", "median", "p95", "successCount"],
+      "properties": {
+        "failureCount": { "type": "integer", "minimum": 0 },
+        "median": { "type": ["number", "null"], "minimum": 0 },
+        "p95": { "type": ["number", "null"], "minimum": 0 },
+        "successCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "trial": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "durationMs",
+            "endedAt",
+            "exitCode",
+            "index",
+            "memory",
+            "outcome",
+            "phase",
+            "shellSentinel",
+            "startedAt",
+            "startupMs",
+            "stateUpdateMs",
+            "terminalCleanup",
+            "transcriptBytes",
+            "transcriptSha256"
+          ],
+          "properties": {
+            "durationMs": { "type": "number", "minimum": 0 },
+            "endedAt": { "type": "string", "minLength": 1 },
+            "exitCode": { "const": 0 },
+            "index": { "type": "integer", "minimum": 1 },
+            "memory": { "$ref": "#/definitions/memory" },
+            "outcome": { "const": "passed" },
+            "phase": { "enum": ["recorded", "warmup"] },
+            "shellSentinel": { "const": "observed" },
+            "startedAt": { "type": "string", "minLength": 1 },
+            "startupMs": { "type": "number", "minimum": 0 },
+            "stateUpdateMs": { "type": "number", "minimum": 0 },
+            "terminalCleanup": { "const": "restored" },
+            "transcriptBytes": { "type": "integer", "minimum": 0 },
+            "transcriptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["endedAt", "error", "index", "outcome", "phase", "startedAt"],
+          "properties": {
+            "endedAt": { "type": "string", "minLength": 1 },
+            "error": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["message", "name"],
+              "properties": {
+                "message": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 }
+              }
+            },
+            "index": { "type": "integer", "minimum": 1 },
+            "outcome": { "const": "failed" },
+            "phase": { "enum": ["recorded", "warmup"] },
+            "startedAt": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
+    }
+  }
+}

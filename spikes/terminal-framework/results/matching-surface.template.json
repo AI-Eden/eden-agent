@@ -1,0 +1,26 @@
+{
+  "cases": {
+    "cancellationCleanup": "not-run",
+    "chineseIme": "not-run",
+    "graphemeEditing": "not-run",
+    "largeDiff": "not-run",
+    "largeOutput": "not-run",
+    "navigationEscapeAlt": "not-run",
+    "pasteAndMultiline": "not-run",
+    "rapidResize": "not-run"
+  },
+  "notes": [],
+  "observedAt": null,
+  "operator": null,
+  "status": "not-run",
+  "terminal": {
+    "enhancedProtocols": null,
+    "font": null,
+    "height": null,
+    "locale": "unavailable",
+    "name": "unavailable",
+    "shell": "unavailable",
+    "version": null,
+    "width": null
+  }
+}

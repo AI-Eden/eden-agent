@@ -1,17 +1,24 @@
 import { setTimeout as delay } from "node:timers/promises";
 import type { IPty } from "node-pty";
+import type { MemoryObservation } from "./process-memory.ts";
 import type { CandidateId, ProcessScenario } from "./pty.ts";
 import { waitForExit, waitForNextData, waitForText } from "./pty-events.ts";
 
 export type DrivenScenario = {
   readonly exitCode: number;
+  readonly memory: MemoryObservation;
   readonly readiness: "not-applicable" | "observed";
   readonly readyAt: Date;
+  readonly stateUpdate: {
+    readonly endedAt: Date;
+    readonly startedAt: Date;
+  } | null;
   readonly viewportSequence: readonly string[];
 };
 
 type DriveCandidateScenarioOptions = {
   readonly candidateId: CandidateId;
+  readonly captureMemory: () => Promise<MemoryObservation>;
   readonly readTranscript: () => string;
   readonly scenario: ProcessScenario;
   readonly shellChallengeInput: string;
@@ -104,6 +111,8 @@ async function driveStressScenario(
   options: DriveCandidateScenarioOptions,
 ): Promise<DrivenScenario> {
   const readyAt = await prepareInteractiveCandidate(options);
+  const memory = await options.captureMemory();
+  const stateUpdateStartedAt = new Date();
   options.terminal.write("a");
   await waitForText({
     candidateId: options.candidateId,
@@ -111,6 +120,7 @@ async function driveStressScenario(
     readTranscript: options.readTranscript,
     terminal: options.terminal,
   });
+  const stateUpdateEndedAt = new Date();
   const outputOffset = options.readTranscript().length;
   options.terminal.write("o");
   await waitForText({
@@ -159,7 +169,14 @@ async function driveStressScenario(
     terminal: options.terminal,
   });
   const exitCode = await completeShellRecovery(options);
-  return { exitCode, readiness: "observed", readyAt, viewportSequence };
+  return {
+    exitCode,
+    memory,
+    readiness: "observed",
+    readyAt,
+    stateUpdate: { endedAt: stateUpdateEndedAt, startedAt: stateUpdateStartedAt },
+    viewportSequence,
+  };
 }
 
 export async function driveCandidateScenario(
@@ -170,21 +187,33 @@ export async function driveCandidateScenario(
       const exitCode = await completeShellRecovery(options);
       return {
         exitCode,
+        memory: { method: "unsupported-platform", residentSetBytes: null, status: "not-run" },
         readiness: "not-applicable",
         readyAt: options.startedAt,
+        stateUpdate: null,
         viewportSequence: [],
       };
     }
     case "cancel": {
       const readyAt = await waitForInteractiveCandidate(options);
+      const memory = await options.captureMemory();
       requestPtyCancellation(options);
       const exitCode = await completeShellRecovery(options);
-      return { exitCode, readiness: "observed", readyAt, viewportSequence: ["60x20"] };
+      return {
+        exitCode,
+        memory,
+        readiness: "observed",
+        readyAt,
+        stateUpdate: null,
+        viewportSequence: ["60x20"],
+      };
     }
     case "stress":
       return driveStressScenario(options);
     case "primary": {
       const readyAt = await prepareInteractiveCandidate(options);
+      const memory = await options.captureMemory();
+      const stateUpdateStartedAt = new Date();
       options.terminal.write("a");
       await waitForText({
         candidateId: options.candidateId,
@@ -192,9 +221,17 @@ export async function driveCandidateScenario(
         readTranscript: options.readTranscript,
         terminal: options.terminal,
       });
+      const stateUpdateEndedAt = new Date();
       options.terminal.write("q");
       const exitCode = await completeShellRecovery(options);
-      return { exitCode, readiness: "observed", readyAt, viewportSequence };
+      return {
+        exitCode,
+        memory,
+        readiness: "observed",
+        readyAt,
+        stateUpdate: { endedAt: stateUpdateEndedAt, startedAt: stateUpdateStartedAt },
+        viewportSequence,
+      };
     }
     default:
       return assertNeverScenario(options.scenario);
