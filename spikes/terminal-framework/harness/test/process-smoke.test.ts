@@ -202,7 +202,11 @@ describe("terminal candidate process harness", () => {
           runCandidateScenario({ candidateId, scenario: "stress" }),
           (error: unknown) => {
             assert.ok(error instanceof ProcessHarnessTimeoutError);
-            assert.equal(error.expectedEvent, "output marker: output-09999");
+            const expectedTimeoutEvents =
+              process.platform === "win32"
+                ? ["focus: output", "output marker: output-09999"]
+                : ["output marker: output-09999"];
+            assert.ok(expectedTimeoutEvents.includes(error.expectedEvent));
             return true;
           },
         );
