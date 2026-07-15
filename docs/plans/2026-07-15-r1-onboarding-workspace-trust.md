@@ -1,6 +1,6 @@
 # R1 Onboarding and Explicit Workspace Trust Plan
 
-- Status: Implementation and local evidence complete; publication authorized; hosted evidence pending
+- Status: Implementation and local/hosted evidence complete; slice review pending
 - Date: 2026-07-15
 - Roadmap stage: R1, Installable Walking Skeleton
 - Baseline: `a971faaf1b525a617a48cba424050a97c46fb8b9`
@@ -654,8 +654,9 @@ and PTY shell sentinels. A source-level test renderer is not sufficient matching
 ## Implementation and local evidence
 
 Implementation began from the approved baseline `a971faa`. Separate commit and push authorization was
-granted on 2026-07-15 after the local evidence completed; hosted evidence is pending that publication.
-No release was authorized. The final local verification after the last product edit is green:
+granted on 2026-07-15 after the local evidence completed. The slice implementation was published in
+`8282a27`; two evidence-oracle fixes followed in `3ec0881` and `c962245`. No release was authorized. The
+final local verification after the last product edit is green:
 
 - `pnpm test`: green, including 10 contract, 8 kernel, 25 coding-runtime, and 10 production CLI tests;
 - `pnpm typecheck`, `pnpm build`, `pnpm code:check`, and `pnpm markdown:check`: green;
@@ -702,11 +703,24 @@ After the final contract-only rebuild, `/tmp/eden-standalone-FwSWiV/bin/eden` re
 60x20 restricted, trust, focus, exact-task, separate-approval, and success journey with evidence
 `e80f7d0b-1824-44e5-b9ff-ef7e700aeae2:fake-evidence`; its trust record remained trusted revision 1.
 
-Residual evidence risk remains: the current uncommitted slice has not run the hosted Ubuntu, Windows, and
-macOS workflow. Earlier hosted R1 runs validate the baseline packaging path, not these trust changes.
-Windows ACL behavior and native renderer behavior on Windows/macOS therefore remain unverified for this
-slice until publication and hosted execution are separately authorized. Concurrent active-run revocation
-remains an explicit non-goal.
+Hosted run 29431313699 at `c962245` is green on Ubuntu, Windows, and macOS. Every lane passed install,
+peer checks, the full workspace test suite, typecheck, build, Biome, Markdown, Bun packaging, the expanded
+standalone trust smoke, and artifact upload. The final job durations were 2m04s on Ubuntu, 4m27s on
+Windows, and 2m05s on macOS.
+
+The hosted trajectory exposed and closed one evidence-oracle class without changing product behavior.
+Run 29430351687 showed that the TUI test compared macOS lexical `/var` against runtime canonical
+`/private/var`; run 29430847781 proved that fix, then exposed the same mistake in macOS standalone trust
+record validation and Windows short-path/long-path TUI validation. The final tests and smoke now derive
+their independent expected root through host `realpath()` and run 29431313699 proves the RED-to-green
+transition on all three platforms. A one-off Windows PowerShell helper timeout in the first run did not
+recur in the next two runs.
+
+Residual evidence risk is now limited to what this slice never claimed: the workflow does not drive the
+standalone TUI through a real Windows or macOS PTY, and it makes no cross-platform ACL-equivalence claim.
+The hosted action dependencies also emit Node.js 20 deprecation annotations while GitHub forces them onto
+Node.js 24; this is maintenance work, not a failed slice gate. Concurrent active-run revocation remains an
+explicit non-goal.
 
 ## Explicit non-goals
 

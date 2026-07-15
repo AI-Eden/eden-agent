@@ -4,7 +4,7 @@
 
 R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice is accepted. The
 second R1 onboarding and explicit workspace-trust slice has complete local implementation and evidence.
-Publication is authorized; its current hosted evidence and final slice review remain open.
+Current hosted evidence is green; its final slice review remains open.
 
 ## Current truth
 
@@ -26,15 +26,15 @@ Publication is authorized; its current hosted evidence and final slice review re
 - `run.started` owns an immutable trusted workspace snapshot, so later revocation cannot rewrite replayed
   product history. TUI and headless trust operations use the same versioned `AgentClient` boundary.
 - Current local crash, renderer, standalone artifact, trust-failure, and full-workspace evidence is green.
-  The first-slice hosted Ubuntu, Windows, and macOS standalone evidence is green in R1 run 29372282206 at
-  `959cc7c`; that run predates the current trust changes.
+  Hosted Ubuntu, Windows, and macOS test, build, package, and standalone smoke evidence is green in R1 run
+  29431313699 at `c962245`.
 - The shared terminal packaging workflow is green on macOS 15, Ubuntu 24.04, and Windows 2025 in run
   29372727708 at `594e9f7`; historical R0 measurement versions remain frozen independently.
 
 ## Next decision
 
-Publish the approved implementation, collect current hosted evidence for
-`docs/plans/2026-07-15-r1-onboarding-workspace-trust.md`, then review whether to accept the second R1
+Review the completed local and hosted evidence in
+`docs/plans/2026-07-15-r1-onboarding-workspace-trust.md`, then decide whether to accept the second R1
 slice.
 
 ## Next implementation slice
@@ -44,8 +44,8 @@ real coding tools, sandbox authority, or R1 completion without a separate approv
 
 ## Known open questions
 
-- The current trust changes have local Linux standalone and PTY evidence; fresh hosted
-  Ubuntu/Windows/macOS evidence is pending the authorized publication.
+- Hosted action dependencies emit Node.js 20 deprecation annotations while GitHub forces them onto Node.js
+  24; the current lanes are green, but the action-version migration remains maintenance work.
 - The next R1 slice scope requires its own Explore and Freeze work.
 
 ## Update rule
