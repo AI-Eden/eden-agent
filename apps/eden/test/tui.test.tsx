@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -150,7 +150,7 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     // Then: exact action authority and verifier evidence come from product truth.
     expect(approvalFrame).toContain("trust: trusted");
     expect(approvalFrame).toContain("Run the deterministic fake task");
-    expect(approvalFrame).toContain(`cwd: ${fixture.paths.workspaceDirectory}`);
+    expect(approvalFrame).toContain(`cwd: ${await realpath(fixture.paths.workspaceDirectory)}`);
     expect(approvalFrame).toContain("scope: R1 demo state directory only");
     expect(terminalFrame).toContain("evidence: run-1:fake-evidence");
     expect(terminalFrame).toContain("check: passed");
