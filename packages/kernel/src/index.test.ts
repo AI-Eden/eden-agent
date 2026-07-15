@@ -20,12 +20,20 @@ const action = {
   scope: "R1 demo state directory only",
 } as const;
 
+const workspace = {
+  name: "eden-agent",
+  root: "/work/eden-agent",
+  trust: "trusted",
+  workspaceId: "workspace-eden-agent",
+} as const;
+
 const startEvent = {
   action,
   correlationId: "command-run-1",
   runId: "run-1",
   task: "Index the fake workspace",
   type: "run.started",
+  workspace,
 } as const;
 
 function transition(state: RunState, event: KernelEvent): RunState {
@@ -59,6 +67,7 @@ test("success remains impossible before current verifier evidence", () => {
 
   // Then: the run awaits approval, emits no effect, and has no terminal success.
   strictEqual(started.state.phase, "awaiting-approval");
+  deepStrictEqual(started.state.workspace, workspace);
   deepStrictEqual(effects, []);
   strictEqual(started.state.terminalOutcome, null);
 });
@@ -206,14 +215,20 @@ test("terminal state is immutable", () => {
 });
 
 test("kernel events parse once at the runtime boundary", () => {
-  // Given: one exact event and one hostile event with an unknown property.
+  // Given: one exact event plus unknown-field and restricted-workspace variants.
   const hostileEvent = { ...startEvent, rendererFocus: "approval" };
+  const restrictedEvent = {
+    ...startEvent,
+    workspace: { ...workspace, trust: "restricted" },
+  };
 
-  // When: both values cross the kernel-event decoder.
+  // When: all values cross the kernel-event decoder.
   const valid = decodeKernelEvent(startEvent);
   const invalid = decodeKernelEvent(hostileEvent);
+  const restricted = decodeKernelEvent(restrictedEvent);
 
-  // Then: the exact event becomes typed and the hostile value fails closed.
+  // Then: only the exact trusted event becomes typed.
   strictEqual(valid.ok, true);
   strictEqual(invalid.ok, false);
+  strictEqual(restricted.ok, false);
 });

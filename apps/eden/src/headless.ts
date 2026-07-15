@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { basename } from "node:path";
 import { AgentClientError, InProcessAgentClient } from "@eden/coding-runtime";
 import type { ProductError, ProductEvent } from "@eden/contracts";
 
 export type HeadlessOptions = {
   readonly approveFakeAction: boolean;
   readonly task: string;
+  readonly trustWorkspace: boolean;
 };
 
 export type HeadlessEnvironment = {
@@ -47,25 +47,30 @@ export async function runHeadless(
   options: HeadlessOptions,
   environment: HeadlessEnvironment,
 ): Promise<number> {
-  const runId = randomUUID();
   let client: InProcessAgentClient | null = null;
   try {
     client = await InProcessAgentClient.open({
       cwd: environment.cwd,
-      runId,
       stateDirectory: environment.stateDirectory,
-      workspace: {
-        name: basename(environment.cwd) || "workspace",
-        trust: "trusted",
-        workspaceId: `workspace:${runId}`,
-      },
     });
+    if (options.trustWorkspace) {
+      const review = await client.getWorkspaceReview();
+      await client.resolveWorkspaceTrust({
+        commandId: randomUUID(),
+        decision: "trust",
+        expectedRevision: review.revision,
+        protocolVersion: 1,
+        type: "workspace.trust.resolve",
+        workspaceId: review.workspace.workspaceId,
+      });
+    }
     const awaiting = await client.submit({
       commandId: randomUUID(),
       protocolVersion: 1,
       task: options.task,
       type: "run.start",
     });
+    const runId = awaiting.runId;
     if (!options.approveFakeAction) {
       writeEvents(await take(client.subscribe(runId), 2), environment);
       writeError(
@@ -104,7 +109,7 @@ export async function runHeadless(
             suggestedActions: ["Inspect the state directory and retry."],
           };
     writeError(productError, environment);
-    return 1;
+    return productError.code === "workspace_trust_required" ? 2 : 1;
   } finally {
     await client?.close();
   }

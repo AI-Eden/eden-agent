@@ -1,10 +1,6 @@
 import type { ProductView } from "@eden/contracts";
 import type { Action, KernelProductError, RunState, TerminalOutcome } from "@eden/kernel";
 
-export type ProjectionContext = {
-  readonly workspace: ProductView["workspace"];
-};
-
 export class ProjectionError extends Error {
   readonly name = "ProjectionError";
 }
@@ -99,7 +95,7 @@ function checks(outcome: ProductView["terminalOutcome"]): ProductView["checks"] 
   ];
 }
 
-export function projectView(state: RunState, context: ProjectionContext): ProductView {
+export function projectView(state: RunState): ProductView {
   if (state.phase === "idle") {
     throw new ProjectionError("Idle state has no product run view.");
   }
@@ -131,6 +127,6 @@ export function projectView(state: RunState, context: ProjectionContext): Produc
     runId: state.runId,
     terminalOutcome,
     viewId: `${state.runId}:view:${state.revision}`,
-    workspace: context.workspace,
+    workspace: state.workspace,
   };
 }

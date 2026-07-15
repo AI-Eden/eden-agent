@@ -1,122 +1,119 @@
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { realpath } from "node:fs/promises";
 
 import {
   type AgentClient,
   decodeProductCommand,
+  decodeResolveWorkspaceTrustCommand,
   type EventCursor,
   type ProductCommand,
-  type ProductError,
   type ProductEvent,
   type ProductView,
+  type ResolveWorkspaceTrustCommand,
   type RunId,
+  type WorkspaceReview,
 } from "@eden/contracts";
-import type { Action, KernelEvent } from "@eden/kernel";
+import type { KernelEvent } from "@eden/kernel";
 
-import { FakeToolHost } from "./fake-tool-host.ts";
-import { FileJournal } from "./journal/index.ts";
-import { type ProjectionContext, projectJournal } from "./projection.ts";
-import { type RuntimeClock, RuntimeEngine, type RuntimeIdSource } from "./runtime.ts";
+import {
+  AgentClientError,
+  assertCurrentRevision,
+  clientError,
+  fakeAction,
+  journalExists,
+  journalPath,
+  openRunSession,
+  type RunSession,
+} from "./client-session.ts";
+import { projectJournal } from "./projection.ts";
+import type { RuntimeClock, RuntimeIdSource } from "./runtime.ts";
+import { WorkspaceTrustError, WorkspaceTrustService } from "./workspace/index.ts";
+
+export { AgentClientError } from "./client-session.ts";
 
 export type InProcessAgentClientOptions = {
   readonly clock?: RuntimeClock;
   readonly cwd: string;
   readonly idSource?: RuntimeIdSource;
-  readonly runId: RunId;
+  readonly runId?: RunId;
   readonly stateDirectory: string;
-  readonly workspace: ProductView["workspace"];
 };
-
-export class AgentClientError extends Error {
-  readonly name = "AgentClientError";
-  readonly productError: ProductError;
-
-  constructor(productError: ProductError) {
-    super(productError.message);
-    this.productError = productError;
-  }
-}
-
-function clientError(
-  code: string,
-  message: string,
-  recoverability: ProductError["recoverability"] = "fatal",
-): AgentClientError {
-  return new AgentClientError({ code, message, recoverability, suggestedActions: [message] });
-}
-
-function fakeAction(runId: string, cwd: string): Action {
-  return {
-    actionId: `${runId}:fake-action`,
-    approvalId: `${runId}:fake-approval`,
-    canonicalDisplay: "Run the deterministic fake task",
-    cwd,
-    digest: `${runId}:fake-action-digest`,
-    reason: "Exercise the R1 fake-task boundary without changing workspace files.",
-    scope: "R1 demo state directory only",
-  };
-}
 
 function defaultIdSource(): RuntimeIdSource {
   return { next: randomUUID };
 }
 
-function assertCurrentRevision(
-  command: Exclude<ProductCommand, { readonly type: "run.start" }>,
-  view: ProductView,
-): void {
-  if (command.runId !== view.runId) {
-    throw clientError("run_not_found", `Run ${command.runId} is not owned by this client.`);
-  }
-  if (command.expectedRevision !== view.revision) {
-    throw clientError("stale_revision", "The command revision is stale.", "retry");
-  }
+async function openSession(
+  runId: RunId,
+  stateDirectory: string,
+  clock: RuntimeClock,
+  idSource: RuntimeIdSource,
+  existing: boolean,
+): Promise<RunSession> {
+  const present = await journalExists(journalPath(stateDirectory, runId));
+  if (existing && !present) throw clientError("run_not_found", `Run ${runId} was not found.`);
+  if (!existing && present) throw clientError("run_id_collision", `Run ${runId} already exists.`);
+  return openRunSession(runId, stateDirectory, clock, idSource);
 }
 
 export class InProcessAgentClient implements AgentClient {
-  private readonly context: ProjectionContext;
+  private readonly clock: RuntimeClock;
   private readonly cwd: string;
-  private readonly engine: RuntimeEngine;
-  private readonly journal: FileJournal;
-  private readonly runId: RunId;
+  private readonly idSource: RuntimeIdSource;
+  private readonly stateDirectory: string;
+  private readonly trust: WorkspaceTrustService;
   private readonly waiters = new Set<() => void>();
   private closed = false;
+  private session: RunSession | null;
 
   private constructor(
-    runId: RunId,
-    cwd: string,
-    context: ProjectionContext,
-    journal: FileJournal,
-    engine: RuntimeEngine,
+    options: InProcessAgentClientOptions,
+    stateDirectory: string,
+    trust: WorkspaceTrustService,
+    session: RunSession | null,
   ) {
-    this.runId = runId;
-    this.cwd = cwd;
-    this.context = context;
-    this.journal = journal;
-    this.engine = engine;
+    this.clock = options.clock ?? { now: () => new Date() };
+    this.cwd = trust.identity.canonicalRoot;
+    this.idSource = options.idSource ?? defaultIdSource();
+    this.stateDirectory = stateDirectory;
+    this.trust = trust;
+    this.session = session;
   }
 
   static async open(options: InProcessAgentClientOptions): Promise<InProcessAgentClient> {
-    const runDirectory = join(options.stateDirectory, "runs", options.runId);
-    const journal = await FileJournal.open(join(runDirectory, "journal.jsonl"), options.runId);
-    const host = new FakeToolHost(join(runDirectory, "receipts"));
-    const engine = await RuntimeEngine.open(
-      journal,
-      host,
-      options.clock ?? { now: () => new Date() },
-      options.idSource ?? defaultIdSource(),
-    );
+    const clock = options.clock ?? { now: () => new Date() };
+    const idSource = options.idSource ?? defaultIdSource();
+    const trust = await WorkspaceTrustService.open({
+      clock,
+      cwd: options.cwd,
+      stateDirectory: options.stateDirectory,
+    });
+    const stateDirectory = await realpath(options.stateDirectory);
+    const session =
+      options.runId === undefined
+        ? null
+        : await openSession(options.runId, stateDirectory, clock, idSource, true);
     return new InProcessAgentClient(
-      options.runId,
-      options.cwd,
-      { workspace: options.workspace },
-      journal,
-      engine,
+      { ...options, clock, idSource },
+      stateDirectory,
+      trust,
+      session,
     );
   }
 
   private ensureOpen(): void {
     if (this.closed) throw clientError("client_closed", "The agent client is closed.");
+  }
+
+  private requireSession(runId?: RunId): RunSession {
+    const session = this.session;
+    if (session === null || (runId !== undefined && runId !== session.runId)) {
+      throw clientError(
+        "run_not_found",
+        `Run ${runId ?? "requested"} is not owned by this client.`,
+      );
+    }
+    return session;
   }
 
   private notify(): void {
@@ -125,16 +122,39 @@ export class InProcessAgentClient implements AgentClient {
   }
 
   private async currentView(): Promise<ProductView> {
-    return projectJournal(await this.journal.readAll(), this.context).view;
+    return projectJournal(await this.requireSession().journal.readAll()).view;
   }
 
   private async driveEffects(): Promise<void> {
-    while (this.engine.state.phase !== "terminal") {
-      const effect = await this.engine.requestNextEffect();
+    const { engine } = this.requireSession();
+    while (engine.state.phase !== "terminal") {
+      const effect = await engine.requestNextEffect();
       if (effect === null) return;
       this.notify();
-      await this.engine.settleInFlightEffect();
+      await engine.settleInFlightEffect();
       this.notify();
+    }
+  }
+
+  async getWorkspaceReview(): Promise<WorkspaceReview> {
+    this.ensureOpen();
+    return this.trust.getReview();
+  }
+
+  async resolveWorkspaceTrust(
+    command: ResolveWorkspaceTrustCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<WorkspaceReview> {
+    this.ensureOpen();
+    if (options?.signal?.aborted === true)
+      throw clientError("operation_aborted", "The operation was aborted.", "retry");
+    const decoded = decodeResolveWorkspaceTrustCommand(command);
+    if (!decoded.ok) throw new AgentClientError(decoded.error);
+    try {
+      return await this.trust.resolve(decoded.value);
+    } catch (error) {
+      if (error instanceof WorkspaceTrustError) throw new AgentClientError(error.productError);
+      throw error;
     }
   }
 
@@ -148,17 +168,36 @@ export class InProcessAgentClient implements AgentClient {
     const decoded = decodeProductCommand(command);
     if (!decoded.ok) throw new AgentClientError(decoded.error);
     if (decoded.value.type === "run.start") {
-      if (this.engine.state.phase !== "idle")
+      if (this.session !== null)
         throw clientError("run_already_started", "The run has already started.");
+      const review = this.trust.getReview();
+      if (review.workspace.trust !== "trusted") {
+        throw clientError(
+          "workspace_trust_required",
+          "Trust this exact workspace before starting a task.",
+          "ask-user",
+          "Review the workspace and explicitly grant trust.",
+        );
+      }
+      const runId = this.idSource.next();
+      this.session = await openSession(
+        runId,
+        this.stateDirectory,
+        this.clock,
+        this.idSource,
+        false,
+      );
       const event: KernelEvent = {
-        action: fakeAction(this.runId, this.cwd),
+        action: fakeAction(runId, this.cwd),
         correlationId: decoded.value.commandId,
-        runId: this.runId,
+        runId,
         task: decoded.value.task,
         type: "run.started",
+        workspace: { ...review.workspace, trust: "trusted" },
       };
-      await this.engine.commit(event, decoded.value.commandId);
+      await this.session.engine.commit(event, decoded.value.commandId);
     } else {
+      const session = this.requireSession(decoded.value.runId);
       const view = await this.currentView();
       assertCurrentRevision(decoded.value, view);
       switch (decoded.value.type) {
@@ -170,7 +209,7 @@ export class InProcessAgentClient implements AgentClient {
               "ask-user",
             );
           }
-          await this.engine.commit(
+          await session.engine.commit(
             {
               approvalId: decoded.value.approvalId,
               decision: decoded.value.decision,
@@ -182,7 +221,7 @@ export class InProcessAgentClient implements AgentClient {
           if (decoded.value.decision === "approve") await this.driveEffects();
           break;
         case "run.cancel":
-          await this.engine.commit({ type: "run.cancelled" }, decoded.value.commandId);
+          await session.engine.commit({ type: "run.cancelled" }, decoded.value.commandId);
           break;
         case "run.pause":
         case "run.resume":
@@ -198,8 +237,7 @@ export class InProcessAgentClient implements AgentClient {
 
   async getSnapshot(runId: RunId): Promise<ProductView> {
     this.ensureOpen();
-    if (runId !== this.runId)
-      throw clientError("run_not_found", `Run ${runId} is not owned by this client.`);
+    this.requireSession(runId);
     return this.currentView();
   }
 
@@ -209,11 +247,10 @@ export class InProcessAgentClient implements AgentClient {
     options?: { readonly signal?: AbortSignal },
   ): AsyncIterable<ProductEvent> {
     this.ensureOpen();
-    if (runId !== this.runId)
-      throw clientError("run_not_found", `Run ${runId} is not owned by this client.`);
+    const session = this.requireSession(runId);
     let cursor = afterCursor ?? -1;
     while (!this.closed && options?.signal?.aborted !== true) {
-      const projected = projectJournal(await this.journal.readAll(), this.context);
+      const projected = projectJournal(await session.journal.readAll());
       for (const event of projected.events) {
         if (event.cursor > cursor) {
           cursor = event.cursor;

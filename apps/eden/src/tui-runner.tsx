@@ -1,6 +1,3 @@
-import { randomUUID } from "node:crypto";
-import { basename } from "node:path";
-
 import { InProcessAgentClient } from "@eden/coding-runtime";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
@@ -14,17 +11,11 @@ export type TuiEnvironment = {
 };
 
 export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
-  const runId = randomUUID();
   const client = await InProcessAgentClient.open({
     cwd: environment.cwd,
-    runId,
     stateDirectory: environment.stateDirectory,
-    workspace: {
-      name: basename(environment.cwd) || "workspace",
-      trust: "trusted",
-      workspaceId: `workspace:${runId}`,
-    },
   });
+  const initialWorkspaceReview = await client.getWorkspaceReview();
   const renderer = await createCliRenderer({
     consoleMode: "disabled",
     exitOnCtrlC: false,
@@ -44,7 +35,7 @@ export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
     root.render(
       <EdenTuiApp
         client={client}
-        runId={runId}
+        initialWorkspaceReview={initialWorkspaceReview}
         onExit={(code) => void finish(code)}
         onReady={environment.onReady}
       />,

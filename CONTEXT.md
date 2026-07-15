@@ -2,8 +2,9 @@
 
 ## Current stage
 
-R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice implementation and
-clean-machine evidence are complete; its slice review remains open.
+R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice is accepted. The
+second R1 onboarding and explicit workspace-trust slice has complete local implementation and evidence.
+Publication is authorized; its current hosted evidence and final slice review remain open.
 
 ## Current truth
 
@@ -19,24 +20,33 @@ clean-machine evidence are complete; its slice review remains open.
 - The version 1 product boundary now has executable schemas, non-throwing decoders, and deterministic awaiting-approval, executing, and review fixtures. Renderer and runtime authority remain outside the contracts package.
 - One fake task now traverses the deterministic kernel, JSONL journal, replay, explicit effect
   reconciliation, in-process `AgentClient`, headless NDJSON, and Bun/OpenTUI surfaces.
-- Local crash, renderer, standalone artifact, and full-workspace evidence is green. Hosted Ubuntu,
-  Windows, and macOS standalone evidence is green in R1 run 29372282206 at `959cc7c`.
+- A fresh exact canonical workspace now starts restricted. Runtime-owned trust is stored outside the
+  workspace, can be explicitly granted or revoked, gates run creation, and never substitutes for action
+  approval, network authority, or sandbox evidence.
+- `run.started` owns an immutable trusted workspace snapshot, so later revocation cannot rewrite replayed
+  product history. TUI and headless trust operations use the same versioned `AgentClient` boundary.
+- Current local crash, renderer, standalone artifact, trust-failure, and full-workspace evidence is green.
+  The first-slice hosted Ubuntu, Windows, and macOS standalone evidence is green in R1 run 29372282206 at
+  `959cc7c`; that run predates the current trust changes.
 - The shared terminal packaging workflow is green on macOS 15, Ubuntu 24.04, and Windows 2025 in run
   29372727708 at `594e9f7`; historical R0 measurement versions remain frozen independently.
 
 ## Next decision
 
-Review the completed local and hosted evidence for
-`docs/plans/2026-07-15-r1-fake-task-vertical-slice.md` and decide whether to accept the first R1 slice.
+Publish the approved implementation, collect current hosted evidence for
+`docs/plans/2026-07-15-r1-onboarding-workspace-trust.md`, then review whether to accept the second R1
+slice.
 
 ## Next implementation slice
 
-After the first-slice review, plan the next R1 slice around onboarding and explicit workspace-trust
-selection. Do not add a real provider or claim R1 completion in that slice without a separate plan.
+After the second-slice review, Explore and Freeze the next R1 slice. Do not infer provider onboarding,
+real coding tools, sandbox authority, or R1 completion without a separate approved plan.
 
 ## Known open questions
 
-- None for the first fake-task slice. The next slice requires its own Explore and Freeze work.
+- The current trust changes have local Linux standalone and PTY evidence; fresh hosted
+  Ubuntu/Windows/macOS evidence is pending the authorized publication.
+- The next R1 slice scope requires its own Explore and Freeze work.
 
 ## Update rule
 

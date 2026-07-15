@@ -8,7 +8,7 @@ export * from "./journal/index.ts";
 export type { PlanArtifact } from "./planning/index.js";
 export type { PolicyDecision } from "./policy/index.js";
 export type { RunProfile } from "./profiles/index.js";
-export type { ProjectionContext, ProjectionResult } from "./projection.ts";
+export type { ProjectionResult } from "./projection.ts";
 export { ProjectionError, projectJournal, projectView } from "./projection.ts";
 export { ReplayError, replayRecords } from "./replay.ts";
 export type {
@@ -23,4 +23,12 @@ export type { SkillDescriptor } from "./skills/index.js";
 export type { SubagentSpec } from "./subagents/index.js";
 export type { ToolResult } from "./tools/index.js";
 export type { VerificationResult } from "./verification/index.js";
-export type { WorkspaceSnapshot } from "./workspace/index.js";
+export {
+  resolveWorkspaceIdentity,
+  type WorkspaceClock,
+  type WorkspaceIdentity,
+  type WorkspaceSnapshot,
+  WorkspaceTrustError,
+  WorkspaceTrustService,
+  type WorkspaceTrustServiceOptions,
+} from "./workspace/index.js";

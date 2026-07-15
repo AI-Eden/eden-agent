@@ -88,6 +88,17 @@ export const ResolveApprovalCommandSchema = Type.Object(
   },
   closed,
 );
+export const ResolveWorkspaceTrustCommandSchema = Type.Object(
+  {
+    ...commandEnvelope,
+    type: Type.Literal("workspace.trust.resolve"),
+    workspaceId: Type.String(identifierOptions),
+    expectedRevision: RevisionSchema,
+    decision: Type.Union([Type.Literal("trust"), Type.Literal("restrict")]),
+  },
+  closed,
+);
+export type ResolveWorkspaceTrustCommand = Type.Static<typeof ResolveWorkspaceTrustCommandSchema>;
 export const ProductCommandSchema = Type.Union([
   StartRunCommandSchema,
   PauseRunCommandSchema,
@@ -186,10 +197,41 @@ export const WorkspaceSummarySchema = Type.Object(
   {
     workspaceId: Type.String(identifierOptions),
     name: shortText(),
+    root: boundedText(),
     trust: Type.Union([Type.Literal("trusted"), Type.Literal("restricted")]),
   },
   closed,
 );
+export type WorkspaceSummary = Type.Static<typeof WorkspaceSummarySchema>;
+export const WorkspaceReviewSchema = Type.Object(
+  {
+    protocolVersion: ProductProtocolVersionSchema,
+    revision: RevisionSchema,
+    workspace: WorkspaceSummarySchema,
+    profile: Type.Object(
+      {
+        provider: Type.Literal("deterministic-fake"),
+        credentials: Type.Literal("not-required"),
+      },
+      closed,
+    ),
+    authority: Type.Object(
+      {
+        taskStart: Type.Union([Type.Literal("blocked"), Type.Literal("allowed")]),
+        repositoryRead: Type.Literal("disabled"),
+        repositoryWrite: Type.Literal("denied"),
+        processExecution: Type.Literal("fake-only"),
+        network: Type.Literal("denied"),
+        sandbox: Type.Literal("not-configured"),
+      },
+      closed,
+    ),
+    notice: Type.Union([ProductErrorSchema, Type.Null()]),
+    nextActions: Type.Array(shortText(), { maxItems: 16 }),
+  },
+  closed,
+);
+export type WorkspaceReview = Type.Static<typeof WorkspaceReviewSchema>;
 export const ChangedFileSchema = Type.Object(
   {
     path: shortText(),
@@ -311,11 +353,28 @@ export const ProductViewDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: ProductViewSchema }, closed),
   DecodeFailureSchema,
 ]);
+export const ResolveWorkspaceTrustCommandDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: ResolveWorkspaceTrustCommandSchema }, closed),
+  DecodeFailureSchema,
+]);
+export const WorkspaceReviewDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: WorkspaceReviewSchema }, closed),
+  DecodeFailureSchema,
+]);
 export type ProductCommandDecodeResult = Type.Static<typeof ProductCommandDecodeResultSchema>;
 export type ProductEventDecodeResult = Type.Static<typeof ProductEventDecodeResultSchema>;
 export type ProductViewDecodeResult = Type.Static<typeof ProductViewDecodeResultSchema>;
+export type ResolveWorkspaceTrustCommandDecodeResult = Type.Static<
+  typeof ResolveWorkspaceTrustCommandDecodeResultSchema
+>;
+export type WorkspaceReviewDecodeResult = Type.Static<typeof WorkspaceReviewDecodeResultSchema>;
 
 export interface AgentClient {
+  getWorkspaceReview(): Promise<WorkspaceReview>;
+  resolveWorkspaceTrust(
+    command: ResolveWorkspaceTrustCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<WorkspaceReview>;
   submit(
     command: ProductCommand,
     options?: { readonly signal?: AbortSignal },
@@ -332,6 +391,8 @@ export interface AgentClient {
 const commandValidator = Schema.Compile(ProductCommandSchema);
 const eventValidator = Schema.Compile(ProductEventSchema);
 const viewValidator = Schema.Compile(ProductViewSchema);
+const workspaceReviewValidator = Schema.Compile(WorkspaceReviewSchema);
+const workspaceTrustCommandValidator = Schema.Compile(ResolveWorkspaceTrustCommandSchema);
 
 function invalidInputError(kind: "command" | "event" | "view", value: unknown): ProductError {
   if (
@@ -375,4 +436,14 @@ export function decodeProductEvent(value: unknown): ProductEventDecodeResult {
 
 export function decodeProductView(value: unknown): ProductViewDecodeResult {
   return decode("view", viewValidator, value);
+}
+
+export function decodeResolveWorkspaceTrustCommand(
+  value: unknown,
+): ResolveWorkspaceTrustCommandDecodeResult {
+  return decode("command", workspaceTrustCommandValidator, value);
+}
+
+export function decodeWorkspaceReview(value: unknown): WorkspaceReviewDecodeResult {
+  return decode("view", workspaceReviewValidator, value);
 }

@@ -3,7 +3,12 @@ import type { ProductError } from "@eden/contracts";
 export type CliArguments =
   | { readonly mode: "help" }
   | { readonly mode: "tui" }
-  | { readonly approveFakeAction: boolean; readonly mode: "headless"; readonly task: string };
+  | {
+      readonly approveFakeAction: boolean;
+      readonly mode: "headless";
+      readonly task: string;
+      readonly trustWorkspace: boolean;
+    };
 
 export type CliArgumentsResult =
   | { readonly ok: true; readonly value: CliArguments }
@@ -11,7 +16,7 @@ export type CliArgumentsResult =
 
 export const helpText = `Usage:
   eden
-  eden exec --json [--approve-fake-action] "<task>"
+  eden exec --json [--trust-workspace] [--approve-fake-action] "<task>"
   eden --help
 
 The default command opens the terminal product.
@@ -37,11 +42,14 @@ export function parseArgs(argv: readonly string[]): CliArgumentsResult {
   let approveFakeAction = false;
   let json = false;
   let task: string | null = null;
+  let trustWorkspace = false;
   for (const argument of argv.slice(1)) {
     if (argument === "--json" && !json) {
       json = true;
     } else if (argument === "--approve-fake-action" && !approveFakeAction) {
       approveFakeAction = true;
+    } else if (argument === "--trust-workspace" && !trustWorkspace) {
+      trustWorkspace = true;
     } else if (!argument.startsWith("-") && task === null && argument.trim().length > 0) {
       task = argument;
     } else {
@@ -51,5 +59,5 @@ export function parseArgs(argv: readonly string[]): CliArgumentsResult {
   if (!json || task === null) {
     return invalid("Headless execution requires --json and one non-empty task.");
   }
-  return { ok: true, value: { approveFakeAction, mode: "headless", task } };
+  return { ok: true, value: { approveFakeAction, mode: "headless", task, trustWorkspace } };
 }

@@ -24,6 +24,7 @@ function terminal(state: AwaitingApprovalRunState | ExecutingRunState, outcome: 
     runId: state.runId,
     task: state.task,
     terminalOutcome: outcome,
+    workspace: state.workspace,
   } as const;
 }
 
@@ -51,6 +52,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           runId: event.runId,
           task: event.task,
           terminalOutcome: null,
+          workspace: event.workspace,
         },
       };
     case "approval.resolved":

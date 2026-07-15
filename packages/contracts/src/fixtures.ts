@@ -1,8 +1,9 @@
-import type { ProductView } from "./protocol.ts";
+import type { ProductView, WorkspaceReview } from "./protocol.ts";
 
 const workspace = {
   workspaceId: "workspace-eden-agent",
   name: "eden-agent",
+  root: "/work/eden-agent",
   trust: "trusted",
 } as const;
 const budget = { used: 320, total: 2_000, unit: "actions" } as const;
@@ -13,6 +14,34 @@ const action = {
   reason: "Run the executable product contract checks.",
   scope: "packages/contracts only",
 } as const;
+
+const authority = {
+  network: "denied",
+  processExecution: "fake-only",
+  repositoryRead: "disabled",
+  repositoryWrite: "denied",
+  sandbox: "not-configured",
+} as const;
+
+export const restrictedWorkspaceReview = {
+  authority: { ...authority, taskStart: "blocked" },
+  nextActions: ["Trust this exact workspace or exit."],
+  notice: null,
+  profile: { credentials: "not-required", provider: "deterministic-fake" },
+  protocolVersion: 1,
+  revision: 0,
+  workspace: { ...workspace, trust: "restricted" },
+} satisfies WorkspaceReview;
+
+export const trustedWorkspaceReview = {
+  authority: { ...authority, taskStart: "allowed" },
+  nextActions: ["Describe the deterministic fake task or restrict this workspace."],
+  notice: null,
+  profile: { credentials: "not-required", provider: "deterministic-fake" },
+  protocolVersion: 1,
+  revision: 1,
+  workspace,
+} satisfies WorkspaceReview;
 
 export const awaitingApprovalProductView = {
   protocolVersion: 1,

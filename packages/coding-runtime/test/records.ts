@@ -18,6 +18,12 @@ export const startRecord = {
     correlationId: "command-run-1",
     runId: "run-1",
     task: "Index the fake workspace",
+    workspace: {
+      name: "eden-agent",
+      root: "/work/eden-agent",
+      trust: "trusted",
+      workspaceId: "workspace-eden-agent",
+    },
   },
   recordedAt: "2026-07-15T00:00:00.000Z",
   redaction: { fields: [], status: "not-required" },

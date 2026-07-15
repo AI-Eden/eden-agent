@@ -12,6 +12,11 @@ Each state defines:
 - recovery action;
 - whether the state survives process exit.
 
+Onboarding and workspace review precede run creation. A new canonical root is restricted, the product
+shows its exact path and fixed capability truth, and the task composer remains unavailable until a
+runtime-accepted trust command. Revocation returns the pre-run surface to restricted without rewriting
+historical runs.
+
 ## Information hierarchy
 
 Always visible: workspace, session, profile, phase, trust mode, network, model, and budget. The main surface prioritizes progress, changed files, checks, and blockers. Raw tool detail and trace diagnostics are expandable.

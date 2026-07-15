@@ -52,7 +52,16 @@ Both use an `AgentClient` port. R0-R4 may use an in-process transport; a local I
 
 ## Trust model
 
-The default is local execution with explicit workspace trust and network visibility. R2 targets trusted-host and Docker runners. Native OS sandbox claims require per-platform evidence and are not implied by a shared interface.
+The default workspace state is restricted. Eden displays the exact canonical root and requires an explicit,
+path-scoped trust decision before creating a run. Trust persists outside the workspace until explicit
+revocation and is never inherited from a parent directory, path prefix, Git remote, or repository name.
+
+Restricted mode may show canonical workspace metadata and fixed product capability truth. It may not load
+repository content or instructions, inspect Git state, create a run journal, execute an effect, or access
+the network. Trust permits task entry only; it does not approve an action or grant a tool capability.
+
+The default is local execution with explicit network visibility. R2 targets trusted-host and Docker
+runners. Native OS sandbox claims require per-platform evidence and are not implied by a shared interface.
 
 Provider keys never enter prompts, tool environments, UI events, journals, or diagnostics. The UI displays the exact approved action representation bound to execution.
 

@@ -1,21 +1,31 @@
 import { deepStrictEqual, rejects, strictEqual } from "node:assert";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import type { ProductCommand, ProductEvent } from "@eden/contracts";
+import type { ProductCommand, ProductEvent, WorkspaceReview } from "@eden/contracts";
 
 import { AgentClientError, InProcessAgentClient } from "../src/agent-client.ts";
 
-const workspace = {
-  name: "eden-agent",
-  trust: "trusted",
-  workspaceId: "workspace-eden-agent",
-} as const;
+async function fixture() {
+  const base = await mkdtemp(join(tmpdir(), "eden-client-"));
+  const stateDirectory = join(base, "state");
+  const workspaceDirectory = join(base, "workspace");
+  await mkdir(workspaceDirectory);
+  return { stateDirectory, workspaceDirectory };
+}
 
-async function stateDirectory() {
-  return mkdtemp(join(tmpdir(), "eden-client-"));
+function ids(...values: readonly string[]) {
+  let cursor = 0;
+  return {
+    next() {
+      const value = values[cursor];
+      cursor += 1;
+      if (value === undefined) throw new Error("The deterministic ID source is exhausted.");
+      return value;
+    },
+  };
 }
 
 function startCommand(commandId: string): ProductCommand {
@@ -34,39 +44,88 @@ function approvalCommand(revision: number): ProductCommand {
   };
 }
 
+function trustCommand(review: WorkspaceReview, decision: "trust" | "restrict") {
+  return {
+    commandId: `command-${decision}-${review.revision}`,
+    decision,
+    expectedRevision: review.revision,
+    protocolVersion: 1,
+    type: "workspace.trust.resolve",
+    workspaceId: review.workspace.workspaceId,
+  } as const;
+}
+
+async function trust(client: InProcessAgentClient) {
+  const review = await client.getWorkspaceReview();
+  return client.resolveWorkspaceTrust(trustCommand(review, "trust"));
+}
+
 async function collect(iterable: AsyncIterable<ProductEvent>): Promise<readonly ProductEvent[]> {
   const events: ProductEvent[] = [];
   for await (const event of iterable) events.push(event);
   return events;
 }
 
-test("one client completes a verifier-backed run and another replays the same product truth", async () => {
-  // Given: an in-process client over a fresh real state directory.
-  const directory = await stateDirectory();
-  const first = await InProcessAgentClient.open({
-    cwd: ".",
-    runId: "run-1",
-    stateDirectory: directory,
-    workspace,
+test("a restricted client rejects task start without creating a run", async () => {
+  // Given: a fresh client bound to an unreviewed canonical workspace.
+  const directories = await fixture();
+  const client = await InProcessAgentClient.open({
+    cwd: directories.workspaceDirectory,
+    idSource: ids("run-1"),
+    stateDirectory: directories.stateDirectory,
   });
+
+  // When: a task start reaches the runtime before trust is granted.
+  await rejects(
+    client.submit(startCommand("command-run-1")),
+    (error) =>
+      error instanceof AgentClientError &&
+      deepStrictEqual(error.productError, {
+        code: "workspace_trust_required",
+        message: "Trust this exact workspace before starting a task.",
+        recoverability: "ask-user",
+        suggestedActions: ["Review the workspace and explicitly grant trust."],
+      }) === undefined,
+  );
+
+  // Then: no run ID was consumed and no runs directory exists.
+  deepStrictEqual(await readdir(directories.stateDirectory), []);
+  await client.close();
+});
+
+test("one trusted client completes a run and another replays its journal-owned workspace", async () => {
+  // Given: an in-process client over separate real workspace and state directories.
+  const directories = await fixture();
+  const first = await InProcessAgentClient.open({
+    cwd: directories.workspaceDirectory,
+    idSource: ids("run-1", "event-0", "event-1", "event-2", "event-3", "event-4", "event-5"),
+    stateDirectory: directories.stateDirectory,
+  });
+  const trusted = await trust(first);
 
   // When: start and approval commands traverse the real runtime stack.
   const awaiting = await first.submit(startCommand("command-run-1"));
   const terminal = await first.submit(approvalCommand(awaiting.revision));
   const events = await collect(first.subscribe("run-1"));
+  const journal = await readFile(
+    join(directories.stateDirectory, "runs", "run-1", "journal.jsonl"),
+    "utf8",
+  );
   await first.close();
   const reopened = await InProcessAgentClient.open({
-    cwd: ".",
+    cwd: directories.workspaceDirectory,
     runId: "run-1",
-    stateDirectory: directory,
-    workspace,
+    stateDirectory: directories.stateDirectory,
   });
 
-  // Then: success has verifier evidence and replay reconstructs the deep-equal snapshot.
+  // Then: verifier evidence and the immutable canonical workspace reconstruct exactly.
   strictEqual(terminal.terminalOutcome?.state, "succeeded");
   if (terminal.terminalOutcome?.state !== "succeeded") throw new Error("Expected success.");
   strictEqual(terminal.terminalOutcome.evidenceRef, "run-1:fake-evidence");
   strictEqual(events.at(-1)?.type, "run.terminal");
+  strictEqual(terminal.workspace.root, await realpath(directories.workspaceDirectory));
+  strictEqual(terminal.workspace.workspaceId, trusted.workspace.workspaceId);
+  deepStrictEqual(JSON.parse(journal.split("\n")[0] ?? "").payload.workspace, terminal.workspace);
   deepStrictEqual(await reopened.getSnapshot("run-1"), terminal);
   deepStrictEqual(
     await collect(reopened.subscribe("run-1", 2)),
@@ -76,13 +135,14 @@ test("one client completes a verifier-backed run and another replays the same pr
 });
 
 test("a stale approval appends nothing", async () => {
-  // Given: a run waiting at revision one.
+  // Given: a trusted run waiting at revision one.
+  const directories = await fixture();
   const client = await InProcessAgentClient.open({
-    cwd: ".",
-    runId: "run-1",
-    stateDirectory: await stateDirectory(),
-    workspace,
+    cwd: directories.workspaceDirectory,
+    idSource: ids("run-1", "event-0"),
+    stateDirectory: directories.stateDirectory,
   });
+  await trust(client);
   const before = await client.submit(startCommand("command-run-1"));
 
   // When: approval carries an earlier expected revision.
@@ -97,13 +157,14 @@ test("a stale approval appends nothing", async () => {
 });
 
 test("aborting a subscription wait does not alter run truth", async () => {
-  // Given: a client whose initial awaiting-approval events have already been consumed.
+  // Given: a trusted client whose awaiting-approval events have already been consumed.
+  const directories = await fixture();
   const client = await InProcessAgentClient.open({
-    cwd: ".",
-    runId: "run-1",
-    stateDirectory: await stateDirectory(),
-    workspace,
+    cwd: directories.workspaceDirectory,
+    idSource: ids("run-1", "event-0"),
+    stateDirectory: directories.stateDirectory,
   });
+  await trust(client);
   const before = await client.submit(startCommand("command-run-1"));
   const controller = new AbortController();
   const iterator = client
@@ -118,4 +179,57 @@ test("aborting a subscription wait does not alter run truth", async () => {
   deepStrictEqual(await pending, { done: true, value: undefined });
   deepStrictEqual(await client.getSnapshot("run-1"), before);
   await client.close();
+});
+
+test("revocation blocks a new run while the historical snapshot remains trusted", async () => {
+  // Given: one trusted run whose workspace snapshot is already committed.
+  const directories = await fixture();
+  const first = await InProcessAgentClient.open({
+    cwd: directories.workspaceDirectory,
+    idSource: ids("run-1", "event-0"),
+    stateDirectory: directories.stateDirectory,
+  });
+  const trusted = await trust(first);
+  const historical = await first.submit(startCommand("command-run-1"));
+
+  // When: trust is explicitly revoked and clients reopen old and new lifecycles.
+  await first.resolveWorkspaceTrust(trustCommand(trusted, "restrict"));
+  await first.close();
+  const oldRun = await InProcessAgentClient.open({
+    cwd: directories.workspaceDirectory,
+    runId: "run-1",
+    stateDirectory: directories.stateDirectory,
+  });
+  const newRun = await InProcessAgentClient.open({
+    cwd: directories.workspaceDirectory,
+    idSource: ids("run-2"),
+    stateDirectory: directories.stateDirectory,
+  });
+
+  // Then: historical truth is unchanged and current task authority is blocked.
+  deepStrictEqual(await oldRun.getSnapshot("run-1"), historical);
+  strictEqual((await oldRun.getSnapshot("run-1")).workspace.trust, "trusted");
+  await rejects(
+    newRun.submit(startCommand("command-run-2")),
+    (error) =>
+      error instanceof AgentClientError && error.productError.code === "workspace_trust_required",
+  );
+  await oldRun.close();
+  await newRun.close();
+});
+
+test("opening an unknown supplied run ID never creates it", async () => {
+  // Given: a fresh workspace with no runs.
+  const directories = await fixture();
+
+  // When and Then: existing-run mode rejects the missing journal without creating runs.
+  await rejects(
+    InProcessAgentClient.open({
+      cwd: directories.workspaceDirectory,
+      runId: "missing-run",
+      stateDirectory: directories.stateDirectory,
+    }),
+    (error) => error instanceof AgentClientError && error.productError.code === "run_not_found",
+  );
+  deepStrictEqual(await readdir(directories.stateDirectory), []);
 });

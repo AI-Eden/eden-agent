@@ -35,6 +35,16 @@ const ActionSchema = Type.Object(
   closed,
 );
 
+const RunWorkspaceSchema = Type.Object(
+  {
+    name: boundedText(),
+    root: boundedText(),
+    trust: Type.Literal("trusted"),
+    workspaceId: identifier(),
+  },
+  closed,
+);
+
 const FakeActionEffectSchema = Type.Object(
   { effectId: identifier(), runId: identifier(), type: Type.Literal("fake.action.execute") },
   closed,
@@ -56,6 +66,7 @@ export const KernelEventSchema = Type.Union([
       runId: identifier(),
       task: boundedText(),
       type: Type.Literal("run.started"),
+      workspace: RunWorkspaceSchema,
     },
     closed,
   ),

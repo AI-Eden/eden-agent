@@ -1,5 +1,5 @@
-import { strictEqual } from "node:assert";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { deepStrictEqual, strictEqual } from "node:assert";
+import { mkdir, mkdtemp, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -21,59 +21,120 @@ function output() {
   };
 }
 
-test("approved headless execution writes only cursor-ordered ProductEvent NDJSON", async () => {
-  // Given: explicit approval and an isolated state directory.
-  const captured = output();
-  const stateDirectory = await mkdtemp(join(tmpdir(), "eden-headless-"));
+async function fixture() {
+  const base = await mkdtemp(join(tmpdir(), "eden-headless-"));
+  const stateDirectory = join(base, "state");
+  const workspaceDirectory = join(base, "workspace");
+  await mkdir(workspaceDirectory);
+  return { stateDirectory, workspaceDirectory };
+}
 
-  // When: one fake task traverses the product client.
+test("action approval cannot bypass fresh workspace trust", async () => {
+  // Given: a fresh exact workspace and only fake-action approval.
+  const captured = output();
+  const directories = await fixture();
+
+  // When: headless task start reaches the restricted runtime.
   const exitCode = await runHeadless(
-    { approveFakeAction: true, task: "Index the fake workspace" },
+    { approveFakeAction: true, task: "Index the fake workspace", trustWorkspace: false },
     {
-      cwd: ".",
+      cwd: directories.workspaceDirectory,
       io: captured.io,
-      stateDirectory,
+      stateDirectory: directories.stateDirectory,
     },
   );
 
-  // Then: stdout is schema-valid NDJSON ending in verifier-backed success.
-  strictEqual(exitCode, 0);
-  strictEqual(captured.stderr.length, 0);
-  const lines = captured.stdout.join("").trim().split("\n");
-  const decoded = lines.map((line) => decodeProductEvent(JSON.parse(line)));
+  // Then: stderr is structured, stdout is empty, and no run exists.
+  strictEqual(exitCode, 2);
+  strictEqual(captured.stdout.length, 0);
+  strictEqual(JSON.parse(captured.stderr.join("")).code, "workspace_trust_required");
+  deepStrictEqual(await readdir(directories.stateDirectory), []);
+});
+
+test("workspace trust cannot bypass fake-action approval", async () => {
+  // Given: a fresh exact workspace and only explicit workspace trust.
+  const captured = output();
+  const directories = await fixture();
+
+  // When: headless execution reaches the separate action approval.
+  const exitCode = await runHeadless(
+    { approveFakeAction: false, task: "Index the fake workspace", trustWorkspace: true },
+    {
+      cwd: directories.workspaceDirectory,
+      io: captured.io,
+      stateDirectory: directories.stateDirectory,
+    },
+  );
+
+  // Then: two awaiting events are emitted, but no receipt or success exists.
+  strictEqual(exitCode, 2);
+  strictEqual(JSON.parse(captured.stderr.join("")).code, "approval_required");
+  const decoded = captured.stdout
+    .join("")
+    .trim()
+    .split("\n")
+    .map((line) => decodeProductEvent(JSON.parse(line)));
+  strictEqual(decoded.length, 2);
   strictEqual(
     decoded.every((result) => result.ok),
     true,
   );
-  const last = decoded.at(-1);
-  strictEqual(
-    last?.ok && last.value.type === "run.terminal" && last.value.outcome.state === "succeeded",
-    true,
-  );
+  strictEqual(captured.stdout.join("").includes("run.terminal"), false);
+  const runDirectories = await readdir(join(directories.stateDirectory, "runs"));
+  const receipts = await readdir(
+    join(directories.stateDirectory, "runs", runDirectories[0] ?? "", "receipts"),
+  ).catch(() => []);
+  strictEqual(receipts.length, 0);
 });
 
-test("headless execution without approval exits before any receipt or success", async () => {
-  // Given: a non-interactive task without explicit fake-action approval.
-  const captured = output();
-  const stateDirectory = await mkdtemp(join(tmpdir(), "eden-headless-"));
+test("both grants succeed and persisted trust is reused without revision drift", async () => {
+  // Given: one exact workspace and isolated durable state.
+  const directories = await fixture();
+  const first = output();
 
-  // When: the headless surface reaches approval.
-  const exitCode = await runHeadless(
-    { approveFakeAction: false, task: "Index the fake workspace" },
+  // When: both grants are supplied, then only action approval is supplied on relaunch.
+  const firstExit = await runHeadless(
+    { approveFakeAction: true, task: "Index the fake workspace", trustWorkspace: true },
     {
-      cwd: ".",
-      io: captured.io,
-      stateDirectory,
+      cwd: directories.workspaceDirectory,
+      io: first.io,
+      stateDirectory: directories.stateDirectory,
+    },
+  );
+  const trustDirectory = join(directories.stateDirectory, "workspace-trust", "v1");
+  const trustFile = (await readdir(trustDirectory))[0];
+  if (trustFile === undefined) throw new Error("Expected a persisted trust record.");
+  const before = await readFile(join(trustDirectory, trustFile), "utf8");
+  const second = output();
+  const secondExit = await runHeadless(
+    { approveFakeAction: true, task: "Index the fake workspace", trustWorkspace: false },
+    {
+      cwd: directories.workspaceDirectory,
+      io: second.io,
+      stateDirectory: directories.stateDirectory,
     },
   );
 
-  // Then: it returns the stable approval error, no terminal success, and no receipt.
-  strictEqual(exitCode, 2);
-  strictEqual(JSON.parse(captured.stderr.join("")).code, "approval_required");
-  strictEqual(captured.stdout.join("").includes("run.terminal"), false);
-  const runDirectories = await readdir(join(stateDirectory, "runs"));
-  const receipts = await readdir(
-    join(stateDirectory, "runs", runDirectories[0] ?? "", "receipts"),
-  ).catch(() => []);
-  strictEqual(receipts.length, 0);
+  // Then: both streams end in verified success and trust bytes stay idempotent.
+  strictEqual(firstExit, 0);
+  strictEqual(secondExit, 0);
+  strictEqual(first.stderr.length, 0);
+  strictEqual(second.stderr.length, 0);
+  for (const captured of [first, second]) {
+    const decoded = captured.stdout
+      .join("")
+      .trim()
+      .split("\n")
+      .map((line) => decodeProductEvent(JSON.parse(line)));
+    strictEqual(
+      decoded.every((result) => result.ok),
+      true,
+    );
+    const last = decoded.at(-1);
+    strictEqual(
+      last?.ok && last.value.type === "run.terminal" && last.value.outcome.state === "succeeded",
+      true,
+    );
+  }
+  strictEqual(await readFile(join(trustDirectory, trustFile), "utf8"), before);
 });

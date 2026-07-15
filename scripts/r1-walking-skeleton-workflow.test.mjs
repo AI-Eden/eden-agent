@@ -4,6 +4,7 @@ import { test } from "node:test";
 
 const workflowUrl = new URL("../.github/workflows/r1-walking-skeleton.yml", import.meta.url);
 const attributesUrl = new URL("../.gitattributes", import.meta.url);
+const smokeUrl = new URL("./smoke-standalone.mjs", import.meta.url);
 const expectedPaths = [
   ".github/workflows/r1-walking-skeleton.yml",
   ".gitattributes",
@@ -71,4 +72,17 @@ test("R1 workflow freezes the cross-platform standalone evidence contract", asyn
   match(workflow, /actions\/upload-artifact@v4/u);
   strictEqual(/^\s+version:/mu.test(workflow), false);
   strictEqual(workflow.includes("terminal-framework"), false);
+});
+
+test("standalone smoke freezes onboarding and explicit trust evidence", async () => {
+  const smoke = await readFile(smokeUrl, "utf8");
+
+  match(smoke, /--trust-workspace/u);
+  match(smoke, /workspace_trust_required/u);
+  match(smoke, /approval_required/u);
+  match(smoke, /invalid_arguments/u);
+  match(smoke, /malformed trust record/u);
+  match(smoke, /journal\.jsonl/u);
+  match(smoke, /workspace-trust/u);
+  match(smoke, /unavailable-state/u);
 });

@@ -8,6 +8,7 @@ export type {
   KernelEvent,
   KernelProductError,
   RunState,
+  RunWorkspace,
   TerminalOutcome,
   TerminalRunState,
   TransitionError,

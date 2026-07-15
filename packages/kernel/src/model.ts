@@ -8,6 +8,13 @@ export type Action = {
   readonly scope: string;
 };
 
+export type RunWorkspace = {
+  readonly name: string;
+  readonly root: string;
+  readonly trust: "trusted";
+  readonly workspaceId: string;
+};
+
 export type KernelProductError = {
   readonly code: string;
   readonly message: string;
@@ -31,6 +38,7 @@ export type KernelEvent =
       readonly correlationId: string;
       readonly runId: string;
       readonly task: string;
+      readonly workspace: RunWorkspace;
     }
   | {
       readonly type: "approval.resolved";
@@ -61,6 +69,7 @@ type ActiveRunFields = {
   readonly runId: string;
   readonly task: string;
   readonly terminalOutcome: null;
+  readonly workspace: RunWorkspace;
 };
 
 export type AwaitingApprovalRunState = ActiveRunFields & {

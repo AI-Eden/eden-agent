@@ -18,6 +18,11 @@ TUI / headless CLI / later desktop
 
 The journal is the durable authority. Every surface sends product commands and consumes projections. A surface may own ephemeral selection, layout, and draft state; it may not own run phase, approval, changed-file truth, verification, or terminal state.
 
+Workspace trust exists before a run, so a runtime-owned registry stores its current path-scoped decision
+outside the workspace. It is configuration and policy input, not a substitute run journal. An accepted
+`run.start` snapshots the trusted workspace identity into the first kernel event; replay then reconstructs
+historical workspace truth without consulting the current registry or renderer context.
+
 ## Package responsibilities
 
 ### contracts
@@ -47,13 +52,15 @@ Composes ports and manages terminal lifecycle. It renders product state and seri
 ## Execution sequence
 
 1. A product command is validated and translated into a kernel event.
-2. The event is appended to the journal.
-3. The reducer produces the next state.
-4. The decision function emits effects.
-5. The dispatcher executes effects through ports.
-6. Observed results become new validated events.
-7. Product projections publish stable user-facing state.
-8. A verifier, not the model, produces success evidence.
+2. For `run.start`, runtime code revalidates exact workspace identity and current trust before creating the
+   journal.
+3. The event is appended to the journal.
+4. The reducer produces the next state.
+5. The decision function emits effects.
+6. The dispatcher executes effects through ports.
+7. Observed results become new validated events.
+8. Product projections publish stable user-facing state.
+9. A verifier, not the model, produces success evidence.
 
 ## Dependency rule
 

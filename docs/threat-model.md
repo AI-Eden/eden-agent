@@ -35,6 +35,10 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
 - Separate plugin discovery from trust and execution.
 - Journal effect intent and observed completion with reconciliation identifiers.
 - Make network, sandbox, workspace trust, and current authority visible in the product.
+- Bind workspace trust to one runtime-resolved canonical root, store it outside that root, fail closed on
+  invalid state, and revalidate identity immediately before accepting a trust command or starting a run.
+- Keep workspace trust distinct from action approval and capability grants; trust may only unlock task
+  entry in the R1 slice.
 - Let only trusted runtime code emit verifier-backed terminal events.
 
 ## Execution modes

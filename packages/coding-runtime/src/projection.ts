@@ -2,15 +2,9 @@ import type { ProductEvent, ProductView } from "@eden/contracts";
 import { initialRunState, type RunState, reduce } from "@eden/kernel";
 
 import { decodeJournalRecord, type JournalRecordV1 } from "./journal/index.ts";
-import {
-  approvalPresentation,
-  type ProjectionContext,
-  ProjectionError,
-  progress,
-  projectView,
-} from "./view-projection.ts";
+import { approvalPresentation, ProjectionError, progress, projectView } from "./view-projection.ts";
 
-export { type ProjectionContext, ProjectionError, projectView } from "./view-projection.ts";
+export { ProjectionError, projectView } from "./view-projection.ts";
 
 export type ProjectionResult = {
   readonly events: readonly ProductEvent[];
@@ -28,10 +22,7 @@ function requireTerminal(view: ProductView) {
   return view.terminalOutcome;
 }
 
-export function projectJournal(
-  records: readonly JournalRecordV1[],
-  context: ProjectionContext,
-): ProjectionResult {
+export function projectJournal(records: readonly JournalRecordV1[]): ProjectionResult {
   const events: ProductEvent[] = [];
   let state: RunState = initialRunState;
   let cursor = 0;
@@ -45,7 +36,7 @@ export function projectJournal(
       throw new ProjectionError("Projection encountered an illegal transition.");
     }
     state = transition.state;
-    const view = projectView(state, context);
+    const view = projectView(state);
     if (state.phase === "idle") {
       throw new ProjectionError("A journal event cannot reduce to idle state.");
     }
@@ -147,5 +138,5 @@ export function projectJournal(
         assertNever(decoded.value.event);
     }
   }
-  return { events, view: projectView(state, context) };
+  return { events, view: projectView(state) };
 }

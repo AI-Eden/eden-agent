@@ -47,6 +47,9 @@ versioning remains independent from journal versioning.
 - Illegal transitions are rejected and observable.
 - Terminal states are immutable.
 - Success requires a verifier-produced event referencing current goal and workspace evidence.
+- `run.started` contains the runtime-owned trusted workspace snapshot used by the start gate. The snapshot
+  is immutable run evidence; it is not supplied by a renderer or re-read from current trust configuration
+  during replay.
 
 ## Effects
 

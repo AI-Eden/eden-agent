@@ -2,7 +2,9 @@
 
 1. The user installs `eden` and sees a useful welcome state without a provider key.
 2. They choose or configure a provider, store credentials outside Eden's journal, and run a connection check.
-3. They open a repository and review trust, dirty-worktree state, instructions, available checks, sandbox, and network status.
+3. They open a repository in restricted mode, review its exact identity and current authority, and
+   explicitly trust that path before a task may start. Later slices add dirty-worktree, instruction,
+   available-check, sandbox, and network inspection to the same review state.
 4. They describe a task or provide a GoalSpec.
 5. Eden explores read-only and proposes a repository-grounded plan.
 6. The user revises or approves the plan and its authority.
