@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { chmod, copyFile, mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 
@@ -12,6 +21,7 @@ const stateRoot = join(directory, "states");
 const workspace = join(directory, "workspace");
 await mkdir(binaryDirectory);
 await mkdir(workspace);
+const canonicalWorkspace = await realpath(workspace);
 const executable = join(binaryDirectory, basename(source));
 await copyFile(source, executable);
 if (process.platform !== "win32") await chmod(executable, 0o755);
@@ -123,7 +133,7 @@ if (
   trustRecord.version !== 1 ||
   trustRecord.decision !== "trusted" ||
   trustRecord.revision !== 1 ||
-  trustRecord.canonicalRoot !== workspace
+  trustRecord.canonicalRoot !== canonicalWorkspace
 ) {
   throw new Error("Standalone workspace-trust record did not match the approved schema.");
 }

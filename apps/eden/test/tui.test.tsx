@@ -118,7 +118,7 @@ test("fresh onboarding shows exact restricted authority and creates no run", asy
 
     // Then: trust and capability truth stay visible without durable run state.
     const frame = fixture.renderer.captureCharFrame();
-    expect(initial).toContain(fixture.paths.workspaceDirectory);
+    expect(initial).toContain(await realpath(fixture.paths.workspaceDirectory));
     expect(frame).toContain("trust: restricted");
     expect(frame).toContain("repository: read disabled · write denied");
     expect(frame).toContain("network denied · sandbox not-configured");
