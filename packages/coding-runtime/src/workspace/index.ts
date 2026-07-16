@@ -13,3 +13,4 @@ export {
   WorkspaceTrustService,
   type WorkspaceTrustServiceOptions,
 } from "./trust-store.ts";
+export type { WorkspaceLockTimer } from "./workspace-lock.ts";

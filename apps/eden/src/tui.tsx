@@ -1,19 +1,36 @@
 import { randomUUID } from "node:crypto";
 
-import type { AgentClient, ProductEvent, ProductView, WorkspaceReview } from "@eden/contracts";
+import { AgentClientError } from "@eden/coding-runtime";
+import type {
+  AgentClient,
+  ProductEvent,
+  ProductView,
+  RunCatalog,
+  RunInspection,
+  WorkspaceReview,
+} from "@eden/contracts";
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui";
 import { KeymapProvider } from "@opentui/keymap/react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { useRunHistory } from "./tui-history.tsx";
+import { EdenTuiLayout } from "./tui-layout.tsx";
 
 export type EdenTuiAppProps = {
   readonly client: AgentClient;
   readonly initialWorkspaceReview?: WorkspaceReview;
   readonly onExit?: (code: 0 | 130) => void;
   readonly onReady?: (() => void) | undefined;
+  readonly onRunCatalogChange?: ((catalog: RunCatalog) => void) | undefined;
+  readonly onRunInspectionChange?: ((inspection: RunInspection) => void) | undefined;
   readonly onViewChange?: ((view: ProductView) => void) | undefined;
-  readonly onWorkspaceReviewChange?: ((review: WorkspaceReview) => void) | undefined;
+  readonly onWorkspaceReviewChange?: ((review: WorkspaceReview | null) => void) | undefined;
 };
+
+function errorMessage(cause: unknown, fallback: string): string {
+  return cause instanceof AgentClientError ? cause.productError.message : fallback;
+}
 
 export function EdenTuiApp(props: EdenTuiAppProps) {
   const renderer = useRenderer();
@@ -30,6 +47,8 @@ function EdenTuiSurface({
   initialWorkspaceReview,
   onExit,
   onReady,
+  onRunCatalogChange,
+  onRunInspectionChange,
   onViewChange,
   onWorkspaceReviewChange,
 }: EdenTuiAppProps) {
@@ -42,6 +61,14 @@ function EdenTuiSurface({
   const [timeline, setTimeline] = useState<readonly ProductEvent["type"][]>([]);
   const [view, setView] = useState<ProductView | null>(null);
 
+  const leaveComposer = useCallback(() => setComposerFocused(false), []);
+  const history = useRunHistory({
+    client,
+    onCatalogChange: onRunCatalogChange,
+    onInspectionChange: onRunInspectionChange,
+    onOpen: leaveComposer,
+  });
+
   const publishReview = useCallback(
     (nextReview: WorkspaceReview) => {
       setReview(nextReview);
@@ -49,6 +76,11 @@ function EdenTuiSurface({
     },
     [onWorkspaceReviewChange],
   );
+
+  const invalidateReview = useCallback(() => {
+    setReview(null);
+    onWorkspaceReviewChange?.(null);
+  }, [onWorkspaceReviewChange]);
 
   const resolveTrust = async (decision: "trust" | "restrict") => {
     if (review === null || view !== null) return;
@@ -65,7 +97,21 @@ function EdenTuiSurface({
       setComposerFocused(false);
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Workspace trust could not be updated.");
+      let message = errorMessage(cause, "Workspace trust could not be updated.");
+      const code = cause instanceof AgentClientError ? cause.productError.code : null;
+      if (code === "workspace_identity_changed") {
+        invalidateReview();
+        setComposerFocused(false);
+      } else if (code === "stale_revision") {
+        invalidateReview();
+        setComposerFocused(false);
+        try {
+          publishReview(await client.getWorkspaceReview());
+        } catch {
+          message = "Workspace authority could not be refreshed. Restart Eden and review it again.";
+        }
+      }
+      setError(message);
     }
   };
 
@@ -84,7 +130,21 @@ function EdenTuiSurface({
       setFollowing(true);
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The task could not start.");
+      let message = errorMessage(cause, "The task could not start.");
+      const code = cause instanceof AgentClientError ? cause.productError.code : null;
+      if (code === "workspace_identity_changed") {
+        invalidateReview();
+        setComposerFocused(false);
+      } else if (code === "workspace_trust_required" || code === "stale_revision") {
+        invalidateReview();
+        setComposerFocused(false);
+        try {
+          publishReview(await client.getWorkspaceReview());
+        } catch {
+          message = "Workspace authority could not be refreshed. Restart Eden and review it again.";
+        }
+      }
+      setError(message);
     }
   };
 
@@ -104,7 +164,7 @@ function EdenTuiSurface({
       onViewChange?.(nextView);
       setError(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "The approval could not be resolved.");
+      setError(errorMessage(cause, "The approval could not be resolved."));
     }
   };
 
@@ -126,6 +186,25 @@ function EdenTuiSurface({
       }
       return;
     }
+    if (history.surface === "inspection") {
+      if (!key.meta && !key.option && key.name === "b") {
+        history.back();
+      }
+      return;
+    }
+    if (history.surface === "history") {
+      if (key.meta || key.option) return;
+      if (key.name === "b") {
+        history.back();
+      } else if (key.name === "up") {
+        history.moveSelection(-1);
+      } else if (key.name === "down") {
+        history.moveSelection(1);
+      } else if (key.name === "return") {
+        void history.openInspection();
+      }
+      return;
+    }
     if (key.name === "q" && view?.terminalOutcome !== null && view !== null) {
       onExit?.(0);
       return;
@@ -134,10 +213,12 @@ function EdenTuiSurface({
       if (review.authority.taskStart === "allowed") {
         if (composerFocused) return;
         if (key.name === "return") setComposerFocused(true);
+        if (key.name === "h") history.openHistory();
         if (key.name === "r") void resolveTrust("restrict");
         return;
       }
       if (key.name === "t") void resolveTrust("trust");
+      if (key.name === "h") history.openHistory();
       if (key.name === "r") void resolveTrust("restrict");
       return;
     }
@@ -150,6 +231,7 @@ function EdenTuiSurface({
   useEffect(() => {
     if (initialWorkspaceReview !== undefined) {
       onWorkspaceReviewChange?.(initialWorkspaceReview);
+      void history.loadCatalog();
       onReady?.();
       return;
     }
@@ -157,13 +239,14 @@ function EdenTuiSurface({
     void client
       .getWorkspaceReview()
       .then((nextReview) => {
-        if (active) publishReview(nextReview);
+        if (active) {
+          publishReview(nextReview);
+          void history.loadCatalog();
+        }
       })
       .catch((cause) => {
         if (active) {
-          setError(
-            cause instanceof Error ? cause.message : "Workspace review could not be loaded.",
-          );
+          setError(errorMessage(cause, "Workspace review could not be loaded."));
         }
       })
       .finally(() => {
@@ -172,7 +255,14 @@ function EdenTuiSurface({
     return () => {
       active = false;
     };
-  }, [client, initialWorkspaceReview, onReady, onWorkspaceReviewChange, publishReview]);
+  }, [
+    client,
+    initialWorkspaceReview,
+    history.loadCatalog,
+    onReady,
+    onWorkspaceReviewChange,
+    publishReview,
+  ]);
 
   const followedRunId = following ? (view?.runId ?? null) : null;
   useEffect(() => {
@@ -187,104 +277,31 @@ function EdenTuiSurface({
     };
     void follow().catch((cause) => {
       if (!controller.signal.aborted) {
-        setError(cause instanceof Error ? cause.message : "The event subscription failed.");
+        setError(errorMessage(cause, "The event subscription failed."));
       }
     });
     return () => controller.abort();
   }, [client, followedRunId]);
 
-  const outcome = view?.terminalOutcome;
-  const check = view?.checks[0];
   const compact = height <= 20 || width <= 60;
-  const displayedWorkspace = view?.workspace ?? review?.workspace;
   return (
-    <box style={{ flexDirection: "column", padding: 1, width: "100%", height: "100%" }}>
-      <text fg="#8BD5CA">Eden R1 · deterministic fake · no credential required</text>
-      {!compact && (
-        <text>
-          viewport: {width}x{height}
-        </text>
-      )}
-      {review === null && <text>Loading workspace review…</text>}
-      {review !== null && displayedWorkspace !== undefined && (
-        <box style={{ flexDirection: "column" }}>
-          <text>workspace: {displayedWorkspace.root}</text>
-          <text>trust: {displayedWorkspace.trust}</text>
-          {view === null && (
-            <box style={{ flexDirection: "column" }}>
-              <text>task start: {review.authority.taskStart}</text>
-              <text>repository: read disabled · write denied</text>
-              <text>execution: fake-only · network denied · sandbox not-configured</text>
-              <text>Trust does not approve actions.</text>
-              {review.notice !== null && (
-                <box style={{ flexDirection: "column" }}>
-                  <text fg="#ED8796">notice: {review.notice.message}</text>
-                  <text>recovery: {review.notice.suggestedActions[0]}</text>
-                </box>
-              )}
-              <text>trust exact workspace: t · restrict/revoke: r · Ctrl+C exits</text>
-            </box>
-          )}
-        </box>
-      )}
-      {view === null && review?.authority.taskStart === "allowed" && (
-        <box style={{ flexDirection: "column", marginTop: 1 }}>
-          <text>Task</text>
-          <input
-            focused={composerFocused}
-            placeholder="Describe the fake task"
-            value={draft}
-            onInput={setDraft}
-            onSubmit={() => void start(draft)}
-            style={{ width: "100%" }}
-          />
-          <text fg="#777777">
-            {composerFocused
-              ? "Enter submits · workspace trust does not approve the action"
-              : "Enter focuses task · r revokes workspace trust"}
-          </text>
-        </box>
-      )}
-      {view !== null && (
-        <box style={{ flexDirection: "column", marginTop: 1 }}>
-          <text>phase: {view.phase}</text>
-          {!compact && (
-            <text>
-              progress: {view.progress?.completed ?? 0}/{view.progress?.total ?? 3}
-            </text>
-          )}
-          {!compact && <text>timeline: {timeline.join(" > ")}</text>}
-          {view.approval !== null && (
-            <box
-              style={{
-                border: !compact,
-                flexDirection: "column",
-                padding: compact ? 0 : 1,
-                width: "100%",
-              }}
-            >
-              <text>approval: pending · workspace trust is separate</text>
-              <text>action: {view.approval.canonicalDisplay}</text>
-              <text>cwd: {view.approval.cwd}</text>
-              {!compact && <text>reason: {view.approval.reason}</text>}
-              <text>scope: {view.approval.scope}</text>
-              <text>approve: a · deny: d</text>
-            </box>
-          )}
-          {outcome !== null && outcome !== undefined && (
-            <box style={{ flexDirection: "column", marginTop: 1 }}>
-              <text>outcome: {outcome.state}</text>
-              {outcome.state === "succeeded" && <text>evidence: {outcome.evidenceRef}</text>}
-              {(outcome.state === "blocked" || outcome.state === "failed") && (
-                <text>error: {outcome.error.message}</text>
-              )}
-              {check !== undefined && <text>check: {check.status}</text>}
-              <text>q exits</text>
-            </box>
-          )}
-        </box>
-      )}
-      {error !== null && <text fg="#ED8796">error: {error}</text>}
-    </box>
+    <EdenTuiLayout
+      catalog={history.catalog}
+      compact={compact}
+      composerFocused={composerFocused}
+      draft={draft}
+      error={error}
+      height={height}
+      historyError={history.error}
+      inspection={history.inspection}
+      onDraftChange={setDraft}
+      onStart={start}
+      review={review}
+      selectedIndex={history.selectedIndex}
+      surface={history.surface}
+      timeline={timeline}
+      view={view}
+      width={width}
+    />
   );
 }

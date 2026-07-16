@@ -16,6 +16,15 @@ export function decide(state: RunState): readonly KernelEffect[] {
       return [];
     case "executing":
       switch (state.stage) {
+        case "model-ready":
+          return [
+            {
+              effectId: `${state.runId}:fake-model`,
+              runId: state.runId,
+              task: state.task,
+              type: "fake.model.complete",
+            },
+          ];
         case "action-ready":
           return [
             {
@@ -32,11 +41,12 @@ export function decide(state: RunState): readonly KernelEffect[] {
               type: "fake.verification.run",
             },
           ];
+        case "model-in-flight":
         case "action-in-flight":
         case "verification-in-flight":
           return [];
         default:
-          return assertNever(state.stage);
+          return assertNever(state);
       }
     default:
       return assertNever(state);

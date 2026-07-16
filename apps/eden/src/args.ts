@@ -1,7 +1,9 @@
-import type { ProductError } from "@eden/contracts";
+import { decodeRunId, type ProductError, type RunId } from "@eden/contracts";
 
 export type CliArguments =
   | { readonly mode: "help" }
+  | { readonly mode: "run-list" }
+  | { readonly mode: "run-show"; readonly runId: RunId }
   | { readonly mode: "tui" }
   | {
       readonly approveFakeAction: boolean;
@@ -17,10 +19,13 @@ export type CliArgumentsResult =
 export const helpText = `Usage:
   eden
   eden exec --json [--trust-workspace] [--approve-fake-action] "<task>"
+  eden run list --json
+  eden run show --json <run-id>
   eden --help
 
 The default command opens the terminal product.
 Headless JSON emits one ProductEvent object per line.
+Run history JSON emits one RunCatalog or read-only RunInspection object.
 `;
 
 function invalid(message: string): CliArgumentsResult {
@@ -38,6 +43,15 @@ function invalid(message: string): CliArgumentsResult {
 export function parseArgs(argv: readonly string[]): CliArgumentsResult {
   if (argv.length === 0) return { ok: true, value: { mode: "tui" } };
   if (argv.length === 1 && argv[0] === "--help") return { ok: true, value: { mode: "help" } };
+  if (argv.length === 3 && argv[0] === "run" && argv[1] === "list" && argv[2] === "--json") {
+    return { ok: true, value: { mode: "run-list" } };
+  }
+  if (argv.length === 4 && argv[0] === "run" && argv[1] === "show" && argv[2] === "--json") {
+    const runId = decodeRunId(argv[3]);
+    return runId.ok
+      ? { ok: true, value: { mode: "run-show", runId: runId.value } }
+      : invalid("Run show requires one path-safe run ID.");
+  }
   if (argv[0] !== "exec") return invalid("Unknown command or option.");
   let approveFakeAction = false;
   let json = false;

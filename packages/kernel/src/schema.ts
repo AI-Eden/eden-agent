@@ -49,11 +49,21 @@ const FakeActionEffectSchema = Type.Object(
   { effectId: identifier(), runId: identifier(), type: Type.Literal("fake.action.execute") },
   closed,
 );
+const FakeModelEffectSchema = Type.Object(
+  {
+    effectId: identifier(),
+    runId: identifier(),
+    task: boundedText(),
+    type: Type.Literal("fake.model.complete"),
+  },
+  closed,
+);
 const FakeVerificationEffectSchema = Type.Object(
   { effectId: identifier(), runId: identifier(), type: Type.Literal("fake.verification.run") },
   closed,
 );
 export const KernelEffectSchema = Type.Union([
+  FakeModelEffectSchema,
   FakeActionEffectSchema,
   FakeVerificationEffectSchema,
 ]);
@@ -61,12 +71,19 @@ export const KernelEffectSchema = Type.Union([
 export const KernelEventSchema = Type.Union([
   Type.Object(
     {
-      action: ActionSchema,
       correlationId: identifier(),
       runId: identifier(),
       task: boundedText(),
       type: Type.Literal("run.started"),
       workspace: RunWorkspaceSchema,
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      action: ActionSchema,
+      effectId: identifier(),
+      type: Type.Literal("fake.model.completed"),
     },
     closed,
   ),

@@ -55,6 +55,21 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
           view,
         });
         cursor += 1;
+        break;
+      case "fake.model.completed":
+        if (state.phase !== "awaiting-approval") {
+          throw new ProjectionError("Model completion must produce an approval state.");
+        }
+        events.push({
+          ...base,
+          currentAction: view.currentAction,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          phase: view.phase,
+          progress: progress(state),
+          type: "phase.progress",
+        });
+        cursor += 1;
         events.push({
           ...base,
           approval: approvalPresentation(state.action),

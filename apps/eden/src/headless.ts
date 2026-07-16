@@ -14,6 +14,7 @@ export type HeadlessEnvironment = {
     readonly stderr: (value: string) => void;
     readonly stdout: (value: string) => void;
   };
+  readonly openClient?: typeof InProcessAgentClient.open;
   readonly stateDirectory: string;
 };
 
@@ -27,14 +28,13 @@ async function collect(iterable: AsyncIterable<ProductEvent>): Promise<readonly 
   return events;
 }
 
-async function take(
+async function takeThroughApproval(
   iterable: AsyncIterable<ProductEvent>,
-  count: number,
 ): Promise<readonly ProductEvent[]> {
   const events: ProductEvent[] = [];
   for await (const event of iterable) {
     events.push(event);
-    if (events.length === count) break;
+    if (event.type === "approval.presented") break;
   }
   return events;
 }
@@ -49,7 +49,7 @@ export async function runHeadless(
 ): Promise<number> {
   let client: InProcessAgentClient | null = null;
   try {
-    client = await InProcessAgentClient.open({
+    client = await (environment.openClient ?? InProcessAgentClient.open)({
       cwd: environment.cwd,
       stateDirectory: environment.stateDirectory,
     });
@@ -72,7 +72,7 @@ export async function runHeadless(
     });
     const runId = awaiting.runId;
     if (!options.approveFakeAction) {
-      writeEvents(await take(client.subscribe(runId), 2), environment);
+      writeEvents(await takeThroughApproval(client.subscribe(runId)), environment);
       writeError(
         {
           code: "approval_required",
@@ -104,7 +104,7 @@ export async function runHeadless(
         ? error.productError
         : {
             code: "runtime_failure",
-            message: error instanceof Error ? error.message : "The headless runtime failed.",
+            message: "Headless execution failed without exposing local state details.",
             recoverability: "fatal" as const,
             suggestedActions: ["Inspect the state directory and retry."],
           };

@@ -35,6 +35,7 @@ const eventType = Type.Union([
   Type.Literal("run.started"),
   Type.Literal("approval.resolved"),
   Type.Literal("effect.requested"),
+  Type.Literal("fake.model.completed"),
   Type.Literal("fake.action.completed"),
   Type.Literal("verification.completed"),
   Type.Literal("run.cancelled"),

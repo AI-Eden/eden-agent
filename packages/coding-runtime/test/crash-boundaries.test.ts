@@ -9,11 +9,16 @@ import type { KernelEffect, KernelEvent } from "@eden/kernel";
 import { FakeToolHost } from "../src/fake-tool-host.ts";
 import { FileJournal } from "../src/journal/index.ts";
 import { createJournalRecord, type EffectHost, RuntimeEngine } from "../src/runtime.ts";
-import { approvalRecord, startRecord } from "./records.ts";
+import {
+  approvalRecord,
+  modelCompletedRecord,
+  modelRequestedRecord,
+  startRecord,
+} from "./records.ts";
 
 const fixedClock = { now: () => new Date("2026-07-15T00:00:02.000Z") };
 
-function ids(start = 2) {
+function ids(start = 4) {
   let next = start;
   return { next: () => `event-${next++}` };
 }
@@ -29,6 +34,8 @@ async function setup() {
 
 async function appendApproved(journal: FileJournal) {
   await journal.append(startRecord);
+  await journal.append(modelRequestedRecord);
+  await journal.append(modelCompletedRecord);
   await journal.append(approvalRecord);
 }
 
@@ -43,7 +50,7 @@ test("restart observes only committed domain events", async () => {
 
   // Then: replay sees the prior idle truth first and applies the commit exactly once after restart.
   strictEqual(before.state.phase, "idle");
-  strictEqual(after.state.phase, "awaiting-approval");
+  strictEqual(after.state.phase, "executing");
   strictEqual(after.state.revision, 1);
 });
 
@@ -55,7 +62,7 @@ test("an intent committed before dispatch executes once with the same effect ide
   const effect = await first.requestNextEffect();
 
   // When: a fresh engine reconciles the not-started effect.
-  const restarted = await RuntimeEngine.open(fixture.journal, fixture.host, fixedClock, ids(3));
+  const restarted = await RuntimeEngine.open(fixture.journal, fixture.host, fixedClock, ids(5));
   await restarted.settleInFlightEffect();
 
   // Then: one receipt exists and the observation advances the run without changing effect identity.
@@ -76,12 +83,12 @@ test("a receipt committed before observation is reconciled without another execu
   const observation = await fixture.host.execute(effect);
 
   // When: a fresh engine settles the unresolved intent.
-  const restarted = await RuntimeEngine.open(fixture.journal, fixture.host, fixedClock, ids(3));
+  const restarted = await RuntimeEngine.open(fixture.journal, fixture.host, fixedClock, ids(5));
   await restarted.settleInFlightEffect();
 
   // Then: it appends the recorded observation and leaves the single receipt unchanged.
   const reconciled = await fixture.host.reconcile(effect);
-  strictEqual(restarted.state.revision, 4);
+  strictEqual(restarted.state.revision, 6);
   strictEqual(reconciled.status, "completed");
   if (reconciled.status !== "completed") throw new Error("Expected a completed receipt.");
   deepStrictEqual(reconciled.observation, observation);
@@ -100,10 +107,10 @@ test("an observation committed before reduction replays exactly once", async () 
     createJournalRecord(observation, {
       causationId: effect.effectId,
       correlationId: "command-run-1",
-      eventId: "event-3",
+      eventId: "event-5",
       recordedAt: fixedClock.now(),
       runId: "run-1",
-      sequence: 3,
+      sequence: 5,
     }),
   );
 
@@ -111,10 +118,10 @@ test("an observation committed before reduction replays exactly once", async () 
   const restarted = await RuntimeEngine.open(fixture.journal, fixture.host, fixedClock, ids());
 
   // Then: the observation is present once and no dispatch occurs during replay.
-  strictEqual(restarted.state.revision, 4);
+  strictEqual(restarted.state.revision, 6);
   if (restarted.state.phase !== "executing") throw new Error("Expected executing state.");
   strictEqual(restarted.state.stage, "verification-ready");
-  strictEqual((await fixture.journal.readAll()).length, 4);
+  strictEqual((await fixture.journal.readAll()).length, 6);
 });
 
 test("unknown reconciliation blocks visibly without executing the effect", async () => {
@@ -133,7 +140,7 @@ test("unknown reconciliation blocks visibly without executing the effect", async
   };
 
   // When: recovery asks the owning adapter to settle the intent.
-  const restarted = await RuntimeEngine.open(fixture.journal, unknownHost, fixedClock, ids(3));
+  const restarted = await RuntimeEngine.open(fixture.journal, unknownHost, fixedClock, ids(5));
   await restarted.settleInFlightEffect();
 
   // Then: the run is blocked and no receipt was created.

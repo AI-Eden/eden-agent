@@ -16,7 +16,7 @@ export type ReconciliationResult =
   | { readonly status: "unknown" };
 
 export interface EffectHost {
-  execute(effect: KernelEffect): Promise<KernelEvent>;
+  execute(effect: KernelEffect, signal?: AbortSignal): Promise<KernelEvent>;
   reconcile(effect: KernelEffect): Promise<ReconciliationResult>;
 }
 
@@ -148,7 +148,7 @@ export class RuntimeEngine {
     return effect;
   }
 
-  async settleInFlightEffect(): Promise<void> {
+  async settleInFlightEffect(signal?: AbortSignal): Promise<void> {
     if (this.currentState.phase !== "executing" || this.currentState.inFlightEffect === null) {
       return;
     }
@@ -159,7 +159,7 @@ export class RuntimeEngine {
         await this.commit(reconciled.observation, effect.effectId);
         return;
       case "not-started": {
-        const observation = await this.host.execute(effect);
+        const observation = await this.host.execute(effect, signal);
         await this.commit(observation, effect.effectId);
         return;
       }

@@ -23,6 +23,16 @@ outside the workspace. It is configuration and policy input, not a substitute ru
 `run.start` snapshots the trusted workspace identity into the first kernel event; replay then reconstructs
 historical workspace truth without consulting the current registry or renderer context.
 
+Trust review caches are presentation hints. Start, grant, and revoke share a per-workspace cross-process
+critical section; start re-resolves the original path and reloads trust before it consumes a run ID or
+creates durable run state.
+
+New pre-release runs are stored beneath a versioned canonical-workspace partition. Runtime-owned catalog
+code scans only that partition and projects validated journals into closed product summaries. A corrupt
+journal remains visible as unavailable because the partition supplies attribution without becoming a
+second source of run truth. Catalog and inspection paths are read-only: they never open an append handle,
+reconcile an effect, or make the renderer a filesystem authority.
+
 ## Package responsibilities
 
 ### contracts
@@ -55,16 +65,21 @@ Composes ports and manages terminal lifecycle. It renders product state and seri
 2. For `run.start`, runtime code revalidates exact workspace identity and current trust before creating the
    journal.
 3. The event is appended to the journal.
-4. The reducer produces the next state.
-5. The decision function emits effects.
-6. The dispatcher executes effects through ports.
-7. Observed results become new validated events.
-8. Product projections publish stable user-facing state.
-9. A verifier, not the model, produces success evidence.
+4. The reducer produces a model-ready state with no approval.
+5. The decision function emits the typed fake-model effect.
+6. A validated fake-model observation creates the action proposal; runtime-owned code supplies its cwd,
+   scope, digest, and approval identity.
+7. The dispatcher executes later approved action and verification effects through ports.
+8. Observed results become new validated events before reduction.
+9. Product projections publish stable user-facing state.
+10. A verifier, not the model, produces success evidence.
 
 ## Dependency rule
 
-Dependencies point inward: apps and adapters depend on contracts and runtime ports; runtime depends on kernel; kernel has no dependency on adapters. TUI, Bun, Node provider SDKs, Docker, Tauri, and Electron cannot leak into the kernel.
+Dependencies point inward: apps depend on contracts and runtime surfaces; runtime depends on kernel; kernel
+has no dependency on adapters. ADR 0011 permits the R1 runtime to compose the existing typed deterministic
+provider port and fake adapter from `packages/providers`; provider SDKs and provider-specific values still
+cannot enter the kernel. TUI, Bun, Docker, Tauri, and Electron also cannot leak into the kernel.
 
 ## Deferred boundaries
 

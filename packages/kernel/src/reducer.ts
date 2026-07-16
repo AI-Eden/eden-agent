@@ -1,4 +1,7 @@
+import { decide } from "./decide.ts";
+import { deterministicFakeAction } from "./fake-action.ts";
 import type {
+  Action,
   AwaitingApprovalRunState,
   ExecutingRunState,
   KernelEffect,
@@ -28,8 +31,30 @@ function terminal(state: AwaitingApprovalRunState | ExecutingRunState, outcome: 
   } as const;
 }
 
-function effectMatches(effect: KernelEffect, expectedType: KernelEffect["type"], runId: string) {
-  return effect.type === expectedType && effect.runId === runId;
+function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
+  if (
+    effect.type !== expected.type ||
+    effect.effectId !== expected.effectId ||
+    effect.runId !== expected.runId
+  ) {
+    return false;
+  }
+  return (
+    effect.type !== "fake.model.complete" ||
+    (expected.type === "fake.model.complete" && effect.task === expected.task)
+  );
+}
+
+function actionMatches(left: Action, right: Action): boolean {
+  return (
+    left.actionId === right.actionId &&
+    left.approvalId === right.approvalId &&
+    left.canonicalDisplay === right.canonicalDisplay &&
+    left.cwd === right.cwd &&
+    left.digest === right.digest &&
+    left.reason === right.reason &&
+    left.scope === right.scope
+  );
 }
 
 export function reduce(state: RunState, event: KernelEvent): TransitionResult {
@@ -45,11 +70,13 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       return {
         ok: true,
         state: {
-          action: event.action,
+          action: null,
           correlationId: event.correlationId,
-          phase: "awaiting-approval",
+          inFlightEffect: null,
+          phase: "executing",
           revision: 1,
           runId: event.runId,
+          stage: "model-ready",
           task: event.task,
           terminalOutcome: null,
           workspace: event.workspace,
@@ -83,14 +110,26 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           stage: "action-ready",
         },
       };
-    case "effect.requested":
+    case "effect.requested": {
       if (state.phase !== "executing") {
         return illegal(state, event);
       }
-      if (
-        state.stage === "action-ready" &&
-        effectMatches(event.effect, "fake.action.execute", state.runId)
-      ) {
+      const expectedEffect = decide(state)[0];
+      if (expectedEffect === undefined || !effectMatches(event.effect, expectedEffect)) {
+        return illegal(state, event);
+      }
+      if (state.stage === "model-ready" && event.effect.type === "fake.model.complete") {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            inFlightEffect: event.effect,
+            revision: state.revision + 1,
+            stage: "model-in-flight",
+          },
+        };
+      }
+      if (state.stage === "action-ready" && event.effect.type === "fake.action.execute") {
         return {
           ok: true,
           state: {
@@ -101,10 +140,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           },
         };
       }
-      if (
-        state.stage === "verification-ready" &&
-        effectMatches(event.effect, "fake.verification.run", state.runId)
-      ) {
+      if (state.stage === "verification-ready" && event.effect.type === "fake.verification.run") {
         return {
           ok: true,
           state: {
@@ -116,6 +152,29 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         };
       }
       return illegal(state, event);
+    }
+    case "fake.model.completed":
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "model-in-flight" ||
+        state.inFlightEffect?.effectId !== event.effectId ||
+        !actionMatches(event.action, deterministicFakeAction(state.runId, state.workspace.root))
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          action: event.action,
+          correlationId: state.correlationId,
+          phase: "awaiting-approval",
+          revision: state.revision + 1,
+          runId: state.runId,
+          task: state.task,
+          terminalOutcome: null,
+          workspace: state.workspace,
+        },
+      };
     case "fake.action.completed":
       if (
         state.phase !== "executing" ||

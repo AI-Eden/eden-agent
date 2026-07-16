@@ -2,7 +2,9 @@
 
 ## Status
 
-Draft for R0. Changes to trust, terminal states, public product contracts, or non-goals require an ADR and human approval.
+R1 exit candidate work. R1 is not complete until the exact-SHA evidence matrix, fresh exit review, and
+owner acceptance pass. Changes to trust, terminal states, public product contracts, or non-goals require
+an ADR and human approval.
 
 ## User story
 
@@ -50,6 +52,11 @@ A goal defines scope, required checks, optional checks, allowed capabilities, bu
 
 Both use an `AgentClient` port. R0-R4 may use an in-process transport; a local IPC transport is introduced only at the desktop architecture gate.
 
+The current-workspace run catalog and historical inspection are product projections, not renderer-owned
+filesystem discovery. `eden run list --json` returns one closed catalog value and
+`eden run show --json <run-id>` returns one closed read-only inspection value. Neither command continues
+execution or mutates a journal.
+
 ## Trust model
 
 The default workspace state is restricted. Eden displays the exact canonical root and requires an explicit,
@@ -67,7 +74,17 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
 
 ## Persistence and recovery
 
-Append-only JSONL is the initial journal format. Every effect has an idempotency or reconciliation strategy. Resume reconstructs state, checks workspace drift, and continues only from a defined checkpoint.
+Append-only JSONL is the initial journal format. Every effect has an idempotency or reconciliation
+strategy. New R1 runs are partitioned by canonical workspace ID under the runtime state directory so a
+damaged journal remains attributable without a second mutable index. Catalog chronology comes from
+validated journal timestamps, never filesystem modification time.
+
+Run IDs are opaque protocol identities with a `run-` prefix and a lowercase ASCII letter, digit, or
+hyphen suffix. They are bounded to 128 characters and validated before any state-path lookup.
+
+Read-only inspection reconstructs product truth without dispatching or reconciliation. Resume
+reconstructs state, checks workspace drift, and continues only from a defined checkpoint; read-only
+inspection is not resume.
 
 ## Evidence Pack
 

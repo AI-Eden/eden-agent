@@ -5,14 +5,16 @@
 3. They open a repository in restricted mode, review its exact identity and current authority, and
    explicitly trust that path before a task may start. Later slices add dirty-worktree, instruction,
    available-check, sandbox, and network inspection to the same review state.
-4. They describe a task or provide a GoalSpec.
-5. Eden explores read-only and proposes a repository-grounded plan.
-6. The user revises or approves the plan and its authority.
-7. Eden executes while the product shows phase, current action, changed files, budget, and blockers.
-8. A risky action produces a scoped approval card. Rejection becomes a recoverable observation.
-9. The user may steer, pause, cancel, exit, or resume at defined boundaries.
-10. Eden verifies the current workspace and enters review only with current evidence.
-11. The user inspects diff, checks, artifacts, exceptions, and residual risk.
-12. They accept, request another repair, open the changes in an editor, or export a sanitized diagnostic bundle.
+4. They may inspect this exact workspace's prior runs without granting task-start authority or continuing
+   historical execution.
+5. They describe a task or provide a GoalSpec.
+6. Eden explores read-only and proposes a repository-grounded plan.
+7. The user revises or approves the plan and its authority.
+8. Eden executes while the product shows phase, current action, changed files, budget, and blockers.
+9. A risky action produces a scoped approval card. Rejection becomes a recoverable observation.
+10. The user may steer, pause, cancel, exit, or resume at defined boundaries.
+11. Eden verifies the current workspace and enters review only with current evidence.
+12. The user inspects diff, checks, artifacts, exceptions, and residual risk.
+13. They accept, request another repair, open the changes in an editor, or export a sanitized diagnostic bundle.
 
 The journey is incomplete if any transition requires the user to inspect raw JSON, infer whether a command actually ran, or trust a natural-language completion claim.

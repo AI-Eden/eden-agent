@@ -1,0 +1,22 @@
+# Future Work
+
+This directory records deferred engineering decisions whose risks, triggers, and evidence gates are
+already understood, while their implementation stage remains intentionally unassigned.
+
+Each topic has its own file. A future-work record must state:
+
+- the deferred threat or product problem;
+- the guarantee the current product does and does not make;
+- the cost of continuing to defer the work;
+- the evidence or roadmap change that triggers a new decision;
+- viable architecture families and their prerequisites;
+- the verification needed before a public support or security claim changes.
+
+A future-work record is not an approved implementation plan. Moving one into Build requires fresh
+Explore evidence, an accepted ADR when architecture changes, and an executable plan under `docs/plans/`.
+
+## Topics
+
+- [Adversarial local-state filesystem hardening](adversarial-local-state-filesystem-hardening.md):
+  descriptor- or handle-anchored access and stronger state isolation against a malicious process running
+  as the same operating-system user.

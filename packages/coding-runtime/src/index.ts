@@ -23,12 +23,3 @@ export type { SkillDescriptor } from "./skills/index.js";
 export type { SubagentSpec } from "./subagents/index.js";
 export type { ToolResult } from "./tools/index.js";
 export type { VerificationResult } from "./verification/index.js";
-export {
-  resolveWorkspaceIdentity,
-  type WorkspaceClock,
-  type WorkspaceIdentity,
-  type WorkspaceSnapshot,
-  WorkspaceTrustError,
-  WorkspaceTrustService,
-  type WorkspaceTrustServiceOptions,
-} from "./workspace/index.js";

@@ -1,6 +1,7 @@
 name: R1 walking skeleton
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - ".github/workflows/r1-walking-skeleton.yml"
@@ -8,16 +9,23 @@ on:
       - ".markdownlint-cli2.jsonc"
       - ".markdownlint-cli2.mjs"
       - "biome.json"
+      - "CONTEXT.md"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "PRODUCT.md"
+      - "README.md"
+      - "SPEC.md"
       - "tsconfig.base.json"
+      - "docs/**"
+      - "scripts/r1-production-pty.mjs"
       - "scripts/r1-walking-skeleton-workflow.test.mjs"
       - "scripts/smoke-standalone.mjs"
       - "apps/eden/**"
       - "packages/coding-runtime/**"
       - "packages/contracts/**"
       - "packages/kernel/**"
+      - "packages/providers/**"
   push:
     branches: [main]
     paths:
@@ -26,16 +34,23 @@ on:
       - ".markdownlint-cli2.jsonc"
       - ".markdownlint-cli2.mjs"
       - "biome.json"
+      - "CONTEXT.md"
       - "package.json"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "PRODUCT.md"
+      - "README.md"
+      - "SPEC.md"
       - "tsconfig.base.json"
+      - "docs/**"
+      - "scripts/r1-production-pty.mjs"
       - "scripts/r1-walking-skeleton-workflow.test.mjs"
       - "scripts/smoke-standalone.mjs"
       - "apps/eden/**"
       - "packages/coding-runtime/**"
       - "packages/contracts/**"
       - "packages/kernel/**"
+      - "packages/providers/**"
 
 permissions:
   contents: read
@@ -65,21 +80,33 @@ jobs:
         run: chmod +x node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/prebuilds/darwin-*/spawn-helper
       - run: pnpm peers check
       - run: pnpm test
+        env:
+          EDEN_TUI_CAPTURE_DIR: ${{ github.workspace }}/r1-evidence/renderer
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm code:check
       - run: pnpm markdown:check
       - run: pnpm --filter @eden/cli package:bun
-      - name: Smoke standalone artifact
+      - run: node scripts/r1-production-pty.mjs --self-test
+      - name: Smoke standalone and production PTY artifact
         shell: bash
         run: |
+          mkdir -p r1-evidence
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            node scripts/smoke-standalone.mjs apps/eden/dist/eden.exe
+            artifact=apps/eden/dist/eden.exe
           else
-            node scripts/smoke-standalone.mjs apps/eden/dist/eden
+            artifact=apps/eden/dist/eden
           fi
+          node scripts/smoke-standalone.mjs "$artifact" r1-evidence/standalone.json
+          node scripts/r1-production-pty.mjs "$artifact" r1-evidence
       - uses: actions/upload-artifact@v4
         with:
           name: eden-${{ runner.os }}-${{ runner.arch }}
-          path: apps/eden/dist/eden*
+          path: |
+            apps/eden/dist/eden*
+            r1-evidence/manifest.json
+            r1-evidence/*.txt
+            r1-evidence/*.ansi
+            r1-evidence/standalone.json
+            r1-evidence/renderer/*.txt
           if-no-files-found: error

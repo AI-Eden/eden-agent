@@ -1,4 +1,5 @@
 export { decide } from "./decide.ts";
+export { deterministicFakeAction } from "./fake-action.ts";
 export type {
   Action,
   AwaitingApprovalRunState,

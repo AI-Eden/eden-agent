@@ -17,6 +17,11 @@ shows its exact path and fixed capability truth, and the task composer remains u
 runtime-accepted trust command. Revocation returns the pre-run surface to restricted without rewriting
 historical runs.
 
+Run history is a workspace-review subview available in both restricted and trusted states. It lists only
+the exact canonical workspace partition. Opening an entry creates a read-only historical inspection with
+an explicit back action; it never exposes approval, cancellation, or resume controls. Unavailable entries
+stay visible with structured recovery text while other valid runs remain usable.
+
 ## Information hierarchy
 
 Always visible: workspace, session, profile, phase, trust mode, network, model, and budget. The main surface prioritizes progress, changed files, checks, and blockers. Raw tool detail and trace diagnostics are expandable.
@@ -28,6 +33,10 @@ Always visible: workspace, session, profile, phase, trust mode, network, model, 
 - Wide: session navigation, timeline, and review pane.
 
 Width changes must preserve current focus and action safety. Three permanent panes are not assumed.
+
+R1 uses an explicit history key and selection view rather than a permanent pane. Narrow layouts preserve
+workspace identity, read-only mode, selected run, outcome, and the back/exit actions before optional
+timeline detail.
 
 ## Recovery
 

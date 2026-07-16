@@ -27,9 +27,15 @@ The product should always help the user answer six questions:
 
 ## v0.1 surface
 
-The default `eden` command is a polished, keyboard-first TUI. `eden exec --json` is the headless surface. They consume the same product contracts and cannot own separate execution semantics.
+The default `eden` command is a polished, keyboard-first TUI. `eden exec --json` is the headless execution
+surface. Headless run listing and inspection use `eden run list --json` and
+`eden run show --json <run-id>`. All surfaces consume the same product contracts and cannot own separate
+execution or history semantics.
 
-The TUI must cover onboarding, workspace trust, plan review, scoped approvals, progress, changed files, diff, required checks, evidence, steering, pause, resume, cancellation, and recovery.
+The TUI must cover onboarding, workspace trust, current-workspace run history, read-only historical
+inspection, plan review, scoped approvals, progress, changed files, diff, required checks, evidence,
+steering, pause, resume, cancellation, and recovery. Historical inspection does not imply that execution
+can resume from that run.
 
 ## Later surface
 

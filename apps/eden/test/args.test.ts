@@ -4,7 +4,6 @@ import { test } from "node:test";
 import { parseArgs } from "../src/args.ts";
 
 test("headless arguments preserve separate workspace trust and action approval", () => {
-  // Given: the frozen R1 headless command shape.
   const argv = [
     "exec",
     "--json",
@@ -13,10 +12,8 @@ test("headless arguments preserve separate workspace trust and action approval",
     "Index the fake workspace",
   ];
 
-  // When: arguments are decoded at the CLI boundary.
   const result = parseArgs(argv);
 
-  // Then: the task and both independent grants are preserved.
   deepStrictEqual(result, {
     ok: true,
     value: {
@@ -29,7 +26,6 @@ test("headless arguments preserve separate workspace trust and action approval",
 });
 
 test("unknown and empty arguments fail with stable product errors", () => {
-  // Given: malformed invocations.
   const unknown = parseArgs(["exec", "--json", "--wat", "task"]);
   const empty = parseArgs(["exec", "--json", ""]);
   const duplicateTrust = parseArgs([
@@ -40,10 +36,31 @@ test("unknown and empty arguments fail with stable product errors", () => {
     "task",
   ]);
 
-  // When and Then: both remain argument errors and cannot select a product surface.
   strictEqual(unknown.ok, false);
   strictEqual(empty.ok, false);
   strictEqual(duplicateTrust.ok, false);
   if (!unknown.ok) strictEqual(unknown.error.code, "invalid_arguments");
   if (!empty.ok) strictEqual(empty.error.code, "invalid_arguments");
+});
+
+test("run list and show require exact JSON-only grammar", () => {
+  deepStrictEqual(parseArgs(["run", "list", "--json"]), {
+    ok: true,
+    value: { mode: "run-list" },
+  });
+  deepStrictEqual(parseArgs(["run", "show", "--json", "run-1"]), {
+    ok: true,
+    value: { mode: "run-show", runId: "run-1" },
+  });
+
+  const invalid = [
+    ["run", "list"],
+    ["run", "list", "--json", "extra"],
+    ["run", "show", "run-1"],
+    ["run", "show", "--json"],
+    ["run", "show", "--json", "../run-1"],
+    ["run", "show", "--json", "run-1", "extra"],
+    ["run", "show", "--json", "--json", "run-1"],
+  ];
+  for (const argv of invalid) strictEqual(parseArgs(argv).ok, false);
 });

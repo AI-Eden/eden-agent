@@ -3,6 +3,8 @@ import { describe, it } from "node:test";
 import {
   decodeProductCommand,
   decodeProductEvent,
+  decodeResolveWorkspaceTrustCommand,
+  decodeRunId,
   executingProductView,
   ProductCommandDecodeResultSchema,
   ProductCommandSchema,
@@ -149,6 +151,35 @@ describe("product protocol boundary", () => {
     }
   });
 
+  it("accepts only path-safe prefixed run identifiers", () => {
+    const invalidRunIds = [
+      "../run-1",
+      "run-1/receipts",
+      "RUN-1",
+      "550e8400-e29b-41d4-a716-446655440000",
+      "run-a_1",
+      `run-${"a".repeat(125)}`,
+    ];
+
+    for (const runId of invalidRunIds) {
+      assert.equal(
+        decodeProductEvent({ ...approvalEvent, runId }).ok,
+        false,
+        `Expected ${runId} to be rejected.`,
+      );
+    }
+    assert.equal(decodeProductEvent({ ...approvalEvent, runId: "run-1" }).ok, true);
+    assert.equal(
+      decodeProductEvent({
+        ...approvalEvent,
+        runId: "run-550e8400-e29b-41d4-a716-446655440000",
+      }).ok,
+      true,
+    );
+    assert.deepEqual(decodeRunId("run-1"), { ok: true, value: "run-1" });
+    assert.equal(decodeRunId("../run-1").ok, false);
+  });
+
   it("requires revisions, cursors, canonical approvals, and verifier evidence", () => {
     const invalidCommands = [
       { protocolVersion: 1, commandId: "command-2", type: "run.pause", runId: "run-1" },
@@ -200,6 +231,56 @@ describe("product protocol boundary", () => {
       }).ok,
       false,
     );
+
+    assert.equal(
+      decodeProductEvent({
+        ...approvalEvent,
+        approval: { ...approvalEvent.approval, cwd: `/${"w".repeat(4_094)}` },
+      }).ok,
+      true,
+    );
+  });
+
+  it("accepts only safe-integer revisions and cursors", () => {
+    const maximum = Number.MAX_SAFE_INTEGER;
+    assert.equal(decodeProductCommand({ ...validCommands[1], expectedRevision: maximum }).ok, true);
+    assert.equal(
+      decodeProductEvent({ ...approvalEvent, cursor: maximum, revision: maximum }).ok,
+      true,
+    );
+    assert.equal(
+      decodeResolveWorkspaceTrustCommand({
+        commandId: "command-trust-maximum",
+        decision: "restrict",
+        expectedRevision: maximum,
+        protocolVersion: 1,
+        type: "workspace.trust.resolve",
+        workspaceId: "workspace-1",
+      }).ok,
+      true,
+    );
+
+    for (const invalid of [maximum + 1, 1e100]) {
+      assert.equal(
+        decodeProductCommand({ ...validCommands[1], expectedRevision: invalid }).ok,
+        false,
+      );
+      assert.equal(
+        decodeProductEvent({ ...approvalEvent, cursor: invalid, revision: invalid }).ok,
+        false,
+      );
+      assert.equal(
+        decodeResolveWorkspaceTrustCommand({
+          commandId: "command-trust-invalid",
+          decision: "restrict",
+          expectedRevision: invalid,
+          protocolVersion: 1,
+          type: "workspace.trust.resolve",
+          workspaceId: "workspace-1",
+        }).ok,
+        false,
+      );
+    }
   });
 
   it("returns stable non-throwing errors without mutating external input", () => {

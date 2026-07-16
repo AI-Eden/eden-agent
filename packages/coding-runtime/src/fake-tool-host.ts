@@ -1,20 +1,149 @@
-import { type FileHandle, mkdir, open, readFile } from "node:fs/promises";
+import { type FileHandle, lstat, mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 
 import { decodeKernelEvent, type KernelEffect, type KernelEvent } from "@eden/kernel";
+import { decodeFakeModelResponse, FakeModelDriver, type ModelDriver } from "@eden/providers";
 
+import { fakeAction } from "./fake-action.ts";
 import type { EffectHost, ReconciliationResult } from "./runtime.ts";
 
 function isMissingFile(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+const receiptByteLimit = 65_536;
+const fatalUtf8Decoder = new TextDecoder("utf-8", { fatal: true });
+
+function sameReceiptIdentity(
+  left: Awaited<ReturnType<typeof lstat>>,
+  right: Awaited<ReturnType<typeof lstat>>,
+): boolean {
+  return (
+    right.isFile() &&
+    !right.isSymbolicLink() &&
+    right.nlink === 1 &&
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.size === right.size
+  );
+}
+
+type ReceiptRead =
+  | { readonly kind: "invalid" }
+  | { readonly kind: "missing" }
+  | { readonly content: string; readonly kind: "ready" };
+
+async function readReceipt(path: string): Promise<ReceiptRead> {
+  try {
+    const before = await lstat(path);
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.nlink !== 1 ||
+      before.size > receiptByteLimit
+    ) {
+      return { kind: "invalid" };
+    }
+    const handle = await open(path, "r");
+    try {
+      const opened = await handle.stat();
+      if (!sameReceiptIdentity(before, opened)) return { kind: "invalid" };
+      const bytes = Buffer.alloc(opened.size);
+      let offset = 0;
+      while (offset < bytes.length) {
+        const result = await handle.read(
+          bytes,
+          offset,
+          Math.min(4_096, bytes.length - offset),
+          offset,
+        );
+        if (result.bytesRead === 0) break;
+        offset += result.bytesRead;
+      }
+      if (offset !== bytes.length || !sameReceiptIdentity(before, await handle.stat())) {
+        return { kind: "invalid" };
+      }
+      if (!sameReceiptIdentity(before, await lstat(path))) return { kind: "invalid" };
+      return { content: fatalUtf8Decoder.decode(bytes), kind: "ready" };
+    } finally {
+      await handle.close();
+    }
+  } catch (error) {
+    return { kind: isMissingFile(error) ? "missing" : "invalid" };
+  }
+}
+
+async function ensureReceiptDirectory(path: string): Promise<void> {
+  try {
+    await mkdir(path, { mode: 0o700 });
+  } catch (error) {
+    if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+  }
+  const metadata = await lstat(path);
+  if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
+    throw new Error("The receipt directory is invalid.");
+  }
+}
+
+async function inspectReceiptDirectory(path: string): Promise<"invalid" | "missing" | "ready"> {
+  try {
+    const metadata = await lstat(path);
+    return metadata.isDirectory() && !metadata.isSymbolicLink() ? "ready" : "invalid";
+  } catch (error) {
+    return isMissingFile(error) ? "missing" : "invalid";
+  }
+}
+
 function receiptName(effectId: string): string {
   return `${Buffer.from(effectId).toString("base64url")}.json`;
 }
 
-function observationFor(effect: KernelEffect): KernelEvent {
+function modelFailure(code: string, message: string): KernelEvent {
+  return {
+    error: {
+      code,
+      message,
+      recoverability: "retry",
+      suggestedActions: [
+        "Start a new deterministic fake task after resolving the provider failure.",
+      ],
+    },
+    type: "run.blocked",
+  };
+}
+
+async function observationFor(
+  effect: KernelEffect,
+  cwd: string,
+  modelDriver: ModelDriver,
+  signal?: AbortSignal,
+): Promise<KernelEvent> {
   switch (effect.type) {
+    case "fake.model.complete": {
+      const effectSignal = signal ?? new AbortController().signal;
+      try {
+        const response = await modelDriver.complete(
+          { task: effect.task, version: 1 },
+          effectSignal,
+        );
+        const decoded = decodeFakeModelResponse(response);
+        if (!decoded.ok) {
+          return modelFailure(
+            "fake_model_output_invalid",
+            "The deterministic fake model returned an invalid response.",
+          );
+        }
+        return {
+          action: fakeAction(effect.runId, cwd, decoded.value.proposal.summary),
+          effectId: effect.effectId,
+          type: "fake.model.completed",
+        };
+      } catch (error) {
+        return effectSignal.aborted || (error instanceof Error && error.name === "AbortError")
+          ? modelFailure("operation_aborted", "The deterministic fake model operation was aborted.")
+          : modelFailure("fake_model_failed", "The deterministic fake model failed.");
+      }
+    }
     case "fake.action.execute":
       return { effectId: effect.effectId, type: "fake.action.completed" };
     case "fake.verification.run":
@@ -29,6 +158,11 @@ function observationFor(effect: KernelEffect): KernelEvent {
 
 function observationMatches(effect: KernelEffect, observation: KernelEvent): boolean {
   switch (effect.type) {
+    case "fake.model.complete":
+      return (
+        (observation.type === "fake.model.completed" && observation.effectId === effect.effectId) ||
+        observation.type === "run.blocked"
+      );
     case "fake.action.execute":
       return (
         observation.type === "fake.action.completed" && observation.effectId === effect.effectId
@@ -41,20 +175,29 @@ function observationMatches(effect: KernelEffect, observation: KernelEvent): boo
 }
 
 export class FakeToolHost implements EffectHost {
+  private readonly cwd: string;
+  private readonly modelDriver: ModelDriver;
   private readonly receiptsDirectory: string;
 
-  constructor(receiptsDirectory: string) {
+  constructor(
+    receiptsDirectory: string,
+    cwd = ".",
+    modelDriver: ModelDriver = new FakeModelDriver(),
+  ) {
+    this.cwd = cwd;
+    this.modelDriver = modelDriver;
     this.receiptsDirectory = receiptsDirectory;
   }
 
   async reconcile(effect: KernelEffect): Promise<ReconciliationResult> {
+    const directory = await inspectReceiptDirectory(this.receiptsDirectory);
+    if (directory === "missing") return { status: "not-started" };
+    if (directory === "invalid") return { status: "unknown" };
     const path = join(this.receiptsDirectory, receiptName(effect.effectId));
-    let content: string;
-    try {
-      content = await readFile(path, "utf8");
-    } catch (error) {
-      return isMissingFile(error) ? { status: "not-started" } : { status: "unknown" };
-    }
+    const receipt = await readReceipt(path);
+    if (receipt.kind === "missing") return { status: "not-started" };
+    if (receipt.kind === "invalid") return { status: "unknown" };
+    const { content } = receipt;
     try {
       const value: unknown = JSON.parse(content);
       if (
@@ -78,7 +221,7 @@ export class FakeToolHost implements EffectHost {
     }
   }
 
-  async execute(effect: KernelEffect): Promise<KernelEvent> {
+  async execute(effect: KernelEffect, signal?: AbortSignal): Promise<KernelEvent> {
     const reconciled = await this.reconcile(effect);
     if (reconciled.status === "completed") {
       return reconciled.observation;
@@ -86,8 +229,8 @@ export class FakeToolHost implements EffectHost {
     if (reconciled.status === "unknown") {
       throw new Error("Cannot execute an effect with an unknown receipt state.");
     }
-    await mkdir(this.receiptsDirectory, { recursive: true });
-    const observation = observationFor(effect);
+    await ensureReceiptDirectory(this.receiptsDirectory);
+    const observation = await observationFor(effect, this.cwd, this.modelDriver, signal);
     const path = join(this.receiptsDirectory, receiptName(effect.effectId));
     let handle: FileHandle | undefined;
     try {

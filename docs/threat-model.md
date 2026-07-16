@@ -39,6 +39,14 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   invalid state, and revalidate identity immediately before accepting a trust command or starting a run.
 - Keep workspace trust distinct from action approval and capability grants; trust may only unlock task
   entry in the R1 slice.
+- Partition run state by the runtime-derived workspace ID, reject symlinked or structurally invalid run
+  entries, and never use a catalog scan to append, repair, reconcile, or dispatch.
+- Bound one catalog to 512 visited partition children, 16 MiB and 16384 cumulative journal records; bound
+  each journal to 1 MiB, each record to 64 KiB, and each run to 4096 records.
+- Reject hardlink trust records and journals, and compare file identity at the documented checkpoints.
+- Serialize cooperating Eden trust changes and run starts with the bounded per-workspace state lock.
+- Keep historical inspection read-only even when its replayed view contains a pending approval or
+  non-terminal phase; only a separately specified resume flow may regain execution authority.
 - Let only trusted runtime code emit verifier-backed terminal events.
 
 ## Execution modes
@@ -52,3 +60,12 @@ If Eden Studio proceeds, the renderer holds no provider key and no shell or arbi
 ## Verification
 
 Security claims require negative tests: digest mismatch, symlink swap, stale edit, protected path, denied network, secret canaries, malicious repository instructions, replay after crash, and renderer-forged events.
+
+R1 detects static corruption, hardlinks, bounded-work violations, observed identity replacement, and
+cooperating Eden races. It does not claim resistance to malicious same-user path substitution, lock
+sabotage, reparse or mount races, cryptographic forgery, or administrator compromise. The construction
+path for stronger guarantees is recorded in
+`docs/future-works/adversarial-local-state-filesystem-hardening.md` and is not authorized R1 work.
+The `EDEN_STATE_DIR` override does not qualify group- or world-writable, network-mounted, synchronized,
+imported, or untrusted restored roots; R1 evidence covers a private local root used by one OS account and
+cooperating Eden processes.

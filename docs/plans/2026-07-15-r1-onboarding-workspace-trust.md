@@ -1,12 +1,19 @@
 # R1 Onboarding and Explicit Workspace Trust Plan
 
-- Status: Implementation and local/hosted evidence complete; slice review pending
+- Status: Accepted; implementation and local/hosted evidence complete
 - Date: 2026-07-15
 - Roadmap stage: R1, Installable Walking Skeleton
 - Baseline: `a971faaf1b525a617a48cba424050a97c46fb8b9`
 - Prior slice: `docs/plans/2026-07-15-r1-fake-task-vertical-slice.md`, accepted
 - Approved: 2026-07-15, options A/A/A/A
-- Human checkpoint: final slice review after Build, automated Review, and matching-surface QA
+- Accepted: 2026-07-16
+- Human checkpoint: complete; final slice review accepted the Build, automated Review, and matching-surface evidence
+
+> Historical contract note: ADR 0011 supersedes the fixed awaiting-approval event count recorded below;
+> current model intent and observation events occur before approval. ADR 0012 supersedes the statement
+> that active-run revocation ordering is out of scope: start and trust mutation now linearize under one
+> workspace lock, while an accepted run retains its journaled workspace snapshot. The original counts and
+> scope statements remain evidence for this accepted slice, not the current R1 lifecycle contract.
 
 ## Goal and user-visible outcome
 
@@ -782,8 +789,8 @@ migration plan.
    A/A/A/A on 2026-07-15. Approval authorizes continuous Freeze/Build/Review/Finish work through this plan.
 2. **Architecture exception only:** after approval, pause only under the stop rule above. Do not pause for
    routine implementation choices or after each slice.
-3. **Final slice review:** present the final diff, RED/GREEN evidence, M1-M6 ledger, automated checks,
-   hosted evidence if authorized, and residual risk for human review.
+3. **Final slice review, completed and owner-accepted:** the owner reviewed the final diff, RED/GREEN
+   evidence, M1-M6 ledger, automated checks, authorized hosted evidence, and residual risk.
 
 Plan approval does not authorize commit, push, merge, release publication, or tutorial gitlink changes.
 

@@ -1,4 +1,8 @@
-export { FileJournal, JournalCorruptionError } from "./file-journal.ts";
+export {
+  FileJournal,
+  JournalCorruptionError,
+  readJournalRecords,
+} from "./file-journal.ts";
 export type {
   DecodedJournalRecord,
   JournalDecodeResult,

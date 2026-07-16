@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { realpath } from "node:fs/promises";
 
 import {
   type AgentClient,
@@ -10,23 +9,31 @@ import {
   type ProductEvent,
   type ProductView,
   type ResolveWorkspaceTrustCommand,
+  type RunCatalog,
   type RunId,
+  RunIdSchema,
+  type RunInspection,
   type WorkspaceReview,
 } from "@eden/contracts";
 import type { KernelEvent } from "@eden/kernel";
+import type { ModelDriver } from "@eden/providers";
+import Schema from "typebox/schema";
 
 import {
   AgentClientError,
   assertCurrentRevision,
   clientError,
-  fakeAction,
-  journalExists,
-  journalPath,
   openRunSession,
   type RunSession,
 } from "./client-session.ts";
 import { projectJournal } from "./projection.ts";
+import { RunHistoryError, readRunCatalog, readRunInspection } from "./run-catalog.ts";
 import type { RuntimeClock, RuntimeIdSource } from "./runtime.ts";
+import {
+  allocateStateSubdirectory,
+  inspectStateSubdirectory,
+  StatePathError,
+} from "./state-path.ts";
 import { WorkspaceTrustError, WorkspaceTrustService } from "./workspace/index.ts";
 
 export { AgentClientError } from "./client-session.ts";
@@ -35,6 +42,7 @@ export type InProcessAgentClientOptions = {
   readonly clock?: RuntimeClock;
   readonly cwd: string;
   readonly idSource?: RuntimeIdSource;
+  readonly modelDriver?: ModelDriver;
   readonly runId?: RunId;
   readonly stateDirectory: string;
 };
@@ -46,24 +54,63 @@ function defaultIdSource(): RuntimeIdSource {
 async function openSession(
   runId: RunId,
   stateDirectory: string,
+  workspaceId: string,
   clock: RuntimeClock,
   idSource: RuntimeIdSource,
+  cwd: string,
+  modelDriver: ModelDriver | undefined,
   existing: boolean,
 ): Promise<RunSession> {
-  const present = await journalExists(journalPath(stateDirectory, runId));
-  if (existing && !present) throw clientError("run_not_found", `Run ${runId} was not found.`);
-  if (!existing && present) throw clientError("run_id_collision", `Run ${runId} already exists.`);
-  return openRunSession(runId, stateDirectory, clock, idSource);
+  try {
+    if (existing) {
+      const state = await inspectStateSubdirectory(stateDirectory, [
+        "runs",
+        "v1",
+        workspaceId,
+        runId,
+      ]);
+      if (state === "missing") throw clientError("run_not_found", `Run ${runId} was not found.`);
+    } else {
+      await allocateStateSubdirectory(stateDirectory, ["runs", "v1", workspaceId], runId);
+    }
+    return await openRunSession(
+      runId,
+      stateDirectory,
+      workspaceId,
+      clock,
+      idSource,
+      cwd,
+      !existing,
+      modelDriver,
+    );
+  } catch (error) {
+    if (!existing && error instanceof Error && "code" in error && error.code === "EEXIST") {
+      throw clientError("run_id_collision", `Run ${runId} already exists.`);
+    }
+    if (error instanceof StatePathError) {
+      throw clientError("workspace_state_unavailable", "The Eden run state is unavailable.");
+    }
+    if (existing && error instanceof Error && "code" in error && error.code === "ENOENT") {
+      throw clientError("run_not_found", `Run ${runId} was not found.`);
+    }
+    throw error;
+  }
 }
+
+const runIdValidator = Schema.Compile(RunIdSchema);
 
 export class InProcessAgentClient implements AgentClient {
   private readonly clock: RuntimeClock;
   private readonly cwd: string;
   private readonly idSource: RuntimeIdSource;
+  private readonly prefixGeneratedRunIds: boolean;
+  private readonly readOnly: boolean;
+  private readonly modelDriver: ModelDriver | undefined;
   private readonly stateDirectory: string;
   private readonly trust: WorkspaceTrustService;
   private readonly waiters = new Set<() => void>();
   private closed = false;
+  private mutationTail: Promise<void> = Promise.resolve();
   private session: RunSession | null;
 
   private constructor(
@@ -71,33 +118,72 @@ export class InProcessAgentClient implements AgentClient {
     stateDirectory: string,
     trust: WorkspaceTrustService,
     session: RunSession | null,
+    prefixGeneratedRunIds: boolean,
+    readOnly: boolean,
   ) {
     this.clock = options.clock ?? { now: () => new Date() };
     this.cwd = trust.identity.canonicalRoot;
     this.idSource = options.idSource ?? defaultIdSource();
+    this.prefixGeneratedRunIds = prefixGeneratedRunIds;
+    this.readOnly = readOnly;
+    this.modelDriver = options.modelDriver;
     this.stateDirectory = stateDirectory;
     this.trust = trust;
     this.session = session;
   }
 
   static async open(options: InProcessAgentClientOptions): Promise<InProcessAgentClient> {
+    return InProcessAgentClient.openWithMode(options, false);
+  }
+
+  static async openReadOnly(
+    options: Omit<InProcessAgentClientOptions, "runId">,
+  ): Promise<InProcessAgentClient> {
+    return InProcessAgentClient.openWithMode(options, true);
+  }
+
+  private static async openWithMode(
+    options: InProcessAgentClientOptions,
+    readOnly: boolean,
+  ): Promise<InProcessAgentClient> {
+    if (options.runId !== undefined && !runIdValidator.Check(options.runId)) {
+      throw clientError(
+        "invalid_run_id",
+        "The supplied run ID does not match the path-safe product contract.",
+      );
+    }
     const clock = options.clock ?? { now: () => new Date() };
     const idSource = options.idSource ?? defaultIdSource();
+    const prefixGeneratedRunIds = options.idSource === undefined;
     const trust = await WorkspaceTrustService.open({
       clock,
       cwd: options.cwd,
       stateDirectory: options.stateDirectory,
     });
-    const stateDirectory = await realpath(options.stateDirectory);
+    const stateDirectory = trust.stateDirectory;
+    if (readOnly && options.runId !== undefined) {
+      throw clientError("read_only_client", "A read-only client cannot open an execution session.");
+    }
     const session =
       options.runId === undefined
         ? null
-        : await openSession(options.runId, stateDirectory, clock, idSource, true);
+        : await openSession(
+            options.runId,
+            stateDirectory,
+            trust.identity.workspaceId,
+            clock,
+            idSource,
+            trust.identity.canonicalRoot,
+            options.modelDriver,
+            true,
+          );
     return new InProcessAgentClient(
       { ...options, clock, idSource },
       stateDirectory,
       trust,
       session,
+      prefixGeneratedRunIds,
+      readOnly,
     );
   }
 
@@ -121,37 +207,97 @@ export class InProcessAgentClient implements AgentClient {
     this.waiters.clear();
   }
 
+  private async serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.mutationTail;
+    let release: () => void = () => undefined;
+    this.mutationTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
   private async currentView(): Promise<ProductView> {
     return projectJournal(await this.requireSession().journal.readAll()).view;
   }
 
-  private async driveEffects(): Promise<void> {
+  private async driveEffects(signal?: AbortSignal): Promise<void> {
     const { engine } = this.requireSession();
     while (engine.state.phase !== "terminal") {
       const effect = await engine.requestNextEffect();
       if (effect === null) return;
       this.notify();
-      await engine.settleInFlightEffect();
+      await engine.settleInFlightEffect(signal);
       this.notify();
     }
   }
 
   async getWorkspaceReview(): Promise<WorkspaceReview> {
     this.ensureOpen();
-    return this.trust.getReview();
+    return this.trust.refresh();
+  }
+
+  async getRunCatalog(options?: { readonly signal?: AbortSignal }): Promise<RunCatalog> {
+    this.ensureOpen();
+    if (options?.signal?.aborted === true) {
+      throw clientError("operation_aborted", "The operation was aborted.", "retry");
+    }
+    try {
+      return await readRunCatalog({
+        stateDirectory: this.stateDirectory,
+        workspace: (await this.trust.refresh()).workspace,
+        ...(options?.signal === undefined ? {} : { signal: options.signal }),
+      });
+    } catch (error) {
+      if (error instanceof RunHistoryError) throw new AgentClientError(error.productError);
+      throw clientError("run_history_unavailable", "The run history is unavailable.");
+    }
+  }
+
+  async inspectRun(
+    runId: RunId,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<RunInspection> {
+    this.ensureOpen();
+    if (options?.signal?.aborted === true) {
+      throw clientError("operation_aborted", "The operation was aborted.", "retry");
+    }
+    try {
+      return await readRunInspection({
+        runId,
+        stateDirectory: this.stateDirectory,
+        workspace: (await this.trust.refresh()).workspace,
+        ...(options?.signal === undefined ? {} : { signal: options.signal }),
+      });
+    } catch (error) {
+      if (error instanceof RunHistoryError) throw new AgentClientError(error.productError);
+      throw clientError("run_history_unavailable", "The run history is unavailable.");
+    }
   }
 
   async resolveWorkspaceTrust(
     command: ResolveWorkspaceTrustCommand,
     options?: { readonly signal?: AbortSignal },
   ): Promise<WorkspaceReview> {
+    return this.serializeMutation(() => this.resolveWorkspaceTrustExclusive(command, options));
+  }
+
+  private async resolveWorkspaceTrustExclusive(
+    command: ResolveWorkspaceTrustCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<WorkspaceReview> {
     this.ensureOpen();
+    if (this.readOnly) throw clientError("read_only_client", "This client is read-only.");
     if (options?.signal?.aborted === true)
       throw clientError("operation_aborted", "The operation was aborted.", "retry");
     const decoded = decodeResolveWorkspaceTrustCommand(command);
     if (!decoded.ok) throw new AgentClientError(decoded.error);
     try {
-      return await this.trust.resolve(decoded.value);
+      return await this.trust.resolve(decoded.value, options?.signal);
     } catch (error) {
       if (error instanceof WorkspaceTrustError) throw new AgentClientError(error.productError);
       throw error;
@@ -162,7 +308,15 @@ export class InProcessAgentClient implements AgentClient {
     command: ProductCommand,
     options?: { readonly signal?: AbortSignal },
   ): Promise<ProductView> {
+    return this.serializeMutation(() => this.submitExclusive(command, options));
+  }
+
+  private async submitExclusive(
+    command: ProductCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<ProductView> {
     this.ensureOpen();
+    if (this.readOnly) throw clientError("read_only_client", "This client is read-only.");
     if (options?.signal?.aborted === true)
       throw clientError("operation_aborted", "The operation was aborted.", "retry");
     const decoded = decodeProductCommand(command);
@@ -170,32 +324,42 @@ export class InProcessAgentClient implements AgentClient {
     if (decoded.value.type === "run.start") {
       if (this.session !== null)
         throw clientError("run_already_started", "The run has already started.");
-      const review = this.trust.getReview();
-      if (review.workspace.trust !== "trusted") {
-        throw clientError(
-          "workspace_trust_required",
-          "Trust this exact workspace before starting a task.",
-          "ask-user",
-          "Review the workspace and explicitly grant trust.",
-        );
+      const start = decoded.value;
+      try {
+        await this.trust.authorizeStart(async (review) => {
+          const rawRunId = this.idSource.next();
+          const runId = this.prefixGeneratedRunIds ? `run-${rawRunId}` : rawRunId;
+          if (!runIdValidator.Check(runId)) {
+            throw clientError(
+              "invalid_run_id",
+              "The generated run ID does not match the path-safe product contract.",
+            );
+          }
+          const session = await openSession(
+            runId,
+            this.stateDirectory,
+            this.trust.identity.workspaceId,
+            this.clock,
+            this.idSource,
+            this.cwd,
+            this.modelDriver,
+            false,
+          );
+          const event: KernelEvent = {
+            correlationId: decoded.value.commandId,
+            runId,
+            task: start.task,
+            type: "run.started",
+            workspace: { ...review.workspace, trust: "trusted" },
+          };
+          await session.engine.commit(event, start.commandId);
+          this.session = session;
+        }, options?.signal);
+        await this.driveEffects(options?.signal);
+      } catch (error) {
+        if (error instanceof WorkspaceTrustError) throw new AgentClientError(error.productError);
+        throw error;
       }
-      const runId = this.idSource.next();
-      this.session = await openSession(
-        runId,
-        this.stateDirectory,
-        this.clock,
-        this.idSource,
-        false,
-      );
-      const event: KernelEvent = {
-        action: fakeAction(runId, this.cwd),
-        correlationId: decoded.value.commandId,
-        runId,
-        task: decoded.value.task,
-        type: "run.started",
-        workspace: { ...review.workspace, trust: "trusted" },
-      };
-      await this.session.engine.commit(event, decoded.value.commandId);
     } else {
       const session = this.requireSession(decoded.value.runId);
       const view = await this.currentView();
@@ -218,7 +382,7 @@ export class InProcessAgentClient implements AgentClient {
             decoded.value.commandId,
           );
           this.notify();
-          if (decoded.value.decision === "approve") await this.driveEffects();
+          if (decoded.value.decision === "approve") await this.driveEffects(options?.signal);
           break;
         case "run.cancel":
           await session.engine.commit({ type: "run.cancelled" }, decoded.value.commandId);

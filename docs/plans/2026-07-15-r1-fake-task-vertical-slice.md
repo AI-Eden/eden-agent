@@ -1,11 +1,20 @@
 # R1 Fake-Task Vertical Slice Plan
 
-- Status: Implementation and hosted evidence complete; slice review pending
+- Status: Accepted; implementation and hosted evidence complete
 - Date: 2026-07-15
 - Roadmap stage: R1, Installable Walking Skeleton
 - Baseline: `03c5c0c2ef6b8551392dfe5bbf2823bf70f73718`
 - Approved: 2026-07-15, options A/A/A
-- Human checkpoint: review the completed slice evidence before selecting the next R1 slice
+- Human checkpoint: complete; the slice was accepted before the second R1 slice began
+
+> Historical contract note: ADR 0011 and the approved R1 exit-closure plan supersede this slice's direct
+> `run.started`-to-approval lifecycle and "uses no provider" wording. Current R1 has no credentialed or
+> network provider, but a causally necessary deterministic fake-model effect and observation now create
+> the proposed action before approval. Event counts recorded below remain evidence for the accepted slice,
+> not the current lifecycle contract. The approved exit-closure plan also supersedes the statement below
+> that every `AbortSignal` cancels only client waiting: subscription abort stops waiting, model-effect abort
+> durably blocks the run with `operation_aborted`, and only the `run.cancel` command produces durable
+> `cancelled` truth.
 
 ## Goal and R1 slice outcome
 
@@ -590,8 +599,9 @@ v2 migration and cannot be handled by editing v1 in place.
    public `origin/main` and `github/main` were updated, and both hosted three-platform workflows passed.
 3. **Architecture exception only:** pause only if evidence invalidates the accepted architecture or
    creates a new product, trust, or public-contract decision.
-4. **Slice review:** review final diff, crash ledger, standalone headless/TUI evidence, hosted install result,
-   and residual risk before selecting the next R1 slice.
+4. **Slice review, completed and owner-accepted:** the owner reviewed the final diff, crash ledger,
+   standalone headless/TUI evidence, hosted install result, and residual risk before selecting the next
+   R1 slice.
 
 ## Completion criteria
 

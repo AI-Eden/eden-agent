@@ -51,20 +51,23 @@ function productOutcome(outcome: TerminalOutcome): ProductView["terminalOutcome"
 export function progress(state: Exclude<RunState, { readonly phase: "idle" }>) {
   switch (state.phase) {
     case "awaiting-approval":
-      return { completed: 0, summary: "Awaiting approval for the fake action.", total: 3 };
+      return { completed: 1, summary: "Awaiting approval for the fake action.", total: 4 };
     case "executing":
       switch (state.stage) {
+        case "model-ready":
+        case "model-in-flight":
+          return { completed: 0, summary: "Running the deterministic fake model.", total: 4 };
         case "action-ready":
         case "action-in-flight":
-          return { completed: 1, summary: "Executing the deterministic fake action.", total: 3 };
+          return { completed: 2, summary: "Executing the deterministic fake action.", total: 4 };
         case "verification-ready":
         case "verification-in-flight":
-          return { completed: 2, summary: "Verifying the deterministic fake result.", total: 3 };
+          return { completed: 3, summary: "Verifying the deterministic fake result.", total: 4 };
         default:
-          return assertNever(state.stage);
+          return assertNever(state);
       }
     case "terminal":
-      return { completed: 3, summary: "The deterministic fake task is terminal.", total: 3 };
+      return { completed: 4, summary: "The deterministic fake task is terminal.", total: 4 };
     default:
       return assertNever(state);
   }
@@ -113,7 +116,7 @@ export function projectView(state: RunState): ProductView {
     budget: { total: 10, unit: "actions", used: state.revision },
     changedFiles: [],
     checks: checks(terminalOutcome),
-    currentAction: terminal ? null : actionSummary(state.action),
+    currentAction: terminal || state.action === null ? null : actionSummary(state.action),
     nextActions: awaitingApproval
       ? ["Approve or deny the deterministic fake action."]
       : terminal

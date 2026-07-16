@@ -8,13 +8,18 @@ export type ProductProtocolVersion = Type.Static<typeof ProductProtocolVersionSc
 const identifierOptions = { maxLength: 256, minLength: 1 } as const;
 export const CommandIdSchema = Type.String(identifierOptions);
 export const EventIdSchema = Type.String(identifierOptions);
-export const RunIdSchema = Type.String(identifierOptions);
+export const RunIdSchema = Type.String({
+  maxLength: 128,
+  minLength: 5,
+  pattern: "^run-[a-z0-9][a-z0-9-]{0,123}$",
+});
 export const ActionIdSchema = Type.String(identifierOptions);
 export const ApprovalIdSchema = Type.String(identifierOptions);
 export const CheckIdSchema = Type.String(identifierOptions);
 export const EvidenceIdSchema = Type.String(identifierOptions);
-export const RevisionSchema = Type.Integer({ minimum: 0 });
-export const EventCursorSchema = Type.Integer({ minimum: 0 });
+const safeInteger = { maximum: Number.MAX_SAFE_INTEGER, minimum: 0 } as const;
+export const RevisionSchema = Type.Integer(safeInteger);
+export const EventCursorSchema = Type.Integer(safeInteger);
 
 export type CommandId = Type.Static<typeof CommandIdSchema>;
 export type EventId = Type.Static<typeof EventIdSchema>;
@@ -132,7 +137,7 @@ export const ActionSummarySchema = Type.Object(
   {
     actionId: ActionIdSchema,
     display: boundedText(),
-    cwd: shortText(),
+    cwd: boundedText(),
     reason: boundedText(),
     scope: boundedText(),
   },
@@ -145,7 +150,7 @@ export const ApprovalPresentationSchema = Type.Object(
     approvalId: ApprovalIdSchema,
     actionId: ActionIdSchema,
     canonicalDisplay: boundedText(),
-    cwd: shortText(),
+    cwd: boundedText(),
     reason: boundedText(),
     scope: boundedText(),
     digest: Type.String({ maxLength: 512, minLength: 1 }),
@@ -282,6 +287,123 @@ export const ProductViewSchema = Type.Object(
 );
 export type ProductView = Type.Static<typeof ProductViewSchema>;
 
+export const AvailableRunSummarySchema = Type.Refine(
+  Type.Object(
+    {
+      availability: Type.Literal("available"),
+      phase: ProductPhaseSchema,
+      revision: RevisionSchema,
+      runId: RunIdSchema,
+      startedAt: Type.String({ format: "date-time" }),
+      task: boundedText(),
+      terminalOutcome: Type.Union([TerminalOutcomeSchema, Type.Null()]),
+      updatedAt: Type.String({ format: "date-time" }),
+    },
+    closed,
+  ),
+  (summary) => Date.parse(summary.startedAt) <= Date.parse(summary.updatedAt),
+);
+export type AvailableRunSummary = Type.Static<typeof AvailableRunSummarySchema>;
+
+export const UnavailableRunSummarySchema = Type.Object(
+  {
+    availability: Type.Literal("unavailable"),
+    error: ProductErrorSchema,
+    runId: RunIdSchema,
+  },
+  closed,
+);
+export type UnavailableRunSummary = Type.Static<typeof UnavailableRunSummarySchema>;
+
+export const RunSummarySchema = Type.Union([
+  AvailableRunSummarySchema,
+  UnavailableRunSummarySchema,
+]);
+export type RunSummary = Type.Static<typeof RunSummarySchema>;
+
+function runSummariesOrdered(entries: readonly RunSummary[]): boolean {
+  let unavailableSeen = false;
+  for (const [index, entry] of entries.entries()) {
+    const previous = entries[index - 1];
+    if (entry.availability === "unavailable") {
+      unavailableSeen = true;
+      if (previous?.availability === "unavailable" && previous.runId > entry.runId) {
+        return false;
+      }
+      continue;
+    }
+    if (unavailableSeen) return false;
+    if (previous?.availability === "available") {
+      const timeOrder = Date.parse(previous.updatedAt) - Date.parse(entry.updatedAt);
+      if (timeOrder < 0 || (timeOrder === 0 && previous.runId > entry.runId)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+export const RunCatalogSchema = Type.Refine(
+  Type.Object(
+    {
+      entries: Type.Array(RunSummarySchema, { maxItems: 100 }),
+      notices: Type.Array(ProductErrorSchema, { maxItems: 16 }),
+      protocolVersion: ProductProtocolVersionSchema,
+      truncated: Type.Boolean(),
+      workspace: WorkspaceSummarySchema,
+    },
+    closed,
+  ),
+  (catalog) => runSummariesOrdered(catalog.entries),
+);
+export type RunCatalog = Type.Static<typeof RunCatalogSchema>;
+
+function productErrorsEqual(left: ProductError, right: ProductError): boolean {
+  return (
+    left.code === right.code &&
+    left.message === right.message &&
+    left.recoverability === right.recoverability &&
+    left.suggestedActions.length === right.suggestedActions.length &&
+    left.suggestedActions.every((action, index) => action === right.suggestedActions[index])
+  );
+}
+
+function terminalOutcomesEqual(
+  left: TerminalOutcome | null,
+  right: TerminalOutcome | null,
+): boolean {
+  if (left === null || right === null) return left === right;
+  if (left.state !== right.state) return false;
+  if (left.state === "succeeded" && right.state === "succeeded") {
+    return left.evidenceRef === right.evidenceRef;
+  }
+  if (
+    (left.state === "blocked" || left.state === "failed") &&
+    (right.state === "blocked" || right.state === "failed")
+  ) {
+    return productErrorsEqual(left.error, right.error);
+  }
+  return left.state === "cancelled" && right.state === "cancelled";
+}
+
+export const RunInspectionSchema = Type.Refine(
+  Type.Object(
+    {
+      mode: Type.Literal("read-only"),
+      protocolVersion: ProductProtocolVersionSchema,
+      summary: AvailableRunSummarySchema,
+      view: ProductViewSchema,
+    },
+    closed,
+  ),
+  (inspection) =>
+    inspection.summary.runId === inspection.view.runId &&
+    inspection.summary.revision === inspection.view.revision &&
+    inspection.summary.phase === inspection.view.phase &&
+    terminalOutcomesEqual(inspection.summary.terminalOutcome, inspection.view.terminalOutcome),
+);
+export type RunInspection = Type.Static<typeof RunInspectionSchema>;
+
 const eventEnvelope = {
   protocolVersion: ProductProtocolVersionSchema,
   eventId: EventIdSchema,
@@ -361,6 +483,18 @@ export const WorkspaceReviewDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: WorkspaceReviewSchema }, closed),
   DecodeFailureSchema,
 ]);
+export const RunCatalogDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: RunCatalogSchema }, closed),
+  DecodeFailureSchema,
+]);
+export const RunInspectionDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: RunInspectionSchema }, closed),
+  DecodeFailureSchema,
+]);
+export const RunIdDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: RunIdSchema }, closed),
+  DecodeFailureSchema,
+]);
 export type ProductCommandDecodeResult = Type.Static<typeof ProductCommandDecodeResultSchema>;
 export type ProductEventDecodeResult = Type.Static<typeof ProductEventDecodeResultSchema>;
 export type ProductViewDecodeResult = Type.Static<typeof ProductViewDecodeResultSchema>;
@@ -368,9 +502,14 @@ export type ResolveWorkspaceTrustCommandDecodeResult = Type.Static<
   typeof ResolveWorkspaceTrustCommandDecodeResultSchema
 >;
 export type WorkspaceReviewDecodeResult = Type.Static<typeof WorkspaceReviewDecodeResultSchema>;
+export type RunCatalogDecodeResult = Type.Static<typeof RunCatalogDecodeResultSchema>;
+export type RunInspectionDecodeResult = Type.Static<typeof RunInspectionDecodeResultSchema>;
+export type RunIdDecodeResult = Type.Static<typeof RunIdDecodeResultSchema>;
 
 export interface AgentClient {
   getWorkspaceReview(): Promise<WorkspaceReview>;
+  getRunCatalog(options?: { readonly signal?: AbortSignal }): Promise<RunCatalog>;
+  inspectRun(runId: RunId, options?: { readonly signal?: AbortSignal }): Promise<RunInspection>;
   resolveWorkspaceTrust(
     command: ResolveWorkspaceTrustCommand,
     options?: { readonly signal?: AbortSignal },
@@ -393,8 +532,13 @@ const eventValidator = Schema.Compile(ProductEventSchema);
 const viewValidator = Schema.Compile(ProductViewSchema);
 const workspaceReviewValidator = Schema.Compile(WorkspaceReviewSchema);
 const workspaceTrustCommandValidator = Schema.Compile(ResolveWorkspaceTrustCommandSchema);
+const runCatalogValidator = Schema.Compile(RunCatalogSchema);
+const runInspectionValidator = Schema.Compile(RunInspectionSchema);
+const runIdValidator = Schema.Compile(RunIdSchema);
 
-function invalidInputError(kind: "command" | "event" | "view", value: unknown): ProductError {
+type DecodedKind = "command" | "event" | "run_catalog" | "run_id" | "run_inspection" | "view";
+
+function invalidInputError(kind: DecodedKind, value: unknown): ProductError {
   if (
     typeof value === "object" &&
     value !== null &&
@@ -417,7 +561,7 @@ function invalidInputError(kind: "command" | "event" | "view", value: unknown): 
 }
 
 function decode<T>(
-  kind: "command" | "event" | "view",
+  kind: DecodedKind,
   validator: { Check(value: unknown): value is T },
   value: unknown,
 ): DecodeResult<T> {
@@ -446,4 +590,16 @@ export function decodeResolveWorkspaceTrustCommand(
 
 export function decodeWorkspaceReview(value: unknown): WorkspaceReviewDecodeResult {
   return decode("view", workspaceReviewValidator, value);
+}
+
+export function decodeRunCatalog(value: unknown): RunCatalogDecodeResult {
+  return decode("run_catalog", runCatalogValidator, value);
+}
+
+export function decodeRunInspection(value: unknown): RunInspectionDecodeResult {
+  return decode("run_inspection", runInspectionValidator, value);
+}
+
+export function decodeRunId(value: unknown): RunIdDecodeResult {
+  return decode("run_id", runIdValidator, value);
 }

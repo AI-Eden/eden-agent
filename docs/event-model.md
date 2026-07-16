@@ -50,6 +50,8 @@ versioning remains independent from journal versioning.
 - `run.started` contains the runtime-owned trusted workspace snapshot used by the start gate. The snapshot
   is immutable run evidence; it is not supplied by a renderer or re-read from current trust configuration
   during replay.
+- `run.started` contains no action; a validated `fake.model.completed` observation carries the
+  runtime-owned action that makes approval visible.
 
 ## Effects
 
@@ -64,9 +66,18 @@ identity, and `unknown` appends a visible blocked outcome. The runtime never bli
 effect. Journal v1 does not claim byte-level power-loss repair; malformed or partial records block replay
 without silent truncation.
 
+The R1 fake-model effect is causally necessary and uses the same intent, receipt, observation, and
+reconciliation rules as action and verification effects. Model output cannot resolve approval or terminal
+success.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.
+
+Run catalog summaries and historical inspections are read-only replay projections. Available summaries
+derive `startedAt` and `updatedAt` from the first and last validated journal records. Filesystem mtime is
+not product chronology. A catalog scan never appends, truncates, repairs, reconciles, or dispatches; a
+damaged journal becomes an unavailable catalog entry rather than partial product truth.
 
 ## Compaction
 

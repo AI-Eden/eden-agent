@@ -1,4 +1,11 @@
-import type { ProductView, WorkspaceReview } from "./protocol.ts";
+import type {
+  AvailableRunSummary,
+  ProductView,
+  RunCatalog,
+  RunInspection,
+  UnavailableRunSummary,
+  WorkspaceReview,
+} from "./protocol.ts";
 
 const workspace = {
   workspaceId: "workspace-eden-agent",
@@ -144,3 +151,45 @@ export const reviewProductView = {
   residualRisk: "Semantic stale-command enforcement begins with AgentClient in R1.",
   terminalOutcome: { state: "succeeded", evidenceRef: "evidence-r0-contracts" },
 } satisfies ProductView;
+
+export const availableRunSummary = {
+  availability: "available",
+  phase: reviewProductView.phase,
+  revision: reviewProductView.revision,
+  runId: reviewProductView.runId,
+  startedAt: "2026-07-16T08:00:00.000Z",
+  task: "Exercise the deterministic fake runtime.",
+  terminalOutcome: reviewProductView.terminalOutcome,
+  updatedAt: "2026-07-16T08:00:04.000Z",
+} satisfies AvailableRunSummary;
+
+export const unavailableRunSummary = {
+  availability: "unavailable",
+  error: {
+    code: "run_history_unavailable",
+    message: "The attributed run history is unavailable.",
+    recoverability: "reconfigure",
+    suggestedActions: ["Inspect or remove the damaged isolated state manually."],
+  },
+  runId: "run-damaged-1",
+} satisfies UnavailableRunSummary;
+
+export const emptyRunCatalog = {
+  entries: [],
+  notices: [],
+  protocolVersion: 1,
+  truncated: false,
+  workspace,
+} satisfies RunCatalog;
+
+export const mixedRunCatalog = {
+  ...emptyRunCatalog,
+  entries: [availableRunSummary, unavailableRunSummary],
+} satisfies RunCatalog;
+
+export const readOnlyRunInspection = {
+  mode: "read-only",
+  protocolVersion: 1,
+  summary: availableRunSummary,
+  view: reviewProductView,
+} satisfies RunInspection;

@@ -60,6 +60,9 @@ importers:
       '@eden/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@eden/providers':
+        specifier: workspace:*
+        version: link:../providers
       typebox:
         specifier: 1.3.6
         version: 1.3.6
@@ -78,7 +81,11 @@ importers:
 
   packages/lab: {}
 
-  packages/providers: {}
+  packages/providers:
+    dependencies:
+      typebox:
+        specifier: 1.3.6
+        version: 1.3.6
 
   spikes/terminal-framework/fixture: {}
 

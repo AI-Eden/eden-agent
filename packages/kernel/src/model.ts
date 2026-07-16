@@ -28,13 +28,18 @@ export type TerminalOutcome =
   | { readonly state: "cancelled" };
 
 export type KernelEffect =
+  | {
+      readonly type: "fake.model.complete";
+      readonly effectId: string;
+      readonly runId: string;
+      readonly task: string;
+    }
   | { readonly type: "fake.action.execute"; readonly effectId: string; readonly runId: string }
   | { readonly type: "fake.verification.run"; readonly effectId: string; readonly runId: string };
 
 export type KernelEvent =
   | {
       readonly type: "run.started";
-      readonly action: Action;
       readonly correlationId: string;
       readonly runId: string;
       readonly task: string;
@@ -46,6 +51,11 @@ export type KernelEvent =
       readonly decision: "approve" | "deny";
     }
   | { readonly type: "effect.requested"; readonly effect: KernelEffect }
+  | {
+      readonly type: "fake.model.completed";
+      readonly action: Action;
+      readonly effectId: string;
+    }
   | { readonly type: "fake.action.completed"; readonly effectId: string }
   | {
       readonly type: "verification.completed";
@@ -63,7 +73,6 @@ export type IdleRunState = {
 };
 
 type ActiveRunFields = {
-  readonly action: Action;
   readonly correlationId: string;
   readonly revision: number;
   readonly runId: string;
@@ -73,20 +82,32 @@ type ActiveRunFields = {
 };
 
 export type AwaitingApprovalRunState = ActiveRunFields & {
+  readonly action: Action;
   readonly phase: "awaiting-approval";
 };
 
-export type ExecutingRunState = ActiveRunFields & {
-  readonly phase: "executing";
-  readonly stage:
-    | "action-ready"
-    | "action-in-flight"
-    | "verification-ready"
-    | "verification-in-flight";
-  readonly inFlightEffect: KernelEffect | null;
-};
+export type ExecutingRunState = ActiveRunFields &
+  (
+    | {
+        readonly action: null;
+        readonly phase: "executing";
+        readonly stage: "model-ready" | "model-in-flight";
+        readonly inFlightEffect: KernelEffect | null;
+      }
+    | {
+        readonly action: Action;
+        readonly phase: "executing";
+        readonly stage:
+          | "action-ready"
+          | "action-in-flight"
+          | "verification-ready"
+          | "verification-in-flight";
+        readonly inFlightEffect: KernelEffect | null;
+      }
+  );
 
 export type TerminalRunState = Omit<ActiveRunFields, "terminalOutcome"> & {
+  readonly action: Action | null;
   readonly phase: "terminal";
   readonly terminalOutcome: TerminalOutcome;
 };

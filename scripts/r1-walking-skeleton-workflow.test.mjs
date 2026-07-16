@@ -5,22 +5,60 @@ import { test } from "node:test";
 const workflowUrl = new URL("../.github/workflows/r1-walking-skeleton.yml", import.meta.url);
 const attributesUrl = new URL("../.gitattributes", import.meta.url);
 const smokeUrl = new URL("./smoke-standalone.mjs", import.meta.url);
+const productionPtyUrl = new URL("./r1-production-pty.mjs", import.meta.url);
+const readmeUrl = new URL("../README.md", import.meta.url);
+const contextUrl = new URL("../CONTEXT.md", import.meta.url);
+const specUrl = new URL("../SPEC.md", import.meta.url);
+const architectureUrl = new URL("../docs/architecture.md", import.meta.url);
+const eventModelUrl = new URL("../docs/event-model.md", import.meta.url);
+const threatModelUrl = new URL("../docs/threat-model.md", import.meta.url);
+const fakeModelAdrUrl = new URL(
+  "../docs/adr/0011-r1-deterministic-fake-model-step.md",
+  import.meta.url,
+);
+const trustStartAdrUrl = new URL(
+  "../docs/adr/0012-linearize-workspace-trust-and-run-start.md",
+  import.meta.url,
+);
+const futureWorkUrl = new URL(
+  "../docs/future-works/adversarial-local-state-filesystem-hardening.md",
+  import.meta.url,
+);
+const fakeTaskPlanUrl = new URL(
+  "../docs/plans/2026-07-15-r1-fake-task-vertical-slice.md",
+  import.meta.url,
+);
+const trustPlanUrl = new URL(
+  "../docs/plans/2026-07-15-r1-onboarding-workspace-trust.md",
+  import.meta.url,
+);
+const historyPlanUrl = new URL(
+  "../docs/plans/2026-07-16-r1-run-history-read-only-review.md",
+  import.meta.url,
+);
 const expectedPaths = [
   ".github/workflows/r1-walking-skeleton.yml",
   ".gitattributes",
   ".markdownlint-cli2.jsonc",
   ".markdownlint-cli2.mjs",
   "biome.json",
+  "CONTEXT.md",
   "package.json",
   "pnpm-lock.yaml",
   "pnpm-workspace.yaml",
+  "PRODUCT.md",
+  "README.md",
+  "SPEC.md",
   "tsconfig.base.json",
+  "docs/**",
+  "scripts/r1-production-pty.mjs",
   "scripts/r1-walking-skeleton-workflow.test.mjs",
   "scripts/smoke-standalone.mjs",
   "apps/eden/**",
   "packages/coding-runtime/**",
   "packages/contracts/**",
   "packages/kernel/**",
+  "packages/providers/**",
 ];
 
 test("keeps repository text checkouts LF-normalized on every runner", async () => {
@@ -69,12 +107,18 @@ test("R1 workflow freezes the cross-platform standalone evidence contract", asyn
   match(workflow, /pnpm build/u);
   match(workflow, /pnpm --filter @eden\/cli package:bun/u);
   match(workflow, /scripts\/smoke-standalone\.mjs/u);
+  match(workflow, /scripts\/r1-production-pty\.mjs/u);
+  match(workflow, /workflow_dispatch:/u);
+  match(workflow, /r1-evidence/u);
+  match(workflow, /EDEN_TUI_CAPTURE_DIR/u);
+  match(workflow, /r1-evidence\/renderer\/\*\.txt/u);
+  match(workflow, /manifest\.json/u);
   match(workflow, /actions\/upload-artifact@v4/u);
   strictEqual(/^\s+version:/mu.test(workflow), false);
   strictEqual(workflow.includes("terminal-framework"), false);
 });
 
-test("standalone smoke freezes onboarding and explicit trust evidence", async () => {
+test("standalone smoke freezes trust, history, corruption, and isolation evidence", async () => {
   const smoke = await readFile(smokeUrl, "utf8");
 
   match(smoke, /--trust-workspace/u);
@@ -85,4 +129,92 @@ test("standalone smoke freezes onboarding and explicit trust evidence", async ()
   match(smoke, /journal\.jsonl/u);
   match(smoke, /workspace-trust/u);
   match(smoke, /unavailable-state/u);
+  match(smoke, /decodeRunCatalog/u);
+  match(smoke, /decodeRunInspection/u);
+  match(smoke, /run_history_unavailable/u);
+  match(smoke, /other-workspace/u);
+  match(smoke, /Run list\/show changed trust or journal bytes/u);
+  match(smoke, /fake\.model\.completed/u);
+  match(smoke, /run_history_budget_exceeded/u);
+  match(smoke, /Restricted execution created a state inode/u);
+  match(smoke, /Missing-state history created an inode/u);
+  match(smoke, /standalone\.json/u);
+});
+
+test("production PTY emits the frozen manifest and rejects missing required rows", async () => {
+  const productionPty = await readFile(productionPtyUrl, "utf8");
+
+  match(productionPty, /artifactSha256/u);
+  match(productionPty, /decodedCounts/u);
+  match(productionPty, /exitTable/u);
+  match(productionPty, /60x20/u);
+  match(productionPty, /100x30/u);
+  match(productionPty, /terminalRestoration/u);
+  match(productionPty, /shellSentinel/u);
+  match(productionPty, /not-run/u);
+  match(productionPty, /Required evidence row did not pass/u);
+  match(productionPty, /terminatePtyProcessGroup/u);
+  match(productionPty, /shouldUseBundledConpty/u);
+  strictEqual(productionPty.includes("taskkill.exe"), false);
+});
+
+test("public Quickstart names the live R1 artifact without release or resume claims", async () => {
+  const readme = await readFile(readmeUrl, "utf8");
+
+  match(readme, /roadmap stage R1/u);
+  match(readme, /pnpm install --frozen-lockfile/u);
+  match(readme, /pnpm --filter @eden\/cli package:bun/u);
+  match(readme, /eden run list --json/u);
+  match(readme, /eden run show --json run-<id-from-list>/u);
+  match(readme, /read-only history/u);
+  strictEqual(readme.includes("architecture-first scaffold at roadmap stage R0"), false);
+  strictEqual(readme.includes("package-manager release or installer"), true);
+});
+
+test("R1 source documents freeze model causality and fresh start authority", async () => {
+  const [architecture, eventModel, fakeModelAdr, trustStartAdr] = await Promise.all([
+    readFile(architectureUrl, "utf8"),
+    readFile(eventModelUrl, "utf8"),
+    readFile(fakeModelAdrUrl, "utf8"),
+    readFile(trustStartAdrUrl, "utf8"),
+  ]);
+
+  match(architecture, /validated fake-model observation creates the action proposal/u);
+  match(eventModel, /run\.started[^\n]*contains no action/u);
+  match(fakeModelAdr, /Approval cannot become visible before/u);
+  match(fakeModelAdr, /runtime-owned action/u);
+  match(trustStartAdr, /Trust review caches are presentation hints/u);
+  match(trustStartAdr, /workspace_state_busy/u);
+  match(trustStartAdr, /run\.started[^\n]*durable/u);
+});
+
+test("R1 status and threat documents remain honest before owner exit acceptance", async () => {
+  const [context, spec, threatModel, futureWork] = await Promise.all([
+    readFile(contextUrl, "utf8"),
+    readFile(specUrl, "utf8"),
+    readFile(threatModelUrl, "utf8"),
+    readFile(futureWorkUrl, "utf8"),
+  ]);
+
+  match(context, /Build is approved and in progress/u);
+  match(context, /R1 exit acceptance remains pending/u);
+  match(spec, /R1 exit candidate work/u);
+  strictEqual(spec.includes("Draft for R0"), false);
+  match(threatModel, /512/u);
+  match(threatModel, /1 MiB/u);
+  match(threatModel, /hardlink/u);
+  match(threatModel, /does not claim resistance to malicious same-user/u);
+  match(futureWork, /deferred/u);
+  match(futureWork, /descriptor-relative/u);
+  strictEqual(context.includes("R1 is complete"), false);
+  strictEqual(spec.includes("R1 is complete"), false);
+});
+
+test("accepted R1 slice plans contain no pending owner checkpoint", async () => {
+  for (const plan of await Promise.all(
+    [fakeTaskPlanUrl, trustPlanUrl, historyPlanUrl].map((url) => readFile(url, "utf8")),
+  )) {
+    match(plan, /Status: Accepted/u);
+    strictEqual(/pending this slice review|Final slice review, pending/u.test(plan), false);
+  }
 });

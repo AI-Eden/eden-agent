@@ -2,9 +2,10 @@
 
 ## Current stage
 
-R0 is complete and its exit review is accepted. The first R1 fake-task vertical slice is accepted. The
-second R1 onboarding and explicit workspace-trust slice has complete local implementation and evidence.
-Current hosted evidence is green; its final slice review remains open.
+R0 is complete and its exit review is accepted. All three bounded R1 slices are accepted. The separate R1
+exit review failed and exposed a missing fake-model path, stale workspace-trust start authority, and
+history/read-only defects. The owner selected A/A/A/A for exit closure and approved the executable plan.
+Build is approved and in progress; R1 exit acceptance remains pending.
 
 ## Current truth
 
@@ -25,28 +26,41 @@ Current hosted evidence is green; its final slice review remains open.
   approval, network authority, or sandbox evidence.
 - `run.started` owns an immutable trusted workspace snapshot, so later revocation cannot rewrite replayed
   product history. TUI and headless trust operations use the same versioned `AgentClient` boundary.
+- ADR 0010 freezes exact-workspace run history, read-only historical inspection, the
+  `eden run list/show --json` surface, visible corrupt-run recovery, and the pre-release
+  workspace-partitioned state layout. Public run IDs use a path-safe `run-` prefix. It does not authorize
+  resume.
+- The approved history slice now has closed catalog/inspection contracts, workspace-partitioned run state,
+  read-only journal discovery, strict headless list/show, restricted/trusted TUI history, corrupt-run
+  recovery, and an R1 Quickstart. Inspection cannot approve, resume, dispatch, or change trust.
+- The accepted history implementation passed its original local suites, package smoke, 100x30 product
+  flow, and small-catalog 60x20 review. The R1 exit review then reproduced a blocking many-row 60x20
+  viewport failure and additional contract, async, bounded-work, no-write, and redaction defects. Those
+  claims now belong to the exit-closure plan; the earlier evidence is not treated as final R1 proof.
 - Current local crash, renderer, standalone artifact, trust-failure, and full-workspace evidence is green.
   Hosted Ubuntu, Windows, and macOS test, build, package, and standalone smoke evidence is green in R1 run
   29431313699 at `c962245`.
 - The shared terminal packaging workflow is green on macOS 15, Ubuntu 24.04, and Windows 2025 in run
   29372727708 at `594e9f7`; historical R0 measurement versions remain frozen independently.
 
-## Next decision
+## Current execution
 
-Review the completed local and hosted evidence in
-`docs/plans/2026-07-15-r1-onboarding-workspace-trust.md`, then decide whether to accept the second R1
-slice.
+Execute `docs/plans/2026-07-16-r1-exit-closure.md` through its local, review, publication, and hosted
+evidence gates without broadening the frozen R1 boundary.
 
 ## Next implementation slice
 
-After the second-slice review, Explore and Freeze the next R1 slice. Do not infer provider onboarding,
-real coding tools, sandbox authority, or R1 completion without a separate approved plan.
+Continue the R1 exit closure through authorized public exact-SHA hosted evidence. Pause only for a new
+architecture, product, trust, public-contract, dependency, durable-state, or roadmap decision. Stop for
+the final owner R1 exit acceptance before marking R1 complete.
 
 ## Known open questions
 
 - Hosted action dependencies emit Node.js 20 deprecation annotations while GitHub forces them onto Node.js
   24; the current lanes are green, but the action-version migration remains maintenance work.
-- The next R1 slice scope requires its own Explore and Freeze work.
+- R1 exit acceptance remains pending until exact-SHA hosted evidence and the fresh exit review pass.
+- Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
+  in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 
 ## Update rule
 
