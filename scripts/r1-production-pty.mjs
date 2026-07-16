@@ -496,8 +496,9 @@ const success = await runScenario({
     session.terminal.write("t");
     await waitForScreenText(session, "trust: trusted");
     session.terminal.write("\r");
-    await delay(50);
+    await waitForScreenText(session, "Enter submits");
     session.terminal.write("Complete the production PTY fake task");
+    await waitForScreenText(session, "Complete the production PTY fake task");
     session.terminal.write("\r");
     await waitForScreenText(session, "approval: pending");
     session.terminal.write("a");
