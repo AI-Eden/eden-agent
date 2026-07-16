@@ -52,6 +52,15 @@ function validateRequiredRows(rows) {
   }
 }
 
+function packageManagerInvocation(
+  platform = process.platform,
+  commandShell = process.env.ComSpec ?? "cmd.exe",
+) {
+  return platform === "win32"
+    ? { arguments: ["/d", "/s", "/c", "pnpm --version"], command: commandShell }
+    : { arguments: ["--version"], command: "pnpm" };
+}
+
 if (process.argv[2] === "--self-test") {
   const passing = requiredEvidenceIds.map((id) => ({ id, required: true, status: "passed" }));
   validateRequiredRows(passing);
@@ -68,6 +77,20 @@ if (process.argv[2] === "--self-test") {
       rejected = true;
     }
     if (!rejected) throw new Error("Required-row evidence self-test accepted invalid truth.");
+  }
+  const windowsPackageManager = packageManagerInvocation("win32", "cmd.exe");
+  if (
+    windowsPackageManager.command !== "cmd.exe" ||
+    windowsPackageManager.arguments.join(" ") !== "/d /s /c pnpm --version"
+  ) {
+    throw new Error("Windows package-manager command did not route through its command shell.");
+  }
+  const posixPackageManager = packageManagerInvocation("linux");
+  if (
+    posixPackageManager.command !== "pnpm" ||
+    posixPackageManager.arguments.join(" ") !== "--version"
+  ) {
+    throw new Error("POSIX package-manager command unexpectedly changed.");
   }
   process.stdout.write(`${JSON.stringify({ status: "passed" })}\n`);
   process.exit(0);
@@ -560,6 +583,7 @@ const requiredRows = [
   { id: "production-pty-history", required: true, status: history.status },
 ];
 validateRequiredRows(requiredRows);
+const packageManager = packageManagerInvocation();
 const manifest = {
   artifact: {
     artifactSha256,
@@ -589,7 +613,7 @@ const manifest = {
   versions: {
     bun: commandOutput(resolve("apps/eden/node_modules/bun/bin/bun.exe"), ["--version"]),
     node: process.version,
-    pnpm: commandOutput("pnpm", ["--version"]),
+    pnpm: commandOutput(packageManager.command, packageManager.arguments),
   },
 };
 await writeFile(join(evidenceDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
