@@ -98,11 +98,13 @@ function run(arguments_, stateName, cwd = workspace) {
 
 async function runAbortedHistory(stateName) {
   return new Promise((resolveResult, reject) => {
+    // Windows child-process signals terminate abruptly, so the packaged child owns the abort probe there.
+    const historyProbe = process.platform === "win32" ? "abort" : "1";
     const child = spawn(executable, ["run", "list", "--json"], {
       cwd: workspace,
       env: {
         ...process.env,
-        EDEN_HISTORY_PROBE: "1",
+        EDEN_HISTORY_PROBE: historyProbe,
         EDEN_STATE_DIR: stateDirectory(stateName),
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -121,7 +123,7 @@ async function runAbortedHistory(stateName) {
       stderr += chunk;
       if (!interrupted && stderr.includes("__EDEN_HISTORY_READY__")) {
         interrupted = true;
-        child.kill("SIGINT");
+        if (historyProbe === "1") child.kill("SIGINT");
       }
     });
     child.once("error", (error) => {

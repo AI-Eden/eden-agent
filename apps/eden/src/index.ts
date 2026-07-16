@@ -31,8 +31,10 @@ if (!parsed.ok) {
     const controller = new AbortController();
     const abort = () => controller.abort();
     process.once("SIGINT", abort);
-    if (process.env.EDEN_HISTORY_PROBE === "1") {
+    const historyProbe = process.env.EDEN_HISTORY_PROBE;
+    if (historyProbe === "1" || historyProbe === "abort") {
       process.stderr.write("__EDEN_HISTORY_READY__\n");
+      if (historyProbe === "abort") controller.abort();
     }
     try {
       process.exitCode = await runHistory(parsed.value, environment, controller.signal);
