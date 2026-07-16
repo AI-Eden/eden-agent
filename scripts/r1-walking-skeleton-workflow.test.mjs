@@ -157,6 +157,7 @@ test("production PTY emits the frozen manifest and rejects missing required rows
   match(productionPty, /shouldUseBundledConpty/u);
   match(productionPty, /waitForScreenText\(session, "Enter submits"\)/u);
   match(productionPty, /waitForScreenText\(session, "Complete the production PTY fake task"\)/u);
+  match(productionPty, /process\.exit\(0\)/u);
   strictEqual(productionPty.includes("taskkill.exe"), false);
 });
 

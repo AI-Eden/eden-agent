@@ -629,6 +629,13 @@ const manifest = {
   },
 };
 await writeFile(join(evidenceDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-process.stdout.write(
-  `${JSON.stringify({ artifactSha256, evidenceDirectory, status: "passed" })}\n`,
-);
+await new Promise((resolveWrite, rejectWrite) => {
+  process.stdout.write(
+    `${JSON.stringify({ artifactSha256, evidenceDirectory, status: "passed" })}\n`,
+    (error) => {
+      if (error !== null && error !== undefined) rejectWrite(error);
+      else resolveWrite();
+    },
+  );
+});
+process.exit(0);
