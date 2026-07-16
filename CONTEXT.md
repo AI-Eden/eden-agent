@@ -2,10 +2,9 @@
 
 ## Current stage
 
-R0 is complete and its exit review is accepted. All three bounded R1 slices are accepted. The separate R1
-exit review failed and exposed a missing fake-model path, stale workspace-trust start authority, and
-history/read-only defects. The owner selected A/A/A/A for exit closure and approved the executable plan.
-Build is approved and in progress; R1 exit acceptance remains pending.
+R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
+after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. R2 remains an
+unfrozen roadmap stage; no R2 implementation is authorized yet.
 
 ## Current truth
 
@@ -37,28 +36,32 @@ Build is approved and in progress; R1 exit acceptance remains pending.
   flow, and small-catalog 60x20 review. The R1 exit review then reproduced a blocking many-row 60x20
   viewport failure and additional contract, async, bounded-work, no-write, and redaction defects. Those
   claims now belong to the exit-closure plan; the earlier evidence is not treated as final R1 proof.
-- Current local crash, renderer, standalone artifact, trust-failure, and full-workspace evidence is green.
-  Hosted Ubuntu, Windows, and macOS test, build, package, and standalone smoke evidence is green in R1 run
-  29431313699 at `c962245`.
+- Final local crash, renderer, standalone artifact, trust-failure, and full-workspace evidence is green.
+  Hosted Ubuntu, Windows, and macOS frozen install, test, build, package, copied-artifact, and production
+  PTY evidence is green in R1 run 29513232236 at
+  `c95596ed231a3493e72674cb61229f2aa9089907`. All three machine-readable evidence artifacts passed their
+  required rows and retained the explicit not-run support rows.
 - The shared terminal packaging workflow is green on macOS 15, Ubuntu 24.04, and Windows 2025 in run
   29372727708 at `594e9f7`; historical R0 measurement versions remain frozen independently.
 
 ## Current execution
 
-Execute `docs/plans/2026-07-16-r1-exit-closure.md` through its local, review, publication, and hosted
-evidence gates without broadening the frozen R1 boundary.
+Publish the closeout-only R1 documents, accepted-status contract transition, and tutorial submodule pointer
+authorized after owner acceptance. Do not add R2 behavior during closeout.
 
 ## Next implementation slice
 
-Continue the R1 exit closure through authorized public exact-SHA hosted evidence. Pause only for a new
-architecture, product, trust, public-contract, dependency, durable-state, or roadmap decision. Stop for
-the final owner R1 exit acceptance before marking R1 complete.
+Explore and freeze the first bounded R2 slice from the accepted roadmap. One real provider, repository
+tools, AnchorEdit, policy, execution modes, changed-file review, checks, recovery, and `eden doctor` remain
+R2 candidates rather than one pre-approved implementation batch. Stop for owner approval of the R2 plan
+before implementation.
 
 ## Known open questions
 
 - Hosted action dependencies emit Node.js 20 deprecation annotations while GitHub forces them onto Node.js
   24; the current lanes are green, but the action-version migration remains maintenance work.
-- R1 exit acceptance remains pending until exact-SHA hosted evidence and the fresh exit review pass.
+- The first R2 slice, provider choice, credential boundary, repository capability scope, and execution-mode
+  evidence are not frozen.
 - Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
   in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 

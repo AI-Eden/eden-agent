@@ -1,19 +1,21 @@
 # R1 Exit Closure Plan
 
-- Status: Build approved and in progress
+- Status: Complete; owner accepted the R1 exit on 2026-07-17
 - Date: 2026-07-16
 - Roadmap stage: R1, Installable Walking Skeleton
 - Baseline: `7a93d2968dc4d0f5b2f9d2f913e4108c2f04a48f` plus the accepted, uncommitted run-history slice
 - Prior slice: `docs/plans/2026-07-16-r1-run-history-read-only-review.md`, accepted by the owner on
   2026-07-16; exit-review defects transfer into this plan
 - Owner decisions: A/A/A/A approved on 2026-07-16
-- Publication authority: public commit and push plus a local tutorial gitlink commit are authorized only
-  after plan approval and the named local/review gates pass
+- Publication authority: the public implementation and closeout commits plus the tutorial gitlink commit
+  and push are authorized; public changes must land before the tutorial pointer
 - Plan approval: 2026-07-16
 - Review-process amendment: on 2026-07-16 the owner replaced the automatic five-lane subagent gate with
   one evidence-backed single-agent diff, contract, trust, and matching-surface review; subagents require
   explicit owner authorization
-- Human checkpoint: accept the R1 exit after exact-SHA hosted evidence and the final review
+- Implementation SHA: `c95596ed231a3493e72674cb61229f2aa9089907`
+- Hosted evidence: run 29513232236 passed on Ubuntu, macOS, and Windows
+- Human checkpoint: completed by owner acceptance on 2026-07-17
 
 ## Goal and User-Visible Outcome
 
@@ -28,8 +30,8 @@ stale selection, and a many-run catalog remains usable at 60x20. Preserve an exp
 static corruption, bounded work, hardlink rejection, checkpoint identity changes, and cooperating Eden
 processes are in scope. Malicious same-user concurrent path substitution remains documented future work.
 
-The final public implementation SHA must pass the complete local, standalone, real-PTY, review, and
-Ubuntu/macOS/Windows evidence matrix. R1 completion still requires the final owner checkpoint.
+The final public implementation SHA passed the complete local, standalone, real-PTY, review, and
+Ubuntu/macOS/Windows evidence matrix. The owner then accepted the R1 exit on 2026-07-17.
 
 ## Current Repository Facts
 
@@ -239,20 +241,22 @@ lock sabotage, separate security principal, and native filesystem boundary are r
 Publication uses three named commits:
 
 - `BASELINE_SHA`: `7a93d2968dc4d0f5b2f9d2f913e4108c2f04a48f`, the immutable comparison base;
-- `IMPLEMENTATION_SHA`: the first clean public commit containing the accepted history slice and all R1
-  exit repairs, after local gates and fresh review pass;
-- `CLOSEOUT_SHA`: an optional docs-only public commit recording hosted evidence and final owner acceptance.
+- `IMPLEMENTATION_SHA`: `c95596ed231a3493e72674cb61229f2aa9089907`, the final public implementation
+  commit after local gates, hosted repairs, and fresh single-agent review passed;
+- `CLOSEOUT_SHA`: the closeout-only public commit recording hosted evidence and final owner acceptance and
+  transitioning the R1 status contract test from pre-acceptance to accepted truth. Its identity remains in
+  Git history instead of self-referential document text.
 
 Push `IMPLEMENTATION_SHA` to the public repository's configured `origin/main` and `github/main`, prove both
-remote tips, and require the hosted run's `headSha` to equal it. A docs-only closeout may cite that run when
-`git diff --name-only IMPLEMENTATION_SHA..CLOSEOUT_SHA` contains only authorized Markdown. The R1 workflow
-also runs on the closeout docs paths; its later run is observed but does not require a self-referential
-follow-up commit.
+remote tips, and require the hosted run's `headSha` to equal it. The owner approved one narrow exception to
+the Markdown-only closeout rule on 2026-07-17: `scripts/r1-walking-skeleton-workflow.test.mjs` may transition
+its status assertions from the pre-acceptance state to accepted R1 truth. No product runtime, package, or
+workflow implementation may change. The R1 workflow also runs on the closeout paths; its later run is
+observed but does not require a self-referential follow-up commit.
 
 After exact-SHA hosted evidence and the fresh R1 exit review pass, stop for the owner's R1 exit acceptance.
-Only then mark R1 complete, create/push an authorized public closeout commit if needed, and commit the
-tutorial gitlink to `CLOSEOUT_SHA` locally. This authorization does not include pushing the tutorial
-repository.
+Only then mark R1 complete, create and push the authorized public closeout commit, and commit the tutorial
+gitlink to `CLOSEOUT_SHA`. The owner granted tutorial push authority on 2026-07-17.
 
 Ordinary fixes within these frozen contracts may continue through new implementation SHAs and hosted
 reruns. Pause for evidence that changes product behavior, trust semantics, public contracts, dependencies,
@@ -435,8 +439,8 @@ driver and real state/journal/client surfaces.
 - Run frozen install, peers, focused suites, full tests, typecheck, build, Biome, Markdown, workflow
   contract, package, standalone smoke, production PTY, `git diff --check`, and both repository statuses
   after the final relevant edit.
-- Run five fresh read-only exit-review lanes against the same worktree: goal, QA, code quality, security,
-  and context/docs. Every lane must pass; a lane that reviewed earlier bytes cannot be reused.
+- Run a fresh read-only goal, QA, code-quality, security, and context/docs review against the same worktree.
+  The owner-amended process uses one evidence-backed agent and does not launch automatic review subagents.
 - Inspect the complete diff from `BASELINE_SHA`. Reject scope drift, raw secret/path output, fake hosted
   evidence, a native/dependency addition, or a claim stronger than the recorded threat boundary.
 - Record `IMPLEMENTATION_SHA` only after all local and review gates pass.
@@ -449,9 +453,9 @@ driver and real state/journal/client surfaces.
   to the owning RED/GREEN slice, create a new implementation SHA, and repeat the complete affected gates.
 - Conduct the final same-SHA R1 exit audit and present its evidence to the owner. Stop for explicit R1 exit
   acceptance.
-- After acceptance, create any docs-only `CLOSEOUT_SHA`, push the public repository if needed, observe its
-  docs-triggered workflow without another self-referential evidence commit, then commit the tutorial
-  gitlink locally. Do not push the tutorial repository without new authority.
+- After acceptance, create the closeout-only `CLOSEOUT_SHA`, push the public repository, observe its
+  docs-triggered workflow without another self-referential evidence commit, then commit and push the
+  tutorial gitlink under the authority granted on 2026-07-17.
 
 ## Matching-Surface Ledger
 
@@ -574,19 +578,47 @@ lock layout, or catalog budget semantics creates a future migration/versioning r
 1. **Exit decisions, complete:** A/A/A/A approved on 2026-07-16.
 2. **Explore/Freeze plan review, complete:** the owner approved this exact model lifecycle, trust lock,
    numeric budgets, threat boundary, ordered slices, non-goals, and evidence/publication protocol.
-3. **Build, in progress:** proceed continuously through ordinary RED/GREEN/REFACTOR, local review,
-   public commit/push, and hosted repair. Pause only under the stop rule.
-4. **R1 exit acceptance, pending:** after exact-SHA hosted evidence and the amended single-agent exit
-   review pass, the owner accepts or rejects R1 completion.
-5. **Tutorial publication:** public closeout and a local tutorial gitlink commit are authorized after R1
-   acceptance. Tutorial push requires separate authority.
+3. **Build, complete:** the final implementation and ordinary hosted repairs passed the local, artifact,
+   and three-platform gates.
+4. **R1 exit acceptance, complete:** the owner accepted R1 on 2026-07-17 after reviewing the final
+   exact-SHA evidence.
+5. **Tutorial publication, authorized:** after the public closeout lands and its docs-triggered workflow is
+   observed, commit and push the tutorial gitlink to the public closeout SHA.
 
 Decision approval and publication authority do not approve this plan or authorize product implementation
 before checkpoint 2.
 
+## Closeout Record
+
+- Final implementation: `c95596ed231a3493e72674cb61229f2aa9089907`; both configured public `main`
+  remotes matched it before closeout.
+- Hosted run: [29513232236](https://github.com/AI-Eden/eden-agent/actions/runs/29513232236); Ubuntu,
+  macOS, and Windows jobs completed successfully with one executable and machine-readable evidence per
+  platform.
+- Required evidence: all 15 required rows and all 13 standalone rows passed on every platform. Production
+  PTY success exited 0; history cancellation exited 130; terminal restoration and parent-shell sentinels
+  passed.
+- Artifact SHA-256: Linux
+  `c2c7ba8ad4c45970b3fdc9cb506992f286e05f95894f9c465f0cfd44137656ad`, macOS
+  `4db475b9d7837eb7b47da484cc218230ccbaa1c5c41543b83ba1e76d381dfd11`, and Windows
+  `273339372715b6680d397d550005f9ac4756721cefdb16bd7de3ecf53e79dc71`.
+- Support truth: Terminal.app, Windows Terminal, PowerShell IME, signing, installer, and release support
+  remain explicit `not-run` rows.
+- Threat boundary: malicious same-user state substitution remains deferred. R1 still makes no resume,
+  release, real-provider, repository-tool, policy, sandbox-parity, or v0.1 claim.
+- Evidence nuance: each hosted manifest recorded `source.dirty: true` because the workflow generated the
+  untracked `r1-evidence/` directory before writing the manifest. The hosted `headSha`, manifest
+  `source.sha`, both remote tips, and audited executable hashes establish the exact-SHA chain; no source
+  change was present in the public implementation worktree.
+- Review process: the owner-approved single-agent diff, contract, trust, and matching-surface review
+  replaced the earlier automatic five-lane subagent gate. No subagent result is part of the final claim.
+- Owner acceptance: granted on 2026-07-17.
+- Closeout contract amendment: the owner approved updating the phase-status workflow test alongside the
+  Markdown closeout after the former pre-acceptance assertions correctly rejected the accepted status.
+
 ## Completion Criteria
 
-R1 is ready for owner exit acceptance only when:
+R1 exit acceptance required all of the following:
 
 - a typed deterministic model response causally produces the only approval proposal;
 - model, action, and verification effects all follow journaled intent, receipt, observation, replay, and
@@ -603,9 +635,10 @@ R1 is ready for owner exit acceptance only when:
 - public helper exports preserve runtime-owned path authority;
 - README, help, SPEC, CONTEXT, ADRs, threat model, prior plans, workflow filters, and future-work records
   agree without R2/R3, release, or adversarial-filesystem overclaims;
-- full local gates, copied standalone smoke, production PTY, and five fresh review lanes pass after the
-  final relevant edit;
+- full local gates, copied standalone smoke, production PTY, and the owner-amended single-agent review pass
+  after the final relevant edit;
 - `IMPLEMENTATION_SHA` matches both public remotes and the successful three-platform hosted run;
-- the owner accepts the R1 exit before any document marks R1 complete;
-- the tutorial gitlink is committed locally to the authorized public closeout SHA, with tutorial push
-  still unperformed unless separately authorized.
+- the owner accepts the R1 exit before any document marks R1 complete.
+
+Tutorial publication follows acceptance: commit and push its gitlink to the authorized public closeout SHA
+only after the public closeout and its docs-triggered workflow finish.

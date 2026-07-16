@@ -6,11 +6,11 @@ The project is intentionally not a thin wrapper around an agent framework. Its p
 
 ## Status
 
-This repository is in roadmap stage R1. It builds a standalone walking-skeleton terminal artifact with
-explicit workspace trust, separate fake-action approval, a deterministic fake task, durable JSONL replay,
-and current-workspace read-only run history. It is not yet a real coding agent: the R1 runtime uses no
-provider credential, does not read or change repository files, executes no real process, has no network
-authority, and does not resume historical execution.
+This repository completed roadmap stage R1 on 2026-07-17. It builds a standalone walking-skeleton terminal
+artifact with explicit workspace trust, separate fake-action approval, a deterministic fake-model step and
+fake task, durable JSONL replay, and current-workspace read-only run history. It is not yet a real coding
+agent: the R1 runtime uses no provider credential, does not read or change repository files, executes no
+real process, has no network authority, and does not resume historical execution.
 
 ## Intended product
 
@@ -92,9 +92,11 @@ The same fake flow is available headlessly:
 available after workspace trust is revoked. They ignore the old unpartitioned pre-release development
 layout and never migrate it.
 
-In PowerShell, use `$env:EDEN_STATE_DIR = '<absolute-state-path>'` and the `.exe` artifact. Current hosted
-Ubuntu, Windows, and macOS lanes prove build/package/headless smoke. They do not yet establish real
-Windows/macOS interactive PTY, IME, signing, installer, or release support.
+In PowerShell, use `$env:EDEN_STATE_DIR = '<absolute-state-path>'` and the `.exe` artifact. The accepted
+[R1 hosted evidence](https://github.com/AI-Eden/eden-agent/actions/runs/29513232236) proves the frozen install,
+tests, build, package, copied-artifact smoke, and production PTY process boundary on hosted Ubuntu, Windows,
+and macOS. It does not establish Terminal.app, Windows Terminal, PowerShell IME, signing, installer, or
+release support.
 
 ## Design principles
 

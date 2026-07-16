@@ -191,7 +191,7 @@ test("R1 source documents freeze model causality and fresh start authority", asy
   match(trustStartAdr, /run\.started[^\n]*durable/u);
 });
 
-test("R1 status and threat documents remain honest before owner exit acceptance", async () => {
+test("accepted R1 status and threat documents remain honest", async () => {
   const [context, spec, threatModel, futureWork] = await Promise.all([
     readFile(contextUrl, "utf8"),
     readFile(specUrl, "utf8"),
@@ -199,9 +199,11 @@ test("R1 status and threat documents remain honest before owner exit acceptance"
     readFile(futureWorkUrl, "utf8"),
   ]);
 
-  match(context, /Build is approved and in progress/u);
-  match(context, /R1 exit acceptance remains pending/u);
-  match(spec, /R1 exit candidate work/u);
+  match(context, /R0 and R1 are complete/u);
+  match(context, /owner accepted the R1 exit on 2026-07-17/iu);
+  match(context, /R2 remains an\s+unfrozen roadmap stage/u);
+  match(spec, /R1 completed with owner acceptance on 2026-07-17/u);
+  match(spec, /R2 remains unfrozen/u);
   strictEqual(spec.includes("Draft for R0"), false);
   match(threatModel, /512/u);
   match(threatModel, /1 MiB/u);
@@ -209,8 +211,8 @@ test("R1 status and threat documents remain honest before owner exit acceptance"
   match(threatModel, /does not claim resistance to malicious same-user/u);
   match(futureWork, /deferred/u);
   match(futureWork, /descriptor-relative/u);
-  strictEqual(context.includes("R1 is complete"), false);
-  strictEqual(spec.includes("R1 is complete"), false);
+  strictEqual(context.includes("R1 exit acceptance remains pending"), false);
+  strictEqual(spec.includes("R1 exit candidate work"), false);
 });
 
 test("accepted R1 slice plans contain no pending owner checkpoint", async () => {

@@ -19,12 +19,15 @@ R1 requires clean-machine installation for the selected development distribution
 
 Unsupported guarantees, especially native sandbox parity, must be visible in the product and release notes.
 
-## R1 exit-candidate evidence
+## Accepted R1 evidence
 
-The R1 workflow must run the same frozen install, tests, typecheck, build, standalone packaging, copied-
-artifact smoke, and production PTY driver on hosted Ubuntu, macOS, and Windows runners. Each lane uploads
-the executable, a machine-readable manifest, raw ANSI PTY evidence, standalone process evidence, and exact
-OpenTUI renderer frames for the 60x20 and 100x30 history states.
+The owner accepted R1 on 2026-07-17. The final
+[exact-SHA workflow](https://github.com/AI-Eden/eden-agent/actions/runs/29513232236) ran the same frozen
+install, tests, typecheck, build, standalone packaging, copied-artifact smoke, and production PTY driver on
+hosted Ubuntu, macOS, and Windows runners at
+`c95596ed231a3493e72674cb61229f2aa9089907`. Each lane uploaded the executable, a machine-readable manifest,
+raw ANSI PTY evidence, standalone process evidence, and exact OpenTUI renderer frames for the 60x20 and
+100x30 history states.
 
 The hosted PTY row proves the packaged process accepts input, renders the required product states, exits
 with the expected status, restores terminal modes, and returns control to its parent shell. Renderer frames

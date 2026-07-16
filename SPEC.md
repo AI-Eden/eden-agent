@@ -2,9 +2,9 @@
 
 ## Status
 
-R1 exit candidate work. R1 is not complete until the exact-SHA evidence matrix, fresh exit review, and
-owner acceptance pass. Changes to trust, terminal states, public product contracts, or non-goals require
-an ADR and human approval.
+R1 completed with owner acceptance on 2026-07-17 after its exact-SHA evidence matrix and fresh exit review
+passed. R2 remains unfrozen. Changes to trust, terminal states, public product contracts, or non-goals
+require an ADR and human approval.
 
 ## User story
 
