@@ -4,7 +4,7 @@ import { rmSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, join, resolve, win32 } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const eventTimeoutMs = 15_000;
@@ -54,11 +54,17 @@ function validateRequiredRows(rows) {
 
 function packageManagerInvocation(
   platform = process.platform,
-  commandShell = process.env.ComSpec ?? "cmd.exe",
+  pnpmHome = process.env.PNPM_HOME,
+  nodeExecutable = process.execPath,
 ) {
-  return platform === "win32"
-    ? { arguments: ["/d", "/s", "/c", "pnpm --version"], command: commandShell }
-    : { arguments: ["--version"], command: "pnpm" };
+  if (platform !== "win32") return { arguments: ["--version"], command: "pnpm" };
+  if (pnpmHome === undefined) {
+    throw new Error("Windows package-manager evidence requires PNPM_HOME.");
+  }
+  return {
+    arguments: [win32.resolve(pnpmHome, "..", "pnpm", "bin", "pnpm.cjs"), "--version"],
+    command: nodeExecutable,
+  };
 }
 
 if (process.argv[2] === "--self-test") {
@@ -78,12 +84,17 @@ if (process.argv[2] === "--self-test") {
     }
     if (!rejected) throw new Error("Required-row evidence self-test accepted invalid truth.");
   }
-  const windowsPackageManager = packageManagerInvocation("win32", "cmd.exe");
+  const windowsPackageManager = packageManagerInvocation(
+    "win32",
+    "C:\\runner\\setup-pnpm\\node_modules\\.bin",
+    "C:\\nodejs\\node.exe",
+  );
   if (
-    windowsPackageManager.command !== "cmd.exe" ||
-    windowsPackageManager.arguments.join(" ") !== "/d /s /c pnpm --version"
+    windowsPackageManager.command !== "C:\\nodejs\\node.exe" ||
+    windowsPackageManager.arguments.join("|") !==
+      "C:\\runner\\setup-pnpm\\node_modules\\pnpm\\bin\\pnpm.cjs|--version"
   ) {
-    throw new Error("Windows package-manager command did not route through its command shell.");
+    throw new Error("Windows package-manager command did not use pnpm's JavaScript entrypoint.");
   }
   const posixPackageManager = packageManagerInvocation("linux");
   if (
@@ -114,7 +125,7 @@ const { shouldUseBundledConpty, terminatePtyProcessGroup } = await import(
 );
 
 function commandOutput(command, arguments_) {
-  const result = spawnSync(command, arguments_, { encoding: "utf8" });
+  const result = spawnSync(command, arguments_, { encoding: "utf8", timeout: 30_000 });
   if (result.error !== undefined) throw result.error;
   if (result.status !== 0) {
     throw new Error(`${command} ${arguments_.join(" ")} exited ${result.status}.`);
