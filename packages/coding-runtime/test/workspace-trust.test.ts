@@ -1,6 +1,5 @@
 import { deepStrictEqual, notStrictEqual, rejects, strictEqual } from "node:assert";
 import {
-  chmod,
   link,
   lstat,
   mkdir,
@@ -387,18 +386,15 @@ test("trust write failures return fixed state errors without path disclosure", a
     cwd: fixture.workspaceDirectory,
     stateDirectory: fixture.stateDirectory,
   });
-  await chmod(trustDirectory, 0o500);
-  try {
-    await rejects(
-      service.resolve(command(service.identity.workspaceId, 0, "trust")),
-      (error) =>
-        error instanceof WorkspaceTrustError &&
-        error.productError.code === "workspace_state_unavailable" &&
-        !JSON.stringify(error.productError).includes(fixture.base),
-    );
-  } finally {
-    await chmod(trustDirectory, 0o700);
-  }
+  await mkdir(join(trustDirectory, `${service.identity.workspaceId}.json`));
+
+  await rejects(
+    service.resolve(command(service.identity.workspaceId, 0, "trust")),
+    (error) =>
+      error instanceof WorkspaceTrustError &&
+      error.productError.code === "workspace_state_unavailable" &&
+      !JSON.stringify(error.productError).includes(fixture.base),
+  );
 });
 
 test("a missing state path through a workspace symlink is rejected before mkdir", async () => {
