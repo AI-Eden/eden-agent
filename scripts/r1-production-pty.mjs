@@ -109,7 +109,7 @@ if (process.argv[2] === "--self-test") {
 
 const executable = resolve(process.argv[2] ?? "");
 const evidenceDirectory = resolve(
-  process.argv[3] ?? ".omo/evidence/r1-exit-closure/production-pty",
+  process.argv[3] ?? "docs/evidence/r1-exit-closure/production-pty",
 );
 const executableMetadata = await stat(executable);
 if (!executableMetadata.isFile())

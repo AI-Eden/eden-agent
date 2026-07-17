@@ -327,7 +327,7 @@ contain only workspace-edge metadata.
 ## Verification Strategy
 
 Use TDD for every reproduced defect and new invariant. Record RED and GREEN commands under
-`.omo/evidence/r1-exit-closure/<attempt>/`. A passing unit test is insufficient when a process, filesystem,
+`docs/evidence/r1-exit-closure/<attempt>/`. A passing unit test is insufficient when a process, filesystem,
 PTY, crash, or hosted boundary exists.
 
 - **Pure seam:** kernel table tests with fixed events/effects and no filesystem/provider mock.
