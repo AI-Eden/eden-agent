@@ -67,6 +67,8 @@ Before handoff or merge:
 - report exact automated and matching-surface verification results, produced evidence, and anything not run;
 - let the human perform the key-node review defined by the plan.
 
+For work that continues in a later session, update the authoritative public state above before an external collaboration handoff summarizes it. That handoff may record the exact public commit, current phase, accepted continuation constraints, unresolved owner decisions, first action, and next checkpoint. The new session must revalidate the live repository and public sources before acting. External handoffs carry no product-contract, plan-approval, Build, commit, push, merge, network, or completion authority, and this repository must remain understandable and buildable without them.
+
 ## Durable goal runs
 
 An agent-native durable goal may span consecutive agent-owned steps, but it may not cross a human checkpoint.
