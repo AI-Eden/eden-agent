@@ -20,3 +20,9 @@ Explore evidence, an accepted ADR when architecture changes, and an executable p
 - [Adversarial local-state filesystem hardening](adversarial-local-state-filesystem-hardening.md):
   descriptor- or handle-anchored access and stronger state isolation against a malicious process running
   as the same operating-system user.
+- [Provider credential storage evolution](provider-credential-storage-evolution.md): native keychains,
+  encrypted or external secret stores, profile migration, backup and synchronization semantics, and
+  stronger lifecycle guarantees beyond the minimal host-side R2 config direction.
+- [Provider access and subscription evolution](provider-access-and-subscription-evolution.md): approved
+  consumer-subscription OAuth, additional subscription-plan presets, provider families, and the evidence
+  required before Eden expands its provider support claims.
