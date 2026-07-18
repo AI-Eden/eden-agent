@@ -46,8 +46,8 @@ unfrozen roadmap stage; no R2 implementation is authorized yet.
 
 ## Current execution
 
-Publish the closeout-only R1 documents, accepted-status contract transition, and tutorial submodule pointer
-authorized after owner acceptance. Do not add R2 behavior during closeout.
+Explore and freeze the first bounded R2 slice from the accepted roadmap. R2 implementation remains
+unauthorized until the owner approves its public plan and any required architecture decisions.
 
 ## Next implementation slice
 
