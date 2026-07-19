@@ -506,6 +506,7 @@ const success = await runScenario({
     await waitForText(session, "__EDEN_INPUT_READY__");
     session.terminal.write("t");
     await waitForScreenText(session, "trust: trusted");
+    await waitForScreenText(session, "Enter focuses task");
     session.terminal.write("\r");
     await waitForScreenText(session, "Enter submits");
     session.terminal.write("Complete the production PTY fake task");

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmod, copyFile, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -48,7 +48,7 @@ describe("application archive assets", () => {
     assert.equal(loaded.ripgrepAssetError, undefined);
     assert.deepEqual(loaded.ripgrepAsset, {
       contentHash: manifest.ripgrep.contentHash,
-      path: join(directory, manifest.ripgrep.path),
+      path: join(await realpath(directory), manifest.ripgrep.path),
       version: "15.0.0",
     });
   });

@@ -31,8 +31,15 @@ function changedFiles(root) {
 }
 
 function runBiome(root, command, files) {
-  const biomePath = join(root, "node_modules", "@biomejs", "biome", "bin", "biome");
-  const result = spawnSync(process.execPath, [biomePath, command, ...files], {
+  const biomePath =
+    process.platform === "win32"
+      ? join(root, "node_modules", "@biomejs", `cli-win32-${process.arch}`, "biome.exe")
+      : join(root, "node_modules", "@biomejs", "biome", "bin", "biome");
+  const invocation =
+    process.platform === "win32"
+      ? { arguments: [command, ...files], command: biomePath }
+      : { arguments: [biomePath, command, ...files], command: process.execPath };
+  const result = spawnSync(invocation.command, invocation.arguments, {
     cwd: root,
     encoding: "utf8",
   });
