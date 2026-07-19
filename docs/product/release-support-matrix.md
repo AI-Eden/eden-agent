@@ -63,3 +63,10 @@ real filesystem fixtures. The TUI displayed exact used sources and one pre-netwo
 recovery; the request-counting provider remained at zero. POSIX unreadable-file behavior is evidenced on
 Linux/WSL; Windows permission behavior and hosted context matching remain `not-run`. This evidence does not
 expand release support.
+
+Slice 4 locally exercised real bounded list/read adapters with exact UTF-8 offsets and hashes, row/byte/
+visit continuation limits, containment, link/binary/cancel/stale-identity failures, and zero-write
+snapshots. One fake-model read round trip persisted requested/completed activity, passed the closed result
+into one continuation, rendered complete CJK content and provenance, and replayed after the source file was
+removed with zero model/tool calls. `Ctrl+C` aborted an in-flight model before tool dispatch. Hosted and
+non-Linux tool rows remain `not-run`; this evidence does not expand release support.

@@ -15,7 +15,7 @@ import type {
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui";
 import { KeymapProvider } from "@opentui/keymap/react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRunHistory } from "./tui-history.tsx";
 import { EdenTuiLayout } from "./tui-layout.tsx";
@@ -93,6 +93,7 @@ function EdenTuiSurface({
   const [review, setReview] = useState<WorkspaceReview | null>(initialWorkspaceReview ?? null);
   const [timeline, setTimeline] = useState<readonly ProductEvent["type"][]>([]);
   const [view, setView] = useState<ProductView | null>(null);
+  const activeOperation = useRef<AbortController | null>(null);
 
   const leaveComposer = useCallback(() => setComposerFocused(false), []);
   const history = useRunHistory({
@@ -308,13 +309,18 @@ function EdenTuiSurface({
 
   const start = async (task: string) => {
     if (task.trim().length === 0 || review?.authority.taskStart !== "allowed") return;
+    const controller = new AbortController();
+    activeOperation.current = controller;
     try {
-      const nextView = await client.submit({
-        commandId: randomUUID(),
-        protocolVersion: 1,
-        task,
-        type: "run.start",
-      });
+      const nextView = await client.submit(
+        {
+          commandId: randomUUID(),
+          protocolVersion: 1,
+          task,
+          type: "run.start",
+        },
+        { signal: controller.signal },
+      );
       setView(nextView);
       setComposerFocused(false);
       onViewChange?.(nextView);
@@ -336,6 +342,8 @@ function EdenTuiSurface({
         }
       }
       setError(message);
+    } finally {
+      if (activeOperation.current === controller) activeOperation.current = null;
     }
   };
 
@@ -361,6 +369,11 @@ function EdenTuiSurface({
 
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
+      if (activeOperation.current !== null) {
+        activeOperation.current.abort();
+        onExit?.(130);
+        return;
+      }
       if (view !== null && view.terminalOutcome === null) {
         void client
           .submit({
@@ -447,6 +460,10 @@ function EdenTuiSurface({
       if (key.name === "a") void resolveApproval("approve");
       if (key.name === "d") void resolveApproval("deny");
     }
+  });
+
+  useEffect(() => () => {
+    activeOperation.current?.abort();
   });
 
   useEffect(() => {

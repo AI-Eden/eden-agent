@@ -94,6 +94,157 @@ test("the validated model observation creates the only approval action", () => {
   deepStrictEqual(decide(awaiting), []);
 });
 
+test("one validated repository tool round trip continues into a second fake model step", () => {
+  const call = {
+    arguments: { continuation: null, path: "." },
+    name: "list_files",
+    toolCallId: "tool-call-list-1",
+  } as const;
+  const result = {
+    data: {
+      contentHash: `sha256:${"a".repeat(64)}`,
+      continuation: null,
+      entries: [{ kind: "file", path: "README.md", size: 5 }],
+      sourcePath: ".",
+      truncated: false,
+      visited: 1,
+    },
+    name: "list_files",
+    status: "succeeded",
+    toolCallId: call.toolCallId,
+  } as const;
+  const started = transition(initialRunState, startEvent);
+  const modelRequested = transition(started, {
+    effect: onlyEffect(started),
+    type: "effect.requested",
+  });
+  const toolReady = transition(modelRequested, {
+    effectId: "run-1:fake-model",
+    toolCall: call,
+    type: "fake.model.tool-requested",
+  });
+  deepStrictEqual(decide(toolReady), [
+    {
+      effectId: "run-1:repository-tool:tool-call-list-1",
+      runId: "run-1",
+      toolCall: call,
+      type: "repository.tool.execute",
+    },
+  ]);
+  const toolRequested = transition(toolReady, {
+    effect: onlyEffect(toolReady),
+    type: "effect.requested",
+  });
+  const continued = transition(toolRequested, {
+    effectId: "run-1:repository-tool:tool-call-list-1",
+    result,
+    type: "repository.tool.completed",
+  });
+  deepStrictEqual(decide(continued), [
+    {
+      effectId: "run-1:fake-model-continuation",
+      runId: "run-1",
+      task: startEvent.task,
+      toolResult: result,
+      type: "fake.model.complete",
+    },
+  ]);
+  const continuationRequested = transition(continued, {
+    effect: onlyEffect(continued),
+    type: "effect.requested",
+  });
+  const awaiting = transition(continuationRequested, {
+    action,
+    effectId: "run-1:fake-model-continuation",
+    type: "fake.model.completed",
+  });
+  strictEqual(awaiting.phase, "awaiting-approval");
+  deepStrictEqual(awaiting.tool, { call, result });
+});
+
+test("repository tool results remain runtime-owned and failures block without continuation", () => {
+  const call = {
+    arguments: { maxBytes: 100, offset: 0, path: "README.md" },
+    name: "read_file",
+    toolCallId: "tool-call-read-1",
+  } as const;
+  const started = transition(initialRunState, startEvent);
+  const modelRequested = transition(started, {
+    effect: onlyEffect(started),
+    type: "effect.requested",
+  });
+  const toolReady = transition(modelRequested, {
+    effectId: "run-1:fake-model",
+    toolCall: call,
+    type: "fake.model.tool-requested",
+  });
+  const toolRequested = transition(toolReady, {
+    effect: onlyEffect(toolReady),
+    type: "effect.requested",
+  });
+  const failure = {
+    error: {
+      code: "operation_aborted",
+      message: "The repository tool operation was aborted.",
+      recoverability: "retry",
+      suggestedActions: ["Retry the repository tool operation when ready."],
+    },
+    name: "read_file",
+    status: "failed",
+    toolCallId: call.toolCallId,
+  } as const;
+  const blocked = transition(toolRequested, {
+    effectId: "run-1:repository-tool:tool-call-read-1",
+    result: failure,
+    type: "repository.tool.completed",
+  });
+  strictEqual(blocked.phase, "terminal");
+  deepStrictEqual(blocked.terminalOutcome, { error: failure.error, state: "blocked" });
+  deepStrictEqual(blocked.tool, { call, result: failure });
+  deepStrictEqual(decide(blocked), []);
+
+  strictEqual(
+    reduce(toolRequested, {
+      effectId: "run-1:repository-tool:tool-call-read-1",
+      result: { ...failure, toolCallId: "forged-call" },
+      type: "repository.tool.completed",
+    }).ok,
+    false,
+  );
+  strictEqual(
+    decodeKernelEvent({
+      effectId: "run-1:repository-tool:tool-call-read-1",
+      result: { ...failure, rawStdout: "forged" },
+      type: "repository.tool.completed",
+    }).ok,
+    false,
+  );
+  strictEqual(
+    decodeKernelEvent({
+      effectId: "run-1:repository-tool:tool-call-list-oversized",
+      result: {
+        data: {
+          contentHash: `sha256:${"a".repeat(64)}`,
+          continuation: "next",
+          entries: Array.from({ length: 7 }, (_, index) => ({
+            kind: "file",
+            path: `${"a".repeat(4_000)}${index}`,
+            size: 1,
+          })),
+          sourcePath: ".",
+          truncated: true,
+          visited: 7,
+        },
+        name: "list_files",
+        status: "succeeded",
+        toolCallId: "tool-call-list-oversized",
+      },
+      type: "repository.tool.completed",
+    }).ok,
+    false,
+  );
+});
+
 test("the model observation cannot forge runtime-owned action authority", () => {
   const started = transition(initialRunState, startEvent);
   const requested = transition(started, { effect: onlyEffect(started), type: "effect.requested" });

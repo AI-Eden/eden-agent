@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 
-import { fitTerminalLine, terminalTextWidth } from "../src/tui-text.ts";
+import { fitTerminalLine, safeTerminalBlock, terminalTextWidth } from "../src/tui-text.ts";
 
 test("single-line fitting neutralizes terminal control characters before measuring", () => {
   const fitted = fitTerminalLine(
@@ -16,4 +16,8 @@ test("single-line fitting neutralizes terminal control characters before measuri
     }),
   ).toBe(true);
   expect(terminalTextWidth("a\nb")).toBe(3);
+});
+
+test("multi-line tool content preserves answers without emitting terminal controls", () => {
+  expect(safeTerminalBlock("first\nsecond\u001b[31m\tred\r\n")).toBe("first\nsecond [31m red \n");
 });

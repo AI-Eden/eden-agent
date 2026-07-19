@@ -219,6 +219,163 @@ export const WorkspaceSummarySchema = Type.Object(
 );
 export type WorkspaceSummary = Type.Static<typeof WorkspaceSummarySchema>;
 
+function isPortableRepositoryPath(value: string): boolean {
+  if (
+    value === "." ||
+    value.length === 0 ||
+    value.startsWith("/") ||
+    value.startsWith("\\") ||
+    /^[A-Za-z]:/u.test(value) ||
+    value.includes("\\") ||
+    value.includes("\0")
+  ) {
+    return value === ".";
+  }
+  const segments = value.split("/");
+  return segments.every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
+export const RepositoryPathSchema = Type.Refine(
+  Type.String({ maxLength: 4_096, minLength: 1 }),
+  isPortableRepositoryPath,
+);
+export type RepositoryPath = Type.Static<typeof RepositoryPathSchema>;
+
+export const ListFilesToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      {
+        continuation: Type.Union([RepositoryPathSchema, Type.Null()]),
+        path: RepositoryPathSchema,
+      },
+      closed,
+    ),
+    name: Type.Literal("list_files"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const ReadFileToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      {
+        maxBytes: Type.Integer({ maximum: 24_576, minimum: 1 }),
+        offset: Type.Integer(safeInteger),
+        path: RepositoryPathSchema,
+      },
+      closed,
+    ),
+    name: Type.Literal("read_file"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const RepositoryToolCallSchema = Type.Union([
+  ListFilesToolCallSchema,
+  ReadFileToolCallSchema,
+]);
+export type RepositoryToolCall = Type.Static<typeof RepositoryToolCallSchema>;
+
+export const ListFilesEntrySchema = Type.Union([
+  Type.Object(
+    { kind: Type.Literal("directory"), path: RepositoryPathSchema, size: Type.Null() },
+    closed,
+  ),
+  Type.Object(
+    { kind: Type.Literal("file"), path: RepositoryPathSchema, size: Type.Integer(safeInteger) },
+    closed,
+  ),
+]);
+export type ListFilesEntry = Type.Static<typeof ListFilesEntrySchema>;
+
+const contentHashSchema = Type.String({ pattern: "^sha256:[a-f0-9]{64}$" });
+export const ListFilesToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          contentHash: contentHashSchema,
+          continuation: Type.Union([RepositoryPathSchema, Type.Null()]),
+          entries: Type.Array(ListFilesEntrySchema, { maxItems: 256 }),
+          sourcePath: RepositoryPathSchema,
+          truncated: Type.Boolean(),
+          visited: Type.Integer({ maximum: 4_096, minimum: 0 }),
+        },
+        closed,
+      ),
+      name: Type.Literal("list_files"),
+      status: Type.Literal("succeeded"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (value) =>
+    value.data.truncated === (value.data.continuation !== null) &&
+    new TextEncoder().encode(JSON.stringify(value.data.entries)).byteLength <= 24_576,
+);
+export const ReadFileToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          bytesRead: Type.Integer({ maximum: 24_576, minimum: 0 }),
+          content: Type.String({ maxLength: 24_576 }),
+          contentHash: contentHashSchema,
+          nextOffset: Type.Union([Type.Integer(safeInteger), Type.Null()]),
+          offset: Type.Integer(safeInteger),
+          sourcePath: RepositoryPathSchema,
+          totalBytes: Type.Integer(safeInteger),
+        },
+        closed,
+      ),
+      name: Type.Literal("read_file"),
+      status: Type.Literal("succeeded"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (value) =>
+    new TextEncoder().encode(value.data.content).byteLength === value.data.bytesRead &&
+    value.data.offset + value.data.bytesRead <= value.data.totalBytes &&
+    (value.data.nextOffset === null
+      ? value.data.offset + value.data.bytesRead === value.data.totalBytes
+      : value.data.nextOffset === value.data.offset + value.data.bytesRead &&
+        value.data.nextOffset < value.data.totalBytes),
+);
+export const RepositoryToolFailureSchema = Type.Object(
+  {
+    error: ProductErrorSchema,
+    name: Type.Union([Type.Literal("list_files"), Type.Literal("read_file")]),
+    status: Type.Literal("failed"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const RepositoryToolResultSchema = Type.Union([
+  ListFilesToolSuccessSchema,
+  ReadFileToolSuccessSchema,
+  RepositoryToolFailureSchema,
+]);
+export type RepositoryToolResult = Type.Static<typeof RepositoryToolResultSchema>;
+
+export const ToolActivitySchema = Type.Refine(
+  Type.Object(
+    {
+      call: RepositoryToolCallSchema,
+      result: Type.Union([RepositoryToolResultSchema, Type.Null()]),
+      state: Type.Union([Type.Literal("requested"), Type.Literal("completed")]),
+    },
+    closed,
+  ),
+  (value) =>
+    (value.state === "requested" && value.result === null) ||
+    (value.state === "completed" &&
+      value.result !== null &&
+      value.call.toolCallId === value.result.toolCallId &&
+      value.call.name === value.result.name),
+);
+export type ToolActivity = Type.Static<typeof ToolActivitySchema>;
+
 export const ContextPrioritySchema = Type.Union([
   Type.Literal("P0"),
   Type.Literal("P1"),
@@ -433,6 +590,7 @@ export const ProductViewSchema = Type.Object(
     residualRisk: Type.Union([boundedText(), Type.Null()]),
     terminalOutcome: Type.Union([TerminalOutcomeSchema, Type.Null()]),
     context: Type.Optional(ContextAdmissionSummarySchema),
+    tools: Type.Optional(Type.Array(ToolActivitySchema, { maxItems: 4 })),
   },
   closed,
 );
@@ -605,11 +763,20 @@ export const RunTerminalEventSchema = Type.Object(
   },
   closed,
 );
+export const ToolUpdatedEventSchema = Type.Object(
+  {
+    ...eventEnvelope,
+    activity: ToolActivitySchema,
+    type: Type.Literal("tool.updated"),
+  },
+  closed,
+);
 export const ProductEventSchema = Type.Union([
   SessionSnapshotEventSchema,
   PhaseProgressEventSchema,
   ApprovalPresentedEventSchema,
   VerificationUpdatedEventSchema,
+  ToolUpdatedEventSchema,
   RunTerminalEventSchema,
 ]);
 export type ProductEvent = Type.Static<typeof ProductEventSchema>;
@@ -638,6 +805,14 @@ export const ContextAdmissionSummaryDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: ContextAdmissionSummarySchema }, closed),
   DecodeFailureSchema,
 ]);
+export const RepositoryToolCallDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: RepositoryToolCallSchema }, closed),
+  DecodeFailureSchema,
+]);
+export const RepositoryToolResultDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: RepositoryToolResultSchema }, closed),
+  DecodeFailureSchema,
+]);
 export const RunCatalogDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: RunCatalogSchema }, closed),
   DecodeFailureSchema,
@@ -659,6 +834,12 @@ export type ResolveWorkspaceTrustCommandDecodeResult = Type.Static<
 export type WorkspaceReviewDecodeResult = Type.Static<typeof WorkspaceReviewDecodeResultSchema>;
 export type ContextAdmissionSummaryDecodeResult = Type.Static<
   typeof ContextAdmissionSummaryDecodeResultSchema
+>;
+export type RepositoryToolCallDecodeResult = Type.Static<
+  typeof RepositoryToolCallDecodeResultSchema
+>;
+export type RepositoryToolResultDecodeResult = Type.Static<
+  typeof RepositoryToolResultDecodeResultSchema
 >;
 export type RunCatalogDecodeResult = Type.Static<typeof RunCatalogDecodeResultSchema>;
 export type RunInspectionDecodeResult = Type.Static<typeof RunInspectionDecodeResultSchema>;
@@ -700,6 +881,8 @@ const eventValidator = Schema.Compile(ProductEventSchema);
 const viewValidator = Schema.Compile(ProductViewSchema);
 const workspaceReviewValidator = Schema.Compile(WorkspaceReviewSchema);
 const contextAdmissionSummaryValidator = Schema.Compile(ContextAdmissionSummarySchema);
+const repositoryToolCallValidator = Schema.Compile(RepositoryToolCallSchema);
+const repositoryToolResultValidator = Schema.Compile(RepositoryToolResultSchema);
 const workspaceTrustCommandValidator = Schema.Compile(ResolveWorkspaceTrustCommandSchema);
 const runCatalogValidator = Schema.Compile(RunCatalogSchema);
 const runInspectionValidator = Schema.Compile(RunInspectionSchema);
@@ -712,6 +895,8 @@ type DecodedKind =
   | "run_catalog"
   | "run_id"
   | "run_inspection"
+  | "tool_call"
+  | "tool_result"
   | "view";
 
 function invalidInputError(kind: DecodedKind, value: unknown): ProductError {
@@ -770,6 +955,14 @@ export function decodeWorkspaceReview(value: unknown): WorkspaceReviewDecodeResu
 
 export function decodeContextAdmissionSummary(value: unknown): ContextAdmissionSummaryDecodeResult {
   return decode("context_admission", contextAdmissionSummaryValidator, value);
+}
+
+export function decodeRepositoryToolCall(value: unknown): RepositoryToolCallDecodeResult {
+  return decode("tool_call", repositoryToolCallValidator, value);
+}
+
+export function decodeRepositoryToolResult(value: unknown): RepositoryToolResultDecodeResult {
+  return decode("tool_result", repositoryToolResultValidator, value);
 }
 
 export function decodeRunCatalog(value: unknown): RunCatalogDecodeResult {

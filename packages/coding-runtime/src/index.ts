@@ -36,5 +36,9 @@ export type {
 export { createJournalRecord, RuntimeEngine } from "./runtime.ts";
 export type { SkillDescriptor } from "./skills/index.js";
 export type { SubagentSpec } from "./subagents/index.js";
-export type { ToolResult } from "./tools/index.js";
+export {
+  RepositoryToolService,
+  type RepositoryToolServiceOptions,
+  type ToolResult,
+} from "./tools/index.ts";
 export type { VerificationResult } from "./verification/index.js";

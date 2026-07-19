@@ -7,6 +7,14 @@ function singleLine(value: string): string {
   }).join("");
 }
 
+export function safeTerminalBlock(value: string): string {
+  return Array.from(value, (character) => {
+    if (character === "\n") return character;
+    const code = character.codePointAt(0) ?? 0;
+    return code <= 0x1f || (code >= 0x7f && code <= 0x9f) ? " " : character;
+  }).join("");
+}
+
 function graphemeWidth(value: string): number {
   return value.length === 1 && value.charCodeAt(0) <= 0x7f ? 1 : 2;
 }

@@ -79,6 +79,46 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         });
         cursor += 1;
         break;
+      case "fake.model.tool-requested": {
+        const activity = view.tools?.[0];
+        if (activity === undefined) {
+          throw new ProjectionError("A repository tool request requires visible activity.");
+        }
+        events.push({
+          ...base,
+          activity,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          type: "tool.updated",
+        });
+        cursor += 1;
+        break;
+      }
+      case "repository.tool.completed": {
+        const activity = view.tools?.[0];
+        if (activity === undefined) {
+          throw new ProjectionError("A repository tool result requires visible activity.");
+        }
+        events.push({
+          ...base,
+          activity,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          type: "tool.updated",
+        });
+        cursor += 1;
+        if (state.phase === "terminal") {
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:1`,
+            outcome: requireTerminal(view),
+            type: "run.terminal",
+          });
+          cursor += 1;
+        }
+        break;
+      }
       case "approval.resolved":
         if (state.phase === "terminal") {
           events.push({

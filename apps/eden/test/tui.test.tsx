@@ -24,6 +24,12 @@ import { act } from "react";
 
 import { EdenTuiApp } from "../src/tui.tsx";
 
+type RuntimeModelDriver = NonNullable<
+  Parameters<typeof InProcessAgentClient.open>[0]["modelDriver"]
+>;
+type RuntimeModelRequest = Parameters<RuntimeModelDriver["complete"]>[0];
+type RuntimeModelResponse = Awaited<ReturnType<RuntimeModelDriver["complete"]>>;
+
 const emptyProviderProfiles: ProviderProfileCatalog = {
   activeProfileId: null,
   notice: null,
@@ -186,7 +192,12 @@ function historyClient(catalog: RunCatalog) {
   return { client, releaseCatalog: () => catalogRequests.push(true), requests };
 }
 
-async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof directories>>) {
+async function setup(
+  width = 100,
+  height = 30,
+  paths?: Awaited<ReturnType<typeof directories>>,
+  modelDriver?: RuntimeModelDriver,
+) {
   const fixturePaths = paths ?? (await directories());
   const client = await InProcessAgentClient.open({
     cwd: fixturePaths.workspaceDirectory,
@@ -201,12 +212,14 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
       "event-6",
       "event-7",
     ),
+    ...(modelDriver === undefined ? {} : { modelDriver }),
     stateDirectory: fixturePaths.stateDirectory,
   });
   const initialWorkspaceReview = await client.getWorkspaceReview();
   const reviews = queue<WorkspaceReview | null>();
   const catalogs = queue<RunCatalog>();
   const inspections = queue<RunInspection>();
+  const exits = queue<0 | 130>();
   const profiles = queue<ProviderProfileCatalog>();
   const readiness = queue<ProviderReadiness>();
   const views = queue<ProductView>();
@@ -218,6 +231,7 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
       onRunInspectionChange={(inspection) => inspections.push(inspection)}
       onProviderProfilesChange={(catalog) => profiles.push(catalog)}
       onProviderReadinessChange={(value) => readiness.push(value)}
+      onExit={(code) => exits.push(code)}
       onViewChange={(view) => views.push(view)}
       onWorkspaceReviewChange={(review) => reviews.push(review)}
     />,
@@ -233,6 +247,7 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
   return {
     catalogs,
     client,
+    exits,
     inspections,
     paths: fixturePaths,
     profiles,
@@ -377,11 +392,16 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
   ] as const) {
     const fixture = await setup(width, height);
     const submitProfile = async (value: string) => {
-      await act(async () => fixture.renderer.mockInput.pressKey("p"));
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("p");
+      });
+      await fixture.renderer.waitForFrame((frame) => frame.includes("Provider profiles"));
       await act(async () => fixture.renderer.mockInput.typeText(value));
       if (value.includes("|inline:")) {
-        expect(fixture.renderer.captureCharFrame()).not.toContain("SECRET_CANARY_TUI");
-        expect(fixture.renderer.captureCharFrame()).toContain("inline:••••");
+        const frame = await fixture.renderer.waitForFrame((candidate) =>
+          candidate.includes("inline:••••"),
+        );
+        expect(frame).not.toContain("SECRET_CANARY_TUI");
       }
       const changed = fixture.profiles.take();
       const readinessChanged = fixture.readiness.take();
@@ -604,6 +624,107 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     expect(terminalFrame).toContain("evidence: run-1:fake-evidence");
     expect(terminalFrame).toContain("check: passed");
     expect(terminalFrame).toContain("phase.progress");
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("one fake model read round trip renders the complete bounded result and provenance", async () => {
+  const paths = await directories();
+  await mkdir(join(paths.workspaceDirectory, "nested"));
+  await writeFile(
+    join(paths.workspaceDirectory, "nested", "answer.txt"),
+    "完整答案：四十二。\n",
+    "utf8",
+  );
+  class ReadAnswerDriver implements RuntimeModelDriver {
+    readonly id = "tui-read-answer";
+
+    async complete(
+      request: RuntimeModelRequest,
+      signal: AbortSignal,
+    ): Promise<RuntimeModelResponse> {
+      signal.throwIfAborted();
+      return request.toolResult === undefined
+        ? {
+            proposal: {
+              call: {
+                arguments: { maxBytes: 1_024, offset: 0, path: "nested/answer.txt" },
+                name: "read_file",
+                toolCallId: "tool-call-tui-answer",
+              },
+              kind: "repository-tool-call",
+            },
+            version: 1,
+          }
+        : {
+            proposal: {
+              kind: "deterministic-fake-action",
+              summary: "Run the deterministic fake task",
+            },
+            version: 1,
+          };
+    }
+  }
+  const fixture = await setup(100, 40, paths, new ReadAnswerDriver());
+  try {
+    await trustWorkspace(fixture);
+    await enterTask(fixture);
+    const frame = fixture.renderer.captureCharFrame();
+
+    expect(frame).toContain("repository tool: read_file · completed");
+    expect(frame).toContain("source: nested/answer.txt · authority: bounded read-only");
+    expect(frame).toContain("repository result:");
+    expect(frame).toContain("完整答案：四十二。");
+    expect(frame).toContain("hash: sha256:");
+    expect(frame).toContain(
+      "authority: repository read bounded · write denied · process fake-only · network denied",
+    );
+    expect(frame).toContain("approval: pending");
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("Ctrl+C aborts an in-flight model operation before its repository tool can start", async () => {
+  const started = deferred<AbortSignal>();
+  class WaitingToolDriver implements RuntimeModelDriver {
+    readonly id = "waiting-tool";
+
+    async complete(
+      _request: RuntimeModelRequest,
+      signal: AbortSignal,
+    ): Promise<RuntimeModelResponse> {
+      started.resolve(signal);
+      await new Promise<void>((_resolve, reject) => {
+        const abort = () => reject(signal.reason);
+        signal.addEventListener("abort", abort, { once: true });
+      });
+      throw new Error("The waiting model should only finish by cancellation.");
+    }
+  }
+  const fixture = await setup(100, 30, undefined, new WaitingToolDriver());
+  try {
+    await trustWorkspace(fixture);
+    await act(async () => fixture.renderer.mockInput.pressEnter());
+    await act(async () => fixture.renderer.mockInput.typeText("Cancel the bounded read"));
+    const changed = fixture.views.take();
+    await act(async () => {
+      fixture.renderer.mockInput.pressEnter();
+      await started.promise;
+    });
+    const exited = fixture.exits.take();
+    await act(async () => fixture.renderer.mockInput.pressCtrlC());
+
+    expect(await exited).toBe(130);
+    const blocked = await changed;
+    expect(blocked.terminalOutcome?.state).toBe("blocked");
+    if (blocked.terminalOutcome?.state === "blocked") {
+      expect(blocked.terminalOutcome.error.code).toBe("operation_aborted");
+    }
+    expect(blocked.tools).toBeUndefined();
   } finally {
     act(() => fixture.renderer.renderer.destroy());
     await fixture.client.close();

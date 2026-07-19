@@ -1,3 +1,4 @@
+import { RepositoryToolCallSchema, RepositoryToolResultSchema } from "@eden/contracts";
 import Type from "typebox";
 import Schema from "typebox/schema";
 
@@ -8,6 +9,7 @@ const closed = { additionalProperties: false } as const;
 export const FakeModelRequestV1Schema = Type.Object(
   {
     task: Type.String({ maxLength: 4_096, minLength: 1 }),
+    toolResult: Type.Optional(RepositoryToolResultSchema),
     version: Type.Literal(1),
   },
   closed,
@@ -15,13 +17,19 @@ export const FakeModelRequestV1Schema = Type.Object(
 
 export const FakeModelResponseV1Schema = Type.Object(
   {
-    proposal: Type.Object(
-      {
-        kind: Type.Literal("deterministic-fake-action"),
-        summary: Type.Literal("Run the deterministic fake task"),
-      },
-      closed,
-    ),
+    proposal: Type.Union([
+      Type.Object(
+        {
+          kind: Type.Literal("deterministic-fake-action"),
+          summary: Type.Literal("Run the deterministic fake task"),
+        },
+        closed,
+      ),
+      Type.Object(
+        { call: RepositoryToolCallSchema, kind: Type.Literal("repository-tool-call") },
+        closed,
+      ),
+    ]),
     version: Type.Literal(1),
   },
   closed,

@@ -7,7 +7,8 @@ passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014
 2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19; Slice 0 closed its fixture budgets
 and unchanged-R1 baseline, Slice 1 added host-side profile onboarding without provider traffic, and Slice 2
 closed the explicit readiness boundary with a real DeepSeek V4 Pro matching row, and Slice 3 implemented
-scoped instruction snapshots plus deterministic context admission. Changes to trust, terminal states,
+scoped instruction snapshots plus deterministic context admission. Slice 4 added durable bounded
+`list_files`/`read_file` activity through one fake-model tool round trip. Changes to trust, terminal states,
 public product contracts, or non-goals require an ADR and human approval. Kimi remains `not-run` without an
 owner-provided subscription credential, so the product makes no Kimi support claim.
 
@@ -95,6 +96,11 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
 - The first repository surface is exactly `list_files`, `read_file`, `search_repository`, and `git_status`.
   The model cannot choose an executable, argv, cwd, environment, or shell. Search uses pinned application-
   local ripgrep; Git status uses a compatible, explicitly probed host Git.
+- `list_files` and `read_file` accept only closed root-relative calls. Listing visits at most 4096 entries,
+  returns at most 256 rows and 24 KiB of semantic content per page, and uses an explicit continuation.
+  Reads return at most 24 KiB at an exact UTF-8 byte offset with SHA-256 provenance and a next offset.
+  Absolute/traversal/linked paths, binary or malformed UTF-8, stale workspace identity, cancellation, and
+  limit overflow fail closed. Neither tool grants process execution or repository writes.
 - Repository instructions load as complete scoped `AGENTS.md` snapshots with path, scope, hash, precedence,
   and activation provenance. Nested instructions activate before governed repository content enters model
   context. Applicable instructions that do not fit block before provider network access.

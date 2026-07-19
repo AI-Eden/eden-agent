@@ -22,6 +22,65 @@ export type KernelProductError = {
   readonly suggestedActions: readonly string[];
 };
 
+export type RepositoryToolCall =
+  | {
+      readonly arguments: { readonly continuation: string | null; readonly path: string };
+      readonly name: "list_files";
+      readonly toolCallId: string;
+    }
+  | {
+      readonly arguments: {
+        readonly maxBytes: number;
+        readonly offset: number;
+        readonly path: string;
+      };
+      readonly name: "read_file";
+      readonly toolCallId: string;
+    };
+
+export type RepositoryToolResult =
+  | {
+      readonly data: {
+        readonly contentHash: string;
+        readonly continuation: string | null;
+        readonly entries: readonly (
+          | { readonly kind: "directory"; readonly path: string; readonly size: null }
+          | { readonly kind: "file"; readonly path: string; readonly size: number }
+        )[];
+        readonly sourcePath: string;
+        readonly truncated: boolean;
+        readonly visited: number;
+      };
+      readonly name: "list_files";
+      readonly status: "succeeded";
+      readonly toolCallId: string;
+    }
+  | {
+      readonly data: {
+        readonly bytesRead: number;
+        readonly content: string;
+        readonly contentHash: string;
+        readonly nextOffset: number | null;
+        readonly offset: number;
+        readonly sourcePath: string;
+        readonly totalBytes: number;
+      };
+      readonly name: "read_file";
+      readonly status: "succeeded";
+      readonly toolCallId: string;
+    }
+  | {
+      readonly error: KernelProductError;
+      readonly name: "list_files" | "read_file";
+      readonly status: "failed";
+      readonly toolCallId: string;
+    };
+
+export type RepositoryToolExchange = {
+  readonly call: RepositoryToolCall;
+  readonly result: RepositoryToolResult | null;
+};
+
 export type TerminalOutcome =
   | { readonly state: "succeeded"; readonly evidenceRef: string }
   | { readonly state: "failed" | "blocked"; readonly error: KernelProductError }
@@ -33,6 +92,13 @@ export type KernelEffect =
       readonly effectId: string;
       readonly runId: string;
       readonly task: string;
+      readonly toolResult?: RepositoryToolResult;
+    }
+  | {
+      readonly type: "repository.tool.execute";
+      readonly effectId: string;
+      readonly runId: string;
+      readonly toolCall: RepositoryToolCall;
     }
   | { readonly type: "fake.action.execute"; readonly effectId: string; readonly runId: string }
   | { readonly type: "fake.verification.run"; readonly effectId: string; readonly runId: string };
@@ -56,6 +122,16 @@ export type KernelEvent =
       readonly action: Action;
       readonly effectId: string;
     }
+  | {
+      readonly type: "fake.model.tool-requested";
+      readonly effectId: string;
+      readonly toolCall: RepositoryToolCall;
+    }
+  | {
+      readonly type: "repository.tool.completed";
+      readonly effectId: string;
+      readonly result: RepositoryToolResult;
+    }
   | { readonly type: "fake.action.completed"; readonly effectId: string }
   | {
       readonly type: "verification.completed";
@@ -78,6 +154,7 @@ type ActiveRunFields = {
   readonly runId: string;
   readonly task: string;
   readonly terminalOutcome: null;
+  readonly tool: RepositoryToolExchange | null;
   readonly workspace: RunWorkspace;
 };
 
@@ -91,7 +168,7 @@ export type ExecutingRunState = ActiveRunFields &
     | {
         readonly action: null;
         readonly phase: "executing";
-        readonly stage: "model-ready" | "model-in-flight";
+        readonly stage: "model-ready" | "model-in-flight" | "tool-ready" | "tool-in-flight";
         readonly inFlightEffect: KernelEffect | null;
       }
     | {

@@ -10,7 +10,60 @@ import type {
 } from "@eden/contracts";
 
 import { HistoryPanel, InspectionPanel } from "./tui-history.tsx";
-import { fitTerminalLine } from "./tui-text.ts";
+import { fitTerminalLine, safeTerminalBlock } from "./tui-text.ts";
+
+function ToolCard({
+  activity,
+  compact,
+}: {
+  readonly activity: NonNullable<ProductView["tools"]>[number];
+  readonly compact: boolean;
+}) {
+  const path = activity.call.arguments.path;
+  const safePath = fitTerminalLine(path, Number.MAX_SAFE_INTEGER);
+  const result = activity.result;
+  return (
+    <box
+      style={{
+        border: !compact,
+        flexDirection: "column",
+        padding: compact ? 0 : 1,
+        width: "100%",
+      }}
+    >
+      <text>
+        repository tool: {activity.call.name} · {activity.state}
+      </text>
+      <text>source: {safePath} · authority: bounded read-only</text>
+      {result?.status === "failed" && <text fg="#ED8796">tool error: {result.error.message}</text>}
+      {result?.status === "succeeded" && result.name === "read_file" && (
+        <box style={{ flexDirection: "column" }}>
+          <text>
+            bytes: {result.data.offset}+{result.data.bytesRead}/{result.data.totalBytes} · next:{" "}
+            {result.data.nextOffset ?? "complete"}
+          </text>
+          <text>hash: {result.data.contentHash}</text>
+          <text>repository result:</text>
+          <text>{safeTerminalBlock(result.data.content)}</text>
+        </box>
+      )}
+      {result?.status === "succeeded" && result.name === "list_files" && (
+        <box style={{ flexDirection: "column" }}>
+          <text>
+            rows: {result.data.entries.length} · visited: {result.data.visited} · next:{" "}
+            {result.data.continuation ?? "complete"}
+          </text>
+          <text>hash: {result.data.contentHash}</text>
+          {result.data.entries.map((entry) => (
+            <text key={entry.path}>
+              {entry.kind}: {fitTerminalLine(entry.path, Number.MAX_SAFE_INTEGER)}
+            </text>
+          ))}
+        </box>
+      )}
+    </box>
+  );
+}
 
 export type EdenTuiLayoutProps = {
   readonly catalog: RunCatalog | null;
@@ -214,12 +267,18 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
       {props.surface === "workspace" && props.view !== null && (
         <box style={{ flexDirection: "column", marginTop: 1 }}>
           <text>phase: {props.view.phase}</text>
+          <text>
+            authority: repository read bounded · write denied · process fake-only · network denied
+          </text>
           {!props.compact && (
             <text>
               progress: {props.view.progress?.completed ?? 0}/{props.view.progress?.total ?? 3}
             </text>
           )}
           {!props.compact && <text>timeline: {props.timeline.join(" > ")}</text>}
+          {props.view.tools?.map((activity) => (
+            <ToolCard activity={activity} compact={props.compact} key={activity.call.toolCallId} />
+          ))}
           {props.view.approval !== null && (
             <box
               style={{

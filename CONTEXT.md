@@ -5,7 +5,7 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-3 are complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-4 are complete.
 
 ## Current truth
 
@@ -61,11 +61,17 @@ Slice 3 adds complete root-to-leaf `AGENTS.md` snapshots, exact scope/hash/prece
 provenance, deterministic P0/P1/P2 admission, and closed pre-network blocks. Restricted workspaces do not
 read instructions. Trusted workspace review and TUI projections expose the context state and exact used
 sources without exposing instruction content.
+Slice 4 adds closed `list_files` and `read_file` calls, real bounded filesystem adapters, one fake-model
+tool round trip, durable tool observations, replay-only reconstruction, and requested/completed product
+activity. Paths remain inside the captured workspace identity; links, binary data, invalid UTF-8 offsets,
+limit overflow, cancellation, and stale workspace identity fail closed. The TUI shows complete bounded
+results, source/hash/continuation provenance, and read-only authority while preserving zero write or process
+authority.
 
 ## Next implementation slice
 
-Implement Slice 4: bounded `list_files` and `read_file` tools through one deterministic fake-model turn,
-with durable semantic results and zero write authority. The approved later slices still exclude
+Implement Slice 5: pinned application-local ripgrep and compatible host Git semantic tools behind the same
+closed model/runtime contract. The approved later slices still exclude
 AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
 scope.
 

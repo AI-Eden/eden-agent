@@ -17,12 +17,38 @@ export function decide(state: RunState): readonly KernelEffect[] {
     case "executing":
       switch (state.stage) {
         case "model-ready":
+          if (state.tool === null) {
+            return [
+              {
+                effectId: `${state.runId}:fake-model`,
+                runId: state.runId,
+                task: state.task,
+                type: "fake.model.complete",
+              },
+            ];
+          }
+          if (state.tool.result === null) {
+            throw new UnreachableKernelStateError("A model continuation requires a tool result.");
+          }
           return [
             {
-              effectId: `${state.runId}:fake-model`,
+              effectId: `${state.runId}:fake-model-continuation`,
               runId: state.runId,
               task: state.task,
+              toolResult: state.tool.result,
               type: "fake.model.complete",
+            },
+          ];
+        case "tool-ready":
+          if (state.tool === null) {
+            throw new UnreachableKernelStateError("A ready tool effect requires a tool call.");
+          }
+          return [
+            {
+              effectId: `${state.runId}:repository-tool:${state.tool.call.toolCallId}`,
+              runId: state.runId,
+              toolCall: state.tool.call,
+              type: "repository.tool.execute",
             },
           ];
         case "action-ready":
@@ -42,6 +68,7 @@ export function decide(state: RunState): readonly KernelEffect[] {
             },
           ];
         case "model-in-flight":
+        case "tool-in-flight":
         case "action-in-flight":
         case "verification-in-flight":
           return [];

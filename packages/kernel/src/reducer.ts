@@ -27,8 +27,20 @@ function terminal(state: AwaitingApprovalRunState | ExecutingRunState, outcome: 
     runId: state.runId,
     task: state.task,
     terminalOutcome: outcome,
+    tool: state.tool,
     workspace: state.workspace,
   } as const;
+}
+
+function canonicalValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalValue).join(",")}]`;
+  if (typeof value === "object" && value !== null) {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalValue(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
@@ -39,10 +51,16 @@ function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
   ) {
     return false;
   }
-  return (
-    effect.type !== "fake.model.complete" ||
-    (expected.type === "fake.model.complete" && effect.task === expected.task)
-  );
+  if (effect.type === "fake.model.complete" && expected.type === "fake.model.complete") {
+    return (
+      effect.task === expected.task &&
+      canonicalValue(effect.toolResult) === canonicalValue(expected.toolResult)
+    );
+  }
+  if (effect.type === "repository.tool.execute" && expected.type === "repository.tool.execute") {
+    return canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall);
+  }
+  return true;
 }
 
 function actionMatches(left: Action, right: Action): boolean {
@@ -79,6 +97,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           stage: "model-ready",
           task: event.task,
           terminalOutcome: null,
+          tool: null,
           workspace: event.workspace,
         },
       };
@@ -129,6 +148,17 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           },
         };
       }
+      if (state.stage === "tool-ready" && event.effect.type === "repository.tool.execute") {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            inFlightEffect: event.effect,
+            revision: state.revision + 1,
+            stage: "tool-in-flight",
+          },
+        };
+      }
       if (state.stage === "action-ready" && event.effect.type === "fake.action.execute") {
         return {
           ok: true,
@@ -153,6 +183,55 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       }
       return illegal(state, event);
     }
+    case "fake.model.tool-requested":
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "model-in-flight" ||
+        state.inFlightEffect?.effectId !== event.effectId ||
+        state.tool !== null
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          inFlightEffect: null,
+          revision: state.revision + 1,
+          stage: "tool-ready",
+          tool: { call: event.toolCall, result: null },
+        },
+      };
+    case "repository.tool.completed":
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "tool-in-flight" ||
+        state.inFlightEffect?.effectId !== event.effectId ||
+        state.tool === null ||
+        event.result.toolCallId !== state.tool.call.toolCallId ||
+        event.result.name !== state.tool.call.name
+      ) {
+        return illegal(state, event);
+      }
+      if (event.result.status === "failed") {
+        return {
+          ok: true,
+          state: terminal(
+            { ...state, tool: { call: state.tool.call, result: event.result } },
+            { error: event.result.error, state: "blocked" },
+          ),
+        };
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          inFlightEffect: null,
+          revision: state.revision + 1,
+          stage: "model-ready",
+          tool: { call: state.tool.call, result: event.result },
+        },
+      };
     case "fake.model.completed":
       if (
         state.phase !== "executing" ||
@@ -172,6 +251,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           runId: state.runId,
           task: state.task,
           terminalOutcome: null,
+          tool: state.tool,
           workspace: state.workspace,
         },
       };

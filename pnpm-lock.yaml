@@ -86,6 +86,9 @@ importers:
 
   packages/providers:
     dependencies:
+      '@eden/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       openai:
         specifier: 6.48.0
         version: 6.48.0(ws@8.21.0)

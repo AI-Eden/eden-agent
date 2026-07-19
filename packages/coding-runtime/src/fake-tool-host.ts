@@ -1,11 +1,13 @@
 import { type FileHandle, lstat, mkdir, open } from "node:fs/promises";
 import { join } from "node:path";
 
+import { decodeRepositoryToolResult } from "@eden/contracts";
 import { decodeKernelEvent, type KernelEffect, type KernelEvent } from "@eden/kernel";
 import { decodeFakeModelResponse, FakeModelDriver, type ModelDriver } from "@eden/providers";
 
 import { fakeAction } from "./fake-action.ts";
 import type { EffectHost, ReconciliationResult } from "./runtime.ts";
+import { RepositoryToolService } from "./tools/index.ts";
 
 function isMissingFile(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
@@ -116,14 +118,27 @@ async function observationFor(
   effect: KernelEffect,
   cwd: string,
   modelDriver: ModelDriver,
+  repositoryTools: () => Promise<RepositoryToolService>,
   signal?: AbortSignal,
 ): Promise<KernelEvent> {
   switch (effect.type) {
     case "fake.model.complete": {
       const effectSignal = signal ?? new AbortController().signal;
       try {
+        const toolResult =
+          effect.toolResult === undefined
+            ? undefined
+            : decodeRepositoryToolResult(effect.toolResult);
+        if (toolResult !== undefined && !toolResult.ok) {
+          return modelFailure(
+            "repository_tool_result_invalid",
+            "The repository tool result failed contract validation.",
+          );
+        }
         const response = await modelDriver.complete(
-          { task: effect.task, version: 1 },
+          toolResult === undefined
+            ? { task: effect.task, version: 1 }
+            : { task: effect.task, toolResult: toolResult.value, version: 1 },
           effectSignal,
         );
         const decoded = decodeFakeModelResponse(response);
@@ -132,6 +147,19 @@ async function observationFor(
             "fake_model_output_invalid",
             "The deterministic fake model returned an invalid response.",
           );
+        }
+        if (decoded.value.proposal.kind === "repository-tool-call") {
+          if (effect.toolResult !== undefined) {
+            return modelFailure(
+              "fake_model_tool_budget_exceeded",
+              "The deterministic fake model exceeded the one-tool-call budget.",
+            );
+          }
+          return {
+            effectId: effect.effectId,
+            toolCall: decoded.value.proposal.call,
+            type: "fake.model.tool-requested",
+          };
         }
         return {
           action: fakeAction(effect.runId, cwd, decoded.value.proposal.summary),
@@ -143,6 +171,14 @@ async function observationFor(
           ? modelFailure("operation_aborted", "The deterministic fake model operation was aborted.")
           : modelFailure("fake_model_failed", "The deterministic fake model failed.");
       }
+    }
+    case "repository.tool.execute": {
+      const execution = await (await repositoryTools()).execute(effect.toolCall, signal);
+      return {
+        effectId: effect.effectId,
+        result: execution.productData,
+        type: "repository.tool.completed",
+      };
     }
     case "fake.action.execute":
       return { effectId: effect.effectId, type: "fake.action.completed" };
@@ -160,8 +196,17 @@ function observationMatches(effect: KernelEffect, observation: KernelEvent): boo
   switch (effect.type) {
     case "fake.model.complete":
       return (
-        (observation.type === "fake.model.completed" && observation.effectId === effect.effectId) ||
+        ((observation.type === "fake.model.completed" ||
+          observation.type === "fake.model.tool-requested") &&
+          observation.effectId === effect.effectId) ||
         observation.type === "run.blocked"
+      );
+    case "repository.tool.execute":
+      return (
+        observation.type === "repository.tool.completed" &&
+        observation.effectId === effect.effectId &&
+        observation.result.toolCallId === effect.toolCall.toolCallId &&
+        observation.result.name === effect.toolCall.name
       );
     case "fake.action.execute":
       return (
@@ -178,6 +223,7 @@ export class FakeToolHost implements EffectHost {
   private readonly cwd: string;
   private readonly modelDriver: ModelDriver;
   private readonly receiptsDirectory: string;
+  private repositoryTools: Promise<RepositoryToolService> | undefined;
 
   constructor(
     receiptsDirectory: string,
@@ -187,6 +233,11 @@ export class FakeToolHost implements EffectHost {
     this.cwd = cwd;
     this.modelDriver = modelDriver;
     this.receiptsDirectory = receiptsDirectory;
+  }
+
+  private openRepositoryTools(): Promise<RepositoryToolService> {
+    this.repositoryTools ??= RepositoryToolService.open({ workspaceRoot: this.cwd });
+    return this.repositoryTools;
   }
 
   async reconcile(effect: KernelEffect): Promise<ReconciliationResult> {
@@ -230,7 +281,13 @@ export class FakeToolHost implements EffectHost {
       throw new Error("Cannot execute an effect with an unknown receipt state.");
     }
     await ensureReceiptDirectory(this.receiptsDirectory);
-    const observation = await observationFor(effect, this.cwd, this.modelDriver, signal);
+    const observation = await observationFor(
+      effect,
+      this.cwd,
+      this.modelDriver,
+      () => this.openRepositoryTools(),
+      signal,
+    );
     const path = join(this.receiptsDirectory, receiptName(effect.effectId));
     let handle: FileHandle | undefined;
     try {

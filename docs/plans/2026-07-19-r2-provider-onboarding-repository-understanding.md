@@ -509,6 +509,34 @@ and present the activity/result/provenance without granting process or write aut
 - **Matching surface:** TUI question triggers one list/read round trip and preserves full answer area,
   authority strip, source summary, keyboard navigation, and `Ctrl+C` cleanup.
 
+#### Slice 4 evidence
+
+Slice 4 implements closed `list_files`/`read_file` contracts, one-tool kernel effects and observations,
+durable journal/replay projection, and real checked filesystem adapters in `@eden/coding-runtime`. Fixtures
+prove exact hashes and UTF-8 byte offsets, 256-row and 24 KiB pagination, the exact 4096-visit ceiling,
+absolute/traversal/link/binary/encoding/offset/cancel/stale-identity failures, and zero repository writes.
+Provider fixtures reject parallel and half-complete calls. Runtime integration persists requested and
+completed activity, passes only the closed result into one fake-model continuation, and replays after the
+source is removed with zero model or tool calls.
+
+The matching TUI shows the complete bounded CJK result, source/hash/offset provenance, and the explicit
+bounded-read/write-denied/process-fake-only/network-denied authority strip. Terminal controls are sanitized
+at rendering without changing durable content. A real `Ctrl+C` input aborts an in-flight model operation
+before repository tool dispatch. This slice adds no native process, search, Git, write, shell, sandbox,
+verification, or success authority.
+
+Fresh deterministic Slice 4 commands:
+
+```bash
+corepack pnpm@11.13.0 --filter @eden/contracts test
+corepack pnpm@11.13.0 --filter @eden/kernel test
+corepack pnpm@11.13.0 --filter @eden/providers test
+corepack pnpm@11.13.0 --filter @eden/coding-runtime test
+corepack pnpm@11.13.0 --filter @eden/cli test
+corepack pnpm@11.13.0 typecheck
+corepack pnpm@11.13.0 code:check
+```
+
 ### Slice 5: Pinned ripgrep and compatible host Git semantic tools
 
 **Outcome:** search and Git status use mature native engines behind the same closed model contract, with no

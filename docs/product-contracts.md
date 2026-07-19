@@ -113,6 +113,21 @@ aggregate instruction overflow, P0 overflow, or a snapshot change produce a clos
 provider callback. P1/P2 omission is deterministic and visible; no model-generated compaction exists in
 this slice.
 
+## Repository tool activity
+
+Protocol v1 admits one closed Slice 4 `list_files` or `read_file` call per fake-model run. Calls carry a
+runtime-correlated tool-call ID and root-relative semantic arguments; they never carry an executable, cwd,
+environment, shell, or write request. Results are terminal `succeeded` or `failed` values with the same
+tool-call ID and name. Successful list pages include bounded typed rows, visited count, continuation, source
+path, and SHA-256 hash. Successful read pages include complete UTF-8 text for the accepted byte range,
+exact offset/length/total, continuation, source path, and SHA-256 hash.
+
+`ProductView.tools` and `tool.updated` expose the same requested/completed activity without renderer-owned
+fields. Journal replay reconstructs the durable result without tool or model I/O. A failed tool result
+blocks the run; a successful result permits exactly one fake-model continuation before the existing
+runtime-owned approval action. Tool activity does not approve that action and cannot create terminal
+success.
+
 ## Run catalog and inspection
 
 The pre-release protocol v1 adds closed, non-throwing decoders for these renderer-independent values:

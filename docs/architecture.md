@@ -110,6 +110,14 @@ and P2 deterministically with an explicit omission ledger. A final snapshot veri
 before the provider callback. Contracts expose only the closed summary; the kernel, provider adapter, and
 renderer never own discovery or selection.
 
+Slice 4 implements the first semantic repository adapters. The kernel owns one closed tool-call/result
+exchange and deterministic effect identity; `coding-runtime` owns canonical-root validation, checked file
+handles, byte/row/visit limits, receipts, journal events, replay, and product projection. The fake model
+can request one list or read call and receives only the terminal closed result on its continuation. Replayed
+journals do not reopen the repository or redispatch the model. TUI cards render only product data and
+sanitize terminal controls without changing the durable result. No executable, argv, shell, write, or
+renderer authority enters this boundary.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

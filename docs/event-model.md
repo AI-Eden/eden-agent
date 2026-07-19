@@ -77,6 +77,12 @@ may commit one bounded incomplete visible snapshot; an ambiguous attempt cannot 
 arguments and results become durable only as complete closed values. Private provider continuity is
 journal-owned but excluded from ordinary product copy.
 
+Slice 4 implements the bounded prefix of that lifecycle with `fake.model.tool-requested` and
+`repository.tool.completed`. One successful terminal tool observation returns the run to a distinct model
+continuation effect carrying the closed result. A failed observation blocks without continuation. Effect,
+call, and result identities must match exactly, a second tool request is rejected, and replay folds the
+committed observations without opening the repository.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

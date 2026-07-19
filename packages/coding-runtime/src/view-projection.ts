@@ -1,4 +1,8 @@
-import type { ProductView } from "@eden/contracts";
+import {
+  decodeRepositoryToolCall,
+  decodeRepositoryToolResult,
+  type ProductView,
+} from "@eden/contracts";
 import type { Action, KernelProductError, RunState, TerminalOutcome } from "@eden/kernel";
 
 export class ProjectionError extends Error {
@@ -56,7 +60,17 @@ export function progress(state: Exclude<RunState, { readonly phase: "idle" }>) {
       switch (state.stage) {
         case "model-ready":
         case "model-in-flight":
-          return { completed: 0, summary: "Running the deterministic fake model.", total: 4 };
+          return {
+            completed: state.tool?.result === null ? 0 : state.tool === null ? 0 : 1,
+            summary:
+              state.tool === null
+                ? "Running the deterministic fake model."
+                : "Continuing the deterministic fake model with the repository result.",
+            total: 4,
+          };
+        case "tool-ready":
+        case "tool-in-flight":
+          return { completed: 0, summary: "Reading bounded repository context.", total: 4 };
         case "action-ready":
         case "action-in-flight":
           return { completed: 2, summary: "Executing the deterministic fake action.", total: 4 };
@@ -98,6 +112,20 @@ function checks(outcome: ProductView["terminalOutcome"]): ProductView["checks"] 
   ];
 }
 
+function productTools(state: Exclude<RunState, { readonly phase: "idle" }>): ProductView["tools"] {
+  if (state.tool === null) return undefined;
+  const call = decodeRepositoryToolCall(state.tool.call);
+  if (!call.ok) throw new ProjectionError("The repository tool call failed projection validation.");
+  if (state.tool.result === null) {
+    return [{ call: call.value, result: null, state: "requested" }];
+  }
+  const result = decodeRepositoryToolResult(state.tool.result);
+  if (!result.ok) {
+    throw new ProjectionError("The repository tool result failed projection validation.");
+  }
+  return [{ call: call.value, result: result.value, state: "completed" }];
+}
+
 export function projectView(state: RunState): ProductView {
   if (state.phase === "idle") {
     throw new ProjectionError("Idle state has no product run view.");
@@ -106,6 +134,7 @@ export function projectView(state: RunState): ProductView {
   const terminal = state.phase === "terminal";
   const terminalOutcome = terminal ? productOutcome(state.terminalOutcome) : null;
   const succeeded = terminalOutcome?.state === "succeeded";
+  const tools = productTools(state);
   return {
     approval: awaitingApproval
       ? {
@@ -129,6 +158,7 @@ export function projectView(state: RunState): ProductView {
     revision: state.revision,
     runId: state.runId,
     terminalOutcome,
+    ...(tools === undefined ? {} : { tools }),
     viewId: `${state.runId}:view:${state.revision}`,
     workspace: state.workspace,
   };
