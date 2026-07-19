@@ -3,13 +3,9 @@
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { loadApplicationAssets } from "@eden/coding-runtime";
+import { loadApplicationAssets } from "@eden/coding-runtime/application-assets";
 
 import { helpText, parseArgs } from "./args.ts";
-import { runHeadless } from "./headless.ts";
-import { runProviderProfiles } from "./provider-profiles.ts";
-import { runHistory } from "./run-history.ts";
-import { runTui } from "./tui-runner.tsx";
 
 const parsed = parseArgs(process.argv.slice(2));
 
@@ -20,19 +16,23 @@ if (!parsed.ok) {
   process.stdout.write(helpText);
 } else {
   const stateDirectory = process.env.EDEN_STATE_DIR ?? join(homedir(), ".eden-agent");
-  const repositoryTools = await loadApplicationAssets(dirname(process.execPath));
-  const environment = {
+  const repositoryTools = loadApplicationAssets(dirname(process.execPath));
+  const environmentBase = {
     cwd: process.cwd(),
     io: {
       stderr: (value: string) => process.stderr.write(value),
       stdout: (value: string) => process.stdout.write(value),
     },
-    repositoryTools,
     stateDirectory,
   };
   if (parsed.value.mode === "headless") {
-    process.exitCode = await runHeadless(parsed.value, environment);
+    const { runHeadless } = await import("./headless.ts");
+    process.exitCode = await runHeadless(parsed.value, {
+      ...environmentBase,
+      repositoryTools: await repositoryTools,
+    });
   } else if (parsed.value.mode === "run-list" || parsed.value.mode === "run-show") {
+    const { runHistory } = await import("./run-history.ts");
     const controller = new AbortController();
     const abort = () => controller.abort();
     process.once("SIGINT", abort);
@@ -42,14 +42,23 @@ if (!parsed.ok) {
       if (historyProbe === "abort") controller.abort();
     }
     try {
-      process.exitCode = await runHistory(parsed.value, environment, controller.signal);
+      process.exitCode = await runHistory(
+        parsed.value,
+        { ...environmentBase, repositoryTools: await repositoryTools },
+        controller.signal,
+      );
     } finally {
       process.removeListener("SIGINT", abort);
     }
   } else if (parsed.value.mode === "profile-list" || parsed.value.mode === "profile-check") {
-    process.exitCode = await runProviderProfiles(parsed.value, environment);
+    const { runProviderProfiles } = await import("./provider-profiles.ts");
+    process.exitCode = await runProviderProfiles(parsed.value, {
+      ...environmentBase,
+      repositoryTools: await repositoryTools,
+    });
   } else {
     try {
+      const { runTui } = await import("./tui-runner.tsx");
       process.exitCode = await runTui({
         cwd: process.cwd(),
         onReady:

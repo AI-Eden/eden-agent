@@ -3,7 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fake": "./src/fake.ts",
+    "./model-step": "./src/model-step.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit false",
     "test": "node --test test/*.test.ts",

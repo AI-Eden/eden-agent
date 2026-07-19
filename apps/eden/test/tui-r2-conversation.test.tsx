@@ -7,25 +7,35 @@ import { act } from "react";
 import { EdenTuiLayout } from "../src/tui-layout.tsx";
 
 const baseProps = {
+  authorityPending: null,
   catalog: null,
   compact: false,
   composerFocused: false,
   draft: "",
   error: null,
+  expandedToolIds: new Set<string>(),
+  focusId: "run.exit" as const,
   height: 40,
   historyError: null,
   inspection: null,
   liveModelText: null,
+  layoutMode: "wide" as const,
   onDraftChange: () => undefined,
+  onComposerKeyDown: () => undefined,
   onProfileDraftChange: () => undefined,
+  onProfileKeyDown: () => undefined,
   onProfileSave: async () => undefined,
   onStart: async () => undefined,
+  overlay: null,
+  palette: [],
+  paletteIndex: 0,
   profileCatalog: null,
   profileDraft: "",
   profileEditorFocused: false,
   providerReadiness: null,
   readinessConfirmationFocused: false,
   review: trustedWorkspaceReview,
+  runPane: "conversation" as const,
   selectedIndex: 0,
   surface: "workspace" as const,
   timeline: ["model.attempt.updated", "tool.updated", "conversation.updated"] as const,
@@ -141,6 +151,115 @@ test("R2 interrupted conversation renders incomplete truth and an explicit retry
     expect(frame).toContain("Incomplete provider text");
     expect(frame).toContain("model attempt: interrupted or unknown");
     expect(frame).toContain("retry from last committed turn: u");
+  } finally {
+    act(() => renderer.renderer.destroy());
+  }
+});
+
+test("responsive composition exposes narrow switching, a medium drawer, and a wide review pane", async () => {
+  const view: ProductView = {
+    ...executingProductView,
+    approval: null,
+    currentAction: null,
+    phase: "review",
+    terminalOutcome: { answer: "完整答案 stays primary.", state: "completed" },
+  };
+  const cases = [
+    {
+      expected: "view: conversation · Ctrl+P switches conversation/co",
+      height: 20,
+      layoutMode: "narrow" as const,
+      width: 60,
+    },
+    {
+      expected: "composition: conversation + contextual drawer",
+      height: 24,
+      layoutMode: "medium" as const,
+      width: 80,
+    },
+    {
+      expected: "composition: session navigation + conversation + review pane",
+      height: 30,
+      layoutMode: "wide" as const,
+      width: 100,
+    },
+  ];
+  for (const scenario of cases) {
+    const renderer = await testRender(
+      <EdenTuiLayout
+        {...baseProps}
+        compact={scenario.layoutMode === "narrow"}
+        height={scenario.height}
+        layoutMode={scenario.layoutMode}
+        view={view}
+        width={scenario.width}
+      />,
+      { height: scenario.height, width: scenario.width },
+    );
+    try {
+      await act(async () => renderer.flush());
+      const frame = renderer.captureCharFrame();
+      expect(frame).toContain(scenario.expected);
+      expect(frame).toContain("完整答案 stays primary.");
+      expect(frame).toContain("AUTHORITY");
+    } finally {
+      act(() => renderer.renderer.destroy());
+    }
+  }
+});
+
+test("folded tool evidence never replaces or folds the complete final answer", async () => {
+  const toolCallId = "tool-call-folded-1";
+  const view: ProductView = {
+    ...executingProductView,
+    approval: null,
+    currentAction: null,
+    phase: "review",
+    terminalOutcome: { answer: "Final sourced answer remains complete.", state: "completed" },
+    tools: [
+      {
+        call: {
+          arguments: { maxBytes: 1024, offset: 0, path: "README.md" },
+          name: "read_file",
+          toolCallId,
+        },
+        result: {
+          data: {
+            bytesRead: 18,
+            content: "hidden tool detail",
+            contentHash: `sha256:${"a".repeat(64)}`,
+            nextOffset: null,
+            offset: 0,
+            sourcePath: "README.md",
+            totalBytes: 18,
+          },
+          name: "read_file",
+          status: "succeeded",
+          toolCallId,
+        },
+        state: "completed",
+      },
+    ],
+  };
+  const renderer = await testRender(
+    <EdenTuiLayout
+      {...baseProps}
+      compact
+      expandedToolIds={new Set()}
+      height={20}
+      layoutMode="narrow"
+      runPane="context"
+      view={view}
+      width={60}
+    />,
+    { height: 20, width: 60 },
+  );
+  try {
+    await act(async () => renderer.flush());
+    const frame = renderer.captureCharFrame();
+    expect(frame).toContain("tool details: folded");
+    expect(frame).not.toContain("hidden tool detail");
+    expect(frame).toContain("Final sourced answer remains complete.");
   } finally {
     act(() => renderer.renderer.destroy());
   }

@@ -12,14 +12,7 @@ import {
   type ProviderReadiness,
   type ProviderReadinessCommand,
 } from "@eden/contracts";
-import {
-  decodeProviderAdapterFailure,
-  decodeProviderReadinessSuccess,
-  OpenAICompatibleProvider,
-  ProviderAdapterError,
-  type ProviderAdapterFailure,
-  type ProviderReadinessSuccess,
-} from "@eden/providers";
+import type { ProviderAdapterFailure, ProviderReadinessSuccess } from "@eden/providers";
 import Type from "typebox";
 import Schema from "typebox/schema";
 
@@ -131,14 +124,18 @@ export class ProviderReadinessService {
     this.clock = options.clock ?? { now: () => new Date() };
     this.createProvider =
       options.createProvider ??
-      ((resolved) =>
-        new OpenAICompatibleProvider({
-          apiKey: resolved.credential,
-          baseUrl: resolved.profile.baseUrl,
-          clock: this.clock,
-          model: resolved.profile.model,
-          profileId: resolved.profile.id,
-        }));
+      ((resolved) => ({
+        checkReadiness: async (signal) => {
+          const { OpenAICompatibleProvider } = await import("@eden/providers");
+          return new OpenAICompatibleProvider({
+            apiKey: resolved.credential,
+            baseUrl: resolved.profile.baseUrl,
+            clock: this.clock,
+            model: resolved.profile.model,
+            profileId: resolved.profile.id,
+          }).checkReadiness(signal);
+        },
+      }));
     this.path = join(options.stateDirectory, "provider-readiness-v1.json");
     this.profiles = options.profiles;
     this.stateDirectory = options.stateDirectory;
@@ -318,6 +315,8 @@ export class ProviderReadinessService {
       );
     }
     let success: ProviderReadinessSuccess;
+    const { decodeProviderAdapterFailure, decodeProviderReadinessSuccess, ProviderAdapterError } =
+      await import("@eden/providers");
     try {
       success = await this.createProvider(resolved).checkReadiness(signal);
       const decodedSuccess = decodeProviderReadinessSuccess(success);

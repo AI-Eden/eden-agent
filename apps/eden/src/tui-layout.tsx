@@ -8,16 +8,27 @@ import type {
   RunInspection,
   WorkspaceReview,
 } from "@eden/contracts";
+import type { KeyEvent } from "@opentui/core";
 
+import { densityForLayout, tuiDesignTokens } from "./tui-design.ts";
+import type {
+  TuiFocusId,
+  TuiLayoutMode,
+  TuiOverlay,
+  TuiPaletteEntry,
+  TuiRunPane,
+} from "./tui-focus.ts";
 import { HistoryPanel, InspectionPanel } from "./tui-history.tsx";
 import { fitTerminalLine, safeTerminalBlock } from "./tui-text.ts";
 
 function ToolCard({
   activity,
   compact,
+  expanded,
 }: {
   readonly activity: NonNullable<ProductView["tools"]>[number];
   readonly compact: boolean;
+  readonly expanded: boolean;
 }) {
   const path = activity.call.name === "git_status" ? "." : activity.call.arguments.path;
   const safePath = fitTerminalLine(path, Number.MAX_SAFE_INTEGER);
@@ -25,18 +36,27 @@ function ToolCard({
   return (
     <box
       style={{
-        border: !compact,
+        border: compact ? tuiDesignTokens.border.surface : tuiDesignTokens.border.card,
         flexDirection: "column",
-        padding: compact ? 0 : 1,
+        flexShrink: 0,
+        padding: compact ? tuiDesignTokens.spacing.none : tuiDesignTokens.spacing.panel,
         width: "100%",
       }}
     >
       <text>
         repository tool: {activity.call.name} · {activity.state}
       </text>
-      <text>source: {safePath} · authority: bounded read-only</text>
-      {result?.status === "failed" && <text fg="#ED8796">tool error: {result.error.message}</text>}
-      {result?.status === "succeeded" && result.name === "read_file" && (
+      {expanded && <text>source: {safePath} · authority: bounded read-only</text>}
+      <text>
+        {fitTerminalLine(
+          `tool details: ${expanded ? "expanded" : "folded"} · focus tools + Enter/e toggles`,
+          compact ? 56 : Number.MAX_SAFE_INTEGER,
+        )}
+      </text>
+      {expanded && result?.status === "failed" && (
+        <text fg={tuiDesignTokens.color.danger}>tool error: {result.error.message}</text>
+      )}
+      {expanded && result?.status === "succeeded" && result.name === "read_file" && (
         <box style={{ flexDirection: "column" }}>
           <text>
             bytes: {result.data.offset}+{result.data.bytesRead}/{result.data.totalBytes} · next:{" "}
@@ -47,7 +67,7 @@ function ToolCard({
           <text>{safeTerminalBlock(result.data.content)}</text>
         </box>
       )}
-      {result?.status === "succeeded" && result.name === "list_files" && (
+      {expanded && result?.status === "succeeded" && result.name === "list_files" && (
         <box style={{ flexDirection: "column" }}>
           <text>
             rows: {result.data.entries.length} · visited: {result.data.visited} · next:{" "}
@@ -61,7 +81,7 @@ function ToolCard({
           ))}
         </box>
       )}
-      {result?.status === "succeeded" && result.name === "search_repository" && (
+      {expanded && result?.status === "succeeded" && result.name === "search_repository" && (
         <box style={{ flexDirection: "column" }}>
           <text>
             matches: {result.data.matches.length} · engine: {result.data.engine.name}{" "}
@@ -76,7 +96,7 @@ function ToolCard({
           ))}
         </box>
       )}
-      {result?.status === "succeeded" && result.name === "git_status" && (
+      {expanded && result?.status === "succeeded" && result.name === "git_status" && (
         <box style={{ flexDirection: "column" }}>
           <text>
             rows: {result.data.entries.length} · Git {result.data.gitVersion}
@@ -99,20 +119,30 @@ function ToolCard({
 }
 
 export type EdenTuiLayoutProps = {
+  readonly authorityPending: "restrict" | "trust" | null;
   readonly catalog: RunCatalog | null;
   readonly compact: boolean;
   readonly composerFocused: boolean;
   readonly draft: string;
   readonly error: string | null;
+  readonly expandedToolIds: ReadonlySet<string>;
+  readonly focusId: TuiFocusId | null;
   readonly height: number;
   readonly historyError: ProductError | null;
   readonly inspection: RunInspection | null;
   readonly liveModelText: string | null;
+  readonly layoutMode: TuiLayoutMode;
   readonly onDraftChange: (value: string) => void;
+  readonly onComposerKeyDown: (event: KeyEvent) => void;
   readonly onProfileDraftChange: (value: string) => void;
+  readonly onProfileKeyDown: (event: KeyEvent) => void;
   readonly onProfileSave: () => Promise<void>;
   readonly onStart: (task: string) => Promise<void>;
+  readonly overlay: TuiOverlay;
+  readonly palette: readonly TuiPaletteEntry[];
+  readonly paletteIndex: number;
   readonly review: WorkspaceReview | null;
+  readonly runPane: TuiRunPane;
   readonly profileCatalog: ProviderProfileCatalog | null;
   readonly profileDraft: string;
   readonly profileEditorFocused: boolean;
@@ -129,26 +159,115 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
   const outcome = props.view?.terminalOutcome;
   const check = props.view?.checks[0];
   const displayedWorkspace = props.view?.workspace ?? props.review?.workspace;
+  const activeProfile = props.profileCatalog?.profiles.find(
+    (profile) => profile.id === props.profileCatalog?.activeProfileId,
+  );
+  const phase = props.view?.phase ?? (props.review === null ? "loading" : "workspace-review");
+  const density = densityForLayout(props.layoutMode);
+  const conversationVisible = props.layoutMode !== "narrow" || props.runPane === "conversation";
+  const contextVisible = props.layoutMode !== "narrow" || props.runPane === "context";
+  const recoveryVisible = props.layoutMode !== "narrow" || props.runPane === "recovery";
   return (
-    <box style={{ flexDirection: "column", padding: 1, width: "100%", height: "100%" }}>
-      <text fg="#8BD5CA">Eden R2 · no credential required for R1 demo</text>
+    <box
+      style={{
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
+        padding: tuiDesignTokens.spacing.panel,
+        width: "100%",
+      }}
+    >
+      <text fg={tuiDesignTokens.color.accent} style={{ flexShrink: 0 }}>
+        {fitTerminalLine(
+          "Eden R2 · conversation + bounded runtime evidence · no credential required for R1 demo",
+          props.width - 4,
+        )}
+      </text>
       {props.surface === "workspace" && props.error !== null && (
-        <text fg="#ED8796">{fitTerminalLine(`error: ${props.error}`, props.width - 4)}</text>
+        <text fg={tuiDesignTokens.color.danger} style={{ flexShrink: 0 }}>
+          {fitTerminalLine(`error: ${props.error}`, props.width - 4)}
+        </text>
+      )}
+      {props.surface === "workspace" && props.authorityPending !== null && (
+        <text fg={tuiDesignTokens.color.awaiting} style={{ flexShrink: 0 }}>
+          authority update: {props.authorityPending} awaiting durable commit
+        </text>
       )}
       {!props.compact && (
-        <text>
-          viewport: {props.width}x{props.height}
+        <text style={{ flexShrink: 0 }}>
+          viewport: {props.width}x{props.height} · layout: {props.layoutMode}
         </text>
+      )}
+      {displayedWorkspace !== undefined && (
+        <box
+          style={{
+            border: props.layoutMode === "wide",
+            flexDirection: "column",
+            flexShrink: 0,
+            padding: props.layoutMode === "wide" ? 1 : 0,
+          }}
+        >
+          <text>
+            {fitTerminalLine(
+              `AUTHORITY · trust: ${displayedWorkspace.trust} · phase: ${phase} · focus: ${props.focusId ?? "none"}`,
+              props.width - 4,
+            )}
+          </text>
+          {props.layoutMode !== "wide" && <text>focus: {props.focusId ?? "none"}</text>}
+          <text>
+            {fitTerminalLine(
+              `workspace ${displayedWorkspace.root} · profile: ${activeProfile?.id ?? "not configured"} · model: ${activeProfile?.model ?? "none"} · credential: ${activeProfile?.credential.presence ?? "absent"}`,
+              props.width - 4,
+            )}
+          </text>
+          <text>
+            {fitTerminalLine(
+              `network ${props.view?.attempts === undefined ? "denied" : "provider only"} · repository semantic read-only · write denied · trusted host/no isolation · context ${props.review?.context.state ?? "loading"}`,
+              props.width - 4,
+            )}
+          </text>
+        </box>
+      )}
+      {props.overlay === "palette" && (
+        <box style={{ border: true, flexDirection: "column", padding: 1 }}>
+          <text fg={tuiDesignTokens.color.accent}>Command palette</text>
+          {props.palette.map((entry, index) => (
+            <text key={entry.commandId}>
+              {index === props.paletteIndex
+                ? tuiDesignTokens.focus.active
+                : tuiDesignTokens.focus.idle}{" "}
+              [{entry.enabled ? tuiDesignTokens.state.ready : tuiDesignTokens.state.disabled}]{" "}
+              {entry.label}
+              {entry.shortcut === null ? "" : ` · ${entry.shortcut}`}
+            </text>
+          ))}
+          <text>Up/Down selects · Enter activates · Esc closes</text>
+        </box>
+      )}
+      {props.overlay === "help" && (
+        <box style={{ border: true, flexDirection: "column", padding: 1 }}>
+          <text fg={tuiDesignTokens.color.accent}>Shortcut help</text>
+          <text>Tab/Shift+Tab focus · arrows select · Enter activates · Esc returns/collapses</text>
+          <text>Ctrl+P palette · ? help · Ctrl+C durable cancel/exit</text>
+          <text>h history · p profile · c connection · g repository · e tool evidence</text>
+          <text>a approve · d deny · u retry · q exit · Esc closes help</text>
+        </box>
       )}
       {props.review === null && <text>Loading workspace review…</text>}
       {props.review !== null && displayedWorkspace !== undefined && (
-        <box style={{ flexDirection: "column" }}>
-          <text>{fitTerminalLine(`workspace: ${displayedWorkspace.root}`, props.width - 4)}</text>
-          <text>trust: {displayedWorkspace.trust}</text>
+        <box style={{ flexDirection: "column", flexShrink: 0 }}>
+          {props.view === null && props.layoutMode === "wide" && (
+            <text>{fitTerminalLine(`workspace: ${displayedWorkspace.root}`, props.width - 4)}</text>
+          )}
+          {props.view === null && props.layoutMode === "wide" && (
+            <text>trust: {displayedWorkspace.trust}</text>
+          )}
           {props.view === null &&
             props.surface === "workspace" &&
             !props.profileEditorFocused &&
-            !props.readinessConfirmationFocused && (
+            !props.readinessConfirmationFocused &&
+            props.overlay !== "palette" &&
+            props.overlay !== "help" && (
               <box style={{ flexDirection: "column" }}>
                 <text>
                   task start: {props.review.authority.taskStart} · profile:{" "}
@@ -168,39 +287,41 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                         ? `repo: ${props.review.repository.state} · rg ${props.review.repository.ripgrep.state} · Git ${props.review.repository.git.state} · g recheck`
                         : `repository prerequisites: ${props.review.repository.state} · ripgrep ${props.review.repository.ripgrep.state} · Git ${props.review.repository.git.state}`}
                     </text>
-                    {!props.compact && props.review.repository.ripgrep.state === "blocked" && (
-                      <box style={{ flexDirection: "column" }}>
-                        <text fg="#ED8796">
-                          {fitTerminalLine(
-                            `ripgrep block: ${props.review.repository.ripgrep.error.message}`,
-                            props.width - 4,
-                          )}
-                        </text>
-                        <text>
-                          {fitTerminalLine(
-                            `ripgrep recovery: ${props.review.repository.ripgrep.error.suggestedActions[0] ?? ""}`,
-                            props.width - 4,
-                          )}
-                        </text>
-                      </box>
-                    )}
-                    {!props.compact && props.review.repository.git.state === "blocked" && (
-                      <box style={{ flexDirection: "column" }}>
-                        <text fg="#ED8796">
-                          {fitTerminalLine(
-                            `Git block: ${props.review.repository.git.error.message}`,
-                            props.width - 4,
-                          )}
-                        </text>
-                        <text>
-                          {fitTerminalLine(
-                            `Git recovery: ${props.review.repository.git.error.suggestedActions[0] ?? ""}`,
-                            props.width - 4,
-                          )}
-                        </text>
-                      </box>
-                    )}
-                    {!props.compact && <text>repository prerequisite recheck: g</text>}
+                    {props.layoutMode === "wide" &&
+                      props.review.repository.ripgrep.state === "blocked" && (
+                        <box style={{ flexDirection: "column" }}>
+                          <text fg="#ED8796">
+                            {fitTerminalLine(
+                              `ripgrep block: ${props.review.repository.ripgrep.error.message}`,
+                              props.width - 4,
+                            )}
+                          </text>
+                          <text>
+                            {fitTerminalLine(
+                              `ripgrep recovery: ${props.review.repository.ripgrep.error.suggestedActions[0] ?? ""}`,
+                              props.width - 4,
+                            )}
+                          </text>
+                        </box>
+                      )}
+                    {props.layoutMode === "wide" &&
+                      props.review.repository.git.state === "blocked" && (
+                        <box style={{ flexDirection: "column" }}>
+                          <text fg="#ED8796">
+                            {fitTerminalLine(
+                              `Git block: ${props.review.repository.git.error.message}`,
+                              props.width - 4,
+                            )}
+                          </text>
+                          <text>
+                            {fitTerminalLine(
+                              `Git recovery: ${props.review.repository.git.error.suggestedActions[0] ?? ""}`,
+                              props.width - 4,
+                            )}
+                          </text>
+                        </box>
+                      )}
+                    {props.layoutMode === "wide" && <text>repository prerequisite recheck: g</text>}
                   </box>
                 )}
                 {props.review.context.instructions.length > 0 && (
@@ -280,7 +401,7 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
           catalog={props.catalog}
           compact={props.compact}
           error={props.historyError}
-          height={props.height}
+          height={Math.max(8, props.height - (props.compact ? 6 : 9))}
           selectedIndex={props.selectedIndex}
           width={props.width}
         />
@@ -303,6 +424,7 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
           ))}
           <input
             focused
+            onKeyDown={props.onProfileKeyDown}
             placeholder="id|base URL|model|billing|context|max output|env:NAME"
             value={props.profileDraft}
             onInput={props.onProfileDraftChange}
@@ -327,13 +449,16 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
         props.view === null &&
         !props.profileEditorFocused &&
         !props.readinessConfirmationFocused &&
+        props.overlay === null &&
         props.review?.authority.taskStart === "allowed" && (
           <box style={{ flexDirection: "column", marginTop: 1 }}>
             <text>Task</text>
             <input
               focused={props.composerFocused}
+              onKeyDown={props.onComposerKeyDown}
               placeholder={
-                props.profileCatalog?.activeProfileId === null
+                props.profileCatalog?.activeProfileId === null ||
+                props.profileCatalog?.activeProfileId === undefined
                   ? "Describe the fake task"
                   : "Ask a repository question"
               }
@@ -349,113 +474,240 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
             </text>
           </box>
         )}
-      {props.surface === "workspace" && props.view !== null && (
-        <box style={{ flexDirection: "column", marginTop: 1 }}>
-          <text>phase: {props.view.phase}</text>
+      {props.surface === "workspace" && props.view !== null && props.overlay === null && (
+        <box
+          style={{
+            flexDirection: "column",
+            flexShrink: 0,
+            marginTop: tuiDesignTokens.spacing.section,
+          }}
+        >
           <text>
-            {props.view.attempts === undefined
-              ? "authority: repository read bounded · write denied · process fake-only · network denied"
-              : "authority: repository read bounded · write denied · trusted-host policy-only · provider network allowed"}
+            {fitTerminalLine(
+              props.layoutMode === "narrow"
+                ? `view: ${props.runPane} · Ctrl+P switches conversation/context/recovery`
+                : props.layoutMode === "medium"
+                  ? "composition: conversation + contextual drawer"
+                  : "composition: session navigation + conversation + review pane",
+              props.width - 4,
+            )}
           </text>
-          {!props.compact && (
-            <text>
-              progress: {props.view.progress?.completed ?? 0}/{props.view.progress?.total ?? 3}
-            </text>
-          )}
-          {!props.compact && <text>timeline: {props.timeline.join(" > ")}</text>}
-          {props.liveModelText !== null && props.view.terminalOutcome === null && (
-            <box
-              style={{
-                border: !props.compact,
-                flexDirection: "column",
-                padding: props.compact ? 0 : 1,
-              }}
-            >
-              <text>assistant · live</text>
-              <text>{safeTerminalBlock(props.liveModelText)}</text>
-            </box>
-          )}
-          {props.view.conversation?.map((turn) => (
-            <box
-              key={turn.turnId}
-              style={{
-                border: !props.compact && turn.role === "assistant",
-                flexDirection: "column",
-                padding: props.compact || turn.role === "user" ? 0 : 1,
-                width: "100%",
-              }}
-            >
-              <text>{turn.role === "user" ? "you" : `assistant · ${turn.status}`}</text>
-              <text>{safeTerminalBlock(turn.content)}</text>
-            </box>
-          ))}
-          {!props.compact &&
-            props.view.attempts?.map((attempt) => (
-              <text key={attempt.attemptId}>
-                model attempt {attempt.step}: {attempt.state} · usage {attempt.usage.state}
-              </text>
-            ))}
-          {props.view.tools?.map((activity) => (
-            <ToolCard activity={activity} compact={props.compact} key={activity.call.toolCallId} />
-          ))}
           {props.view.approval !== null && (
-            <box
-              style={{
-                border: !props.compact,
-                flexDirection: "column",
-                padding: props.compact ? 0 : 1,
-                width: "100%",
-              }}
-            >
-              <text>approval: pending · workspace trust is separate</text>
-              <text>
-                {fitTerminalLine(
-                  `action: ${props.view.approval.canonicalDisplay}`,
-                  props.width - 4,
-                )}
+            <box style={{ flexDirection: "column", flexShrink: 0, width: "100%" }}>
+              <text fg={tuiDesignTokens.color.awaiting}>
+                approval: pending · focus {props.focusId ?? "none"} · a approve · d deny
               </text>
-              <text>{fitTerminalLine(`cwd: ${props.view.approval.cwd}`, props.width - 4)}</text>
-              {!props.compact && (
-                <text>
-                  {fitTerminalLine(`reason: ${props.view.approval.reason}`, props.width - 4)}
-                </text>
-              )}
               <text>{fitTerminalLine(`scope: ${props.view.approval.scope}`, props.width - 4)}</text>
-              <text>approve: a · deny: d</text>
             </box>
           )}
-          {props.view.phase === "awaiting-retry" && (
+          {props.layoutMode === "narrow" &&
+            props.runPane !== "conversation" &&
+            outcome?.state === "completed" && (
+              <box style={{ flexDirection: "column", flexShrink: 0, width: "100%" }}>
+                <text>COMPLETE ANSWER · pinned</text>
+                <text>{safeTerminalBlock(outcome.answer)}</text>
+              </box>
+            )}
+          <box
+            style={{
+              flexDirection: props.layoutMode === "narrow" ? "column" : "row",
+              gap: density.gap,
+              width: "100%",
+            }}
+          >
+            {props.layoutMode === "wide" && (
+              <box
+                style={{
+                  border: tuiDesignTokens.border.panel,
+                  flexDirection: "column",
+                  padding: tuiDesignTokens.spacing.panel,
+                  width: 22,
+                }}
+              >
+                <text>SESSION</text>
+                <text>{props.view.runId}</text>
+                <text>phase {props.view.phase}</text>
+                <text>turns {props.view.conversation?.length ?? 0}</text>
+                <text>tools {props.view.tools?.length ?? 0}</text>
+              </box>
+            )}
             <box
               style={{
-                border: !props.compact,
                 flexDirection: "column",
-                padding: props.compact ? 0 : 1,
+                width:
+                  props.layoutMode === "wide"
+                    ? Math.max(36, props.width - 58)
+                    : props.layoutMode === "medium"
+                      ? Math.max(36, props.width - 31)
+                      : "100%",
               }}
             >
-              <text fg="#ED8796">model attempt: interrupted or unknown</text>
+              <text>phase: {props.view.phase}</text>
               <text>
-                {fitTerminalLine(
-                  props.view.retry?.reason?.message ?? "Explicit retry is required.",
-                  props.width - 4,
-                )}
+                {props.view.attempts === undefined
+                  ? "authority: repository read bounded · write denied · process fake-only · network denied"
+                  : "authority: repository read bounded · write denied · trusted-host policy-only · provider network allowed"}
               </text>
-              <text>retry from last committed turn: u · cancel: Ctrl+C</text>
-            </box>
-          )}
-          {outcome !== null && outcome !== undefined && (
-            <box style={{ flexDirection: "column", marginTop: 1 }}>
-              <text>outcome: {outcome.state}</text>
-              {outcome.state === "succeeded" && (
-                <text>{fitTerminalLine(`evidence: ${outcome.evidenceRef}`, props.width - 4)}</text>
+              {conversationVisible && (
+                <box style={{ flexDirection: "column", width: "100%" }}>
+                  <text>CONVERSATION</text>
+                  {props.liveModelText !== null && props.view.terminalOutcome === null && (
+                    <box
+                      style={{
+                        border: density.border,
+                        flexDirection: "column",
+                        padding: density.padding,
+                      }}
+                    >
+                      <text>assistant · live</text>
+                      <text>{safeTerminalBlock(props.liveModelText)}</text>
+                    </box>
+                  )}
+                  {props.view.conversation?.map((turn) => (
+                    <box
+                      key={turn.turnId}
+                      style={{
+                        border: density.border && turn.role === "assistant",
+                        flexDirection: "column",
+                        padding: tuiDesignTokens.spacing.none,
+                        width: "100%",
+                      }}
+                    >
+                      <text>{turn.role === "user" ? "you" : `assistant · ${turn.status}`}</text>
+                      <text>{safeTerminalBlock(turn.content)}</text>
+                    </box>
+                  ))}
+                  {outcome !== null && outcome !== undefined && (
+                    <box
+                      style={{
+                        flexDirection: "column",
+                        marginTop: tuiDesignTokens.spacing.section,
+                      }}
+                    >
+                      <text>outcome: {outcome.state}</text>
+                      {outcome.state === "succeeded" && (
+                        <text>
+                          {fitTerminalLine(`evidence: ${outcome.evidenceRef}`, props.width - 4)}
+                        </text>
+                      )}
+                      {outcome.state === "completed" &&
+                        !props.view.conversation?.some(
+                          (turn) =>
+                            turn.role === "assistant" &&
+                            turn.status === "complete" &&
+                            turn.content === outcome.answer,
+                        ) && <text>{safeTerminalBlock(outcome.answer)}</text>}
+                      {(outcome.state === "blocked" || outcome.state === "failed") && (
+                        <text fg={tuiDesignTokens.color.danger}>
+                          {fitTerminalLine(`error: ${outcome.error.message}`, props.width - 4)}
+                        </text>
+                      )}
+                      {check !== undefined && <text>check: {check.status}</text>}
+                      <text>q exits</text>
+                    </box>
+                  )}
+                </box>
               )}
-              {outcome.state === "completed" && <text>{safeTerminalBlock(outcome.answer)}</text>}
-              {(outcome.state === "blocked" || outcome.state === "failed") && (
-                <text>{fitTerminalLine(`error: ${outcome.error.message}`, props.width - 4)}</text>
+              {contextVisible && (
+                <box style={{ flexDirection: "column", width: "100%" }}>
+                  <text>CONTEXT + TOOL EVIDENCE</text>
+                  {props.view.attempts?.map((attempt) => (
+                    <text key={attempt.attemptId}>
+                      model attempt {attempt.step}: {attempt.state} · usage {attempt.usage.state}
+                    </text>
+                  ))}
+                  {props.view.tools?.map((activity) => (
+                    <ToolCard
+                      activity={activity}
+                      compact={props.compact}
+                      expanded={props.expandedToolIds.has(activity.call.toolCallId)}
+                      key={activity.call.toolCallId}
+                    />
+                  ))}
+                </box>
               )}
-              {check !== undefined && <text>check: {check.status}</text>}
-              <text>q exits</text>
+              {recoveryVisible && (
+                <box style={{ flexDirection: "column", width: "100%" }}>
+                  <text>APPROVAL + RECOVERY</text>
+                  {props.view.approval !== null && (
+                    <box
+                      style={{
+                        border: density.border,
+                        flexDirection: "column",
+                        padding: density.padding,
+                        width: "100%",
+                      }}
+                    >
+                      <text fg={tuiDesignTokens.color.awaiting}>
+                        approval: pending · workspace trust is separate
+                      </text>
+                      <text>
+                        {fitTerminalLine(
+                          `action: ${props.view.approval.canonicalDisplay}`,
+                          props.width - 4,
+                        )}
+                      </text>
+                      <text>
+                        {fitTerminalLine(`cwd: ${props.view.approval.cwd}`, props.width - 4)}
+                      </text>
+                      {!props.compact && (
+                        <text>
+                          {fitTerminalLine(
+                            `reason: ${props.view.approval.reason}`,
+                            props.width - 4,
+                          )}
+                        </text>
+                      )}
+                      <text>
+                        {fitTerminalLine(`scope: ${props.view.approval.scope}`, props.width - 4)}
+                      </text>
+                      <text>approve: a · deny: d</text>
+                    </box>
+                  )}
+                  {props.view.phase === "awaiting-retry" && (
+                    <box
+                      style={{
+                        border: density.border,
+                        flexDirection: "column",
+                        padding: density.padding,
+                      }}
+                    >
+                      <text fg={tuiDesignTokens.color.danger}>
+                        model attempt: interrupted or unknown
+                      </text>
+                      <text>
+                        {fitTerminalLine(
+                          props.view.retry?.reason?.message ?? "Explicit retry is required.",
+                          props.width - 4,
+                        )}
+                      </text>
+                      <text>retry from last committed turn: u · cancel: Ctrl+C</text>
+                    </box>
+                  )}
+                  {props.view.approval === null && props.view.phase !== "awaiting-retry" && (
+                    <text fg={tuiDesignTokens.color.muted}>No approval or recovery is active.</text>
+                  )}
+                </box>
+              )}
             </box>
-          )}
+            {props.layoutMode !== "narrow" && (
+              <box
+                style={{
+                  border: tuiDesignTokens.border.panel,
+                  flexDirection: "column",
+                  padding: tuiDesignTokens.spacing.panel,
+                  width: props.layoutMode === "medium" ? 28 : 32,
+                }}
+              >
+                <text>{props.layoutMode === "medium" ? "CONTEXT DRAWER" : "REVIEW"}</text>
+                <text>context {props.review?.context.state ?? "unavailable"}</text>
+                <text>attempts {props.view.attempts?.length ?? 0}</text>
+                <text>tools {props.view.tools?.length ?? 0}</text>
+                <text>outcome {props.view.terminalOutcome?.state ?? "pending"}</text>
+                <text>recovery {props.view.retry?.available === true ? "available" : "none"}</text>
+              </box>
+            )}
+          </box>
         </box>
       )}
     </box>

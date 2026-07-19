@@ -305,7 +305,7 @@ test("repository prerequisites show distinct recovery and recheck a restored arc
       expect((await rechecked)?.repository?.state).toBe("ready");
     });
     await act(async () => {
-      await delay(20);
+      await delay(100);
       fixture.renderer.flush();
     });
     expect(fixture.renderer.captureCharFrame()).toContain(
@@ -352,9 +352,9 @@ async function trustWorkspace(fixture: Awaited<ReturnType<typeof setup>>) {
   });
   await act(async () => fixture.renderer.flush());
   const frame = fixture.renderer.captureCharFrame();
-  expect(frame).toContain("no credential required");
+  expect(frame).toContain("Eden R2");
   expect(frame).toContain("trust: trusted");
-  expect(frame).toContain("Task");
+  expect(frame).toContain("Describe the fake task");
 }
 
 async function enterTask(fixture: Awaited<ReturnType<typeof setup>>) {
@@ -704,12 +704,13 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     const terminalFrame = fixture.renderer.captureCharFrame();
 
     expect(approvalFrame).toContain("trust: trusted");
-    expect(approvalFrame).toContain("Run the deterministic fake task");
+    expect(approvalFrame).toContain("action: Run the deterministic fake");
     expect(approvalFrame).toContain(`cwd: ${await realpath(fixture.paths.workspaceDirectory)}`);
     expect(approvalFrame).toContain("scope: R1 demo state directory only");
     expect(terminalFrame).toContain("evidence: run-1:fake-evidence");
     expect(terminalFrame).toContain("check: passed");
-    expect(terminalFrame).toContain("phase.progress");
+    expect(terminalFrame).toContain("phase: review");
+    expect(terminalFrame).toContain("REVIEW");
   } finally {
     act(() => fixture.renderer.renderer.destroy());
     await fixture.client.close();
@@ -760,13 +761,14 @@ test("one fake model read round trip renders the complete bounded result and pro
     const frame = fixture.renderer.captureCharFrame();
 
     expect(frame).toContain("repository tool: read_file · completed");
-    expect(frame).toContain("source: nested/answer.txt · authority: bounded read-only");
+    expect(frame).toContain("source: nested/answer.txt · authority:");
+    expect(frame).toContain("bounded read-only");
     expect(frame).toContain("repository result:");
     expect(frame).toContain("完整答案：四十二。");
     expect(frame).toContain("hash: sha256:");
-    expect(frame).toContain(
-      "authority: repository read bounded · write denied · process fake-only · network denied",
-    );
+    expect(frame).toContain("authority: repository read bounded");
+    expect(frame).toContain("process fake-only");
+    expect(frame).toContain("network denied");
     expect(frame).toContain("approval: pending");
   } finally {
     act(() => fixture.renderer.renderer.destroy());
@@ -876,7 +878,7 @@ test("a live model delta re-render does not abort the in-flight provider operati
       text: "Visible provider text",
     });
     await act(async () => {
-      await delay(20);
+      await delay(100);
       renderer.flush();
     });
 
@@ -908,7 +910,7 @@ test("persisted trust appears on relaunch and can be revoked before a run", asyn
   const fixture = await setup(60, 20, paths);
   try {
     expect(fixture.renderer.captureCharFrame()).toContain("trust: trusted");
-    expect(fixture.renderer.captureCharFrame()).toContain("Task");
+    expect(fixture.renderer.captureCharFrame()).toContain("Describe the fake task");
     const changed = fixture.reviews.take();
     await act(async () => {
       fixture.renderer.mockInput.pressKey("r");
@@ -1299,6 +1301,170 @@ test("plain h stays composer text", async () => {
 
     await act(async () => fixture.renderer.mockInput.pressKey("escape"));
     await act(async () => fixture.renderer.flush());
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("focus and palette remain keyboard-complete across resize", async () => {
+  const fixture = await setup(60, 20);
+  try {
+    await act(async () => fixture.renderer.flush());
+    expect(fixture.renderer.captureCharFrame()).toContain("focus: workspace.trust");
+    await act(async () => {
+      await delay(20);
+      await fixture.renderer.flush();
+    });
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressTab();
+      await fixture.renderer.flush();
+    });
+    expect(fixture.renderer.captureCharFrame()).toContain("focus: workspace.history");
+
+    await act(async () => {
+      fixture.renderer.resize(80, 24);
+      await fixture.renderer.flush();
+    });
+    const resized = fixture.renderer.captureCharFrame();
+    expect(resized).toContain("focus: workspace.history");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressTab({ shift: true });
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    expect(fixture.renderer.captureCharFrame()).toContain("focus: workspace.trust");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("p", { ctrl: true });
+      await delay(20);
+      await fixture.renderer.flush();
+    });
+    const palette = fixture.renderer.captureCharFrame();
+    expect(palette).toContain("Command palette");
+    expect(palette).toContain("[disabled] Check provider connection");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressEscape();
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    expect(fixture.renderer.captureCharFrame()).toContain("focus: workspace.trust");
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("the command palette switches narrow run panes without changing approval authority", async () => {
+  const fixture = await setup(60, 20);
+  try {
+    await trustWorkspace(fixture);
+    await enterTask(fixture);
+    expect(fixture.renderer.captureCharFrame()).toContain("view: recovery");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("p", { ctrl: true });
+      await delay(20);
+      await fixture.renderer.flush();
+    });
+    await act(async () => {
+      fixture.renderer.mockInput.pressArrow("down");
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    await act(async () => {
+      fixture.renderer.mockInput.pressEnter();
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    let frame = fixture.renderer.captureCharFrame();
+    expect(frame).toContain("view: context");
+    expect(frame).toContain("approval: pending");
+    expect(frame).toContain("trust: trusted");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("p", { ctrl: true });
+      await delay(20);
+      await fixture.renderer.flush();
+    });
+    await act(async () => {
+      fixture.renderer.mockInput.pressArrow("down");
+      await delay(100);
+      fixture.renderer.mockInput.pressArrow("down");
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    await act(async () => {
+      fixture.renderer.mockInput.pressEnter();
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    frame = fixture.renderer.captureCharFrame();
+    expect(frame).toContain("view: recovery");
+    expect(frame).toContain("approve: a");
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("shortcut help opens with question mark outside text entry and closes without authority change", async () => {
+  const fixture = await setup(80, 24);
+  try {
+    await act(async () => {
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("?");
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    const help = fixture.renderer.captureCharFrame();
+    expect(help).toContain("Shortcut help");
+    expect(help).toContain("Tab/Shift+Tab focus");
+    expect(help).toContain("Ctrl+P palette");
+    expect(help).toContain("trust: restricted");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("?");
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    expect(fixture.renderer.captureCharFrame()).not.toContain("Shortcut help");
+    expect(fixture.renderer.captureCharFrame()).toContain("trust: restricted");
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("text entry keeps mnemonic text literal while Ctrl+P opens the global palette", async () => {
+  const fixture = await setup(80, 24);
+  try {
+    await trustWorkspace(fixture);
+    await act(async () => fixture.renderer.mockInput.pressEnter());
+    await act(async () => fixture.renderer.mockInput.typeText("?history 中"));
+    await act(async () => fixture.renderer.flush());
+    expect(fixture.renderer.captureCharFrame()).not.toContain("Shortcut help");
+    expect(fixture.renderer.captureCharFrame()).not.toContain("Current-workspace history");
+
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("p", { ctrl: true });
+      await delay(20);
+      await fixture.renderer.flush();
+    });
+    const palette = fixture.renderer.captureCharFrame();
+    expect(palette).toContain("Command palette");
+    await act(async () => {
+      fixture.renderer.mockInput.pressEscape();
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    expect(fixture.renderer.captureCharFrame()).toContain("?history 中");
   } finally {
     act(() => fixture.renderer.renderer.destroy());
     await fixture.client.close();

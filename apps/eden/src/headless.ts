@@ -3,7 +3,7 @@ import {
   AgentClientError,
   InProcessAgentClient,
   type InProcessAgentClientOptions,
-} from "@eden/coding-runtime";
+} from "@eden/coding-runtime/agent-client";
 import type { ProductError, ProductEvent } from "@eden/contracts";
 
 export type HeadlessOptions = {

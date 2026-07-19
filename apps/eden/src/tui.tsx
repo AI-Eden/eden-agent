@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { AgentClientError } from "@eden/coding-runtime";
+import { AgentClientError } from "@eden/coding-runtime/agent-client";
 import type {
   AgentClient,
   ProductEvent,
@@ -12,11 +12,24 @@ import type {
   RunInspection,
   WorkspaceReview,
 } from "@eden/contracts";
+import type { KeyEvent } from "@opentui/core";
 import { createDefaultOpenTuiKeymap } from "@opentui/keymap/opentui";
 import { KeymapProvider } from "@opentui/keymap/react";
-import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { useAppContext, useRenderer, useTerminalDimensions } from "@opentui/react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  commandForFocus,
+  commandForKey,
+  layoutModeForViewport,
+  moveFocus,
+  paletteEntries,
+  reconcileFocus,
+  type TuiCommandId,
+  type TuiFocusContext,
+  type TuiFocusId,
+  type TuiOverlay,
+  type TuiRunPane,
+} from "./tui-focus.ts";
 import { useRunHistory } from "./tui-history.tsx";
 import { EdenTuiLayout } from "./tui-layout.tsx";
 
@@ -58,6 +71,22 @@ function reconcileMaskedProfileDraft(previous: string, displayed: string): strin
   return displayed.includes("•") ? previous : displayed;
 }
 
+function useLayoutKeyboard(handler: (key: KeyEvent) => void): void {
+  const { keyHandler } = useAppContext();
+  const handlerRef = useRef(handler);
+  useLayoutEffect(() => {
+    handlerRef.current = handler;
+  });
+  useLayoutEffect(() => {
+    if (keyHandler === null) return;
+    const dispatch = (key: KeyEvent) => handlerRef.current(key);
+    keyHandler.on("keypress", dispatch);
+    return () => {
+      keyHandler.off("keypress", dispatch);
+    };
+  }, [keyHandler]);
+}
+
 export function EdenTuiApp(props: EdenTuiAppProps) {
   const renderer = useRenderer();
   const keymap = useMemo(() => createDefaultOpenTuiKeymap(renderer), [renderer]);
@@ -81,9 +110,12 @@ function EdenTuiSurface({
   onWorkspaceReviewChange,
 }: EdenTuiAppProps) {
   const { height, width } = useTerminalDimensions();
+  const [authorityPending, setAuthorityPending] = useState<"restrict" | "trust" | null>(null);
   const [composerFocused, setComposerFocused] = useState(false);
+  const [focusId, setFocusId] = useState<TuiFocusId | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [expandedToolIds, setExpandedToolIds] = useState<ReadonlySet<string>>(new Set());
   const [following, setFollowing] = useState(false);
   const [liveModelText, setLiveModelText] = useState<{
     readonly attemptId: string;
@@ -91,13 +123,16 @@ function EdenTuiSurface({
   } | null>(null);
   const [profileCatalog, setProfileCatalog] = useState<ProviderProfileCatalog | null>(null);
   const [profileDraft, setProfileDraft] = useState("");
-  const [profileEditorFocused, setProfileEditorFocused] = useState(false);
+  const [overlay, setOverlay] = useState<TuiOverlay>(null);
+  const [paletteIndex, setPaletteIndex] = useState(0);
   const [providerReadiness, setProviderReadiness] = useState<ProviderReadiness | null>(null);
-  const [readinessConfirmationFocused, setReadinessConfirmationFocused] = useState(false);
+  const [runPane, setRunPane] = useState<TuiRunPane>("conversation");
   const [review, setReview] = useState<WorkspaceReview | null>(initialWorkspaceReview ?? null);
   const [timeline, setTimeline] = useState<readonly ProductEvent["type"][]>([]);
   const [view, setView] = useState<ProductView | null>(null);
   const activeOperation = useRef<AbortController | null>(null);
+  const focusBeforeOverlay = useRef<TuiFocusId | null>(null);
+  const readyPublished = useRef(false);
 
   const leaveComposer = useCallback(() => setComposerFocused(false), []);
   const history = useRunHistory({
@@ -158,7 +193,7 @@ function EdenTuiSurface({
   const checkProviderReadiness = async () => {
     if (profileCatalog?.activeProfileId === null || profileCatalog?.activeProfileId === undefined) {
       setError("Configure an active provider profile before checking the connection.");
-      setReadinessConfirmationFocused(false);
+      setOverlay(null);
       return;
     }
     try {
@@ -176,7 +211,7 @@ function EdenTuiSurface({
     } catch (cause) {
       setError(errorMessage(cause, "The provider readiness check could not complete."));
     } finally {
-      setReadinessConfirmationFocused(false);
+      setOverlay(null);
     }
   };
 
@@ -232,7 +267,7 @@ function EdenTuiSurface({
       );
       publishReadiness(await client.getProviderReadiness());
       setProfileDraft("");
-      setProfileEditorFocused(false);
+      setOverlay(null);
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, "The provider profile could not be saved."));
@@ -288,7 +323,8 @@ function EdenTuiSurface({
   };
 
   const resolveTrust = async (decision: "trust" | "restrict") => {
-    if (review === null || view !== null) return;
+    if (review === null || view !== null || authorityPending !== null) return;
+    setAuthorityPending(decision);
     try {
       const nextReview = await client.resolveWorkspaceTrust({
         commandId: randomUUID(),
@@ -317,6 +353,8 @@ function EdenTuiSurface({
         }
       }
       setError(message);
+    } finally {
+      setAuthorityPending(null);
     }
   };
 
@@ -405,104 +443,277 @@ function EdenTuiSurface({
     }
   };
 
-  useKeyboard((key) => {
-    if (key.ctrl && key.name === "c") {
-      if (activeOperation.current !== null) {
-        activeOperation.current.abort();
-        onExit?.(130);
+  const focusContext = useMemo<TuiFocusContext>(() => {
+    const runState =
+      view === null
+        ? "none"
+        : view.terminalOutcome !== null
+          ? "terminal"
+          : view.approval !== null
+            ? "approval"
+            : view.phase === "awaiting-retry"
+              ? "retry"
+              : "active";
+    return {
+      hasProfile: (profileCatalog?.profiles.length ?? 0) > 0,
+      hasRepositoryReview: review?.repository !== undefined,
+      hasTools: (view?.tools?.length ?? 0) > 0,
+      overlay,
+      runState,
+      surface: history.surface,
+      workspaceState:
+        authorityPending !== null
+          ? "updating"
+          : review === null
+            ? "loading"
+            : review.workspace.trust === "trusted"
+              ? "trusted"
+              : "restricted",
+    };
+  }, [authorityPending, history.surface, overlay, profileCatalog?.profiles.length, review, view]);
+
+  const palette = useMemo(() => paletteEntries(focusContext), [focusContext]);
+
+  const closeOverlay = () => {
+    if (overlay === "profile") setProfileDraft("");
+    setOverlay(null);
+    setPaletteIndex(0);
+    setFocusId(focusBeforeOverlay.current);
+    focusBeforeOverlay.current = null;
+  };
+
+  const openOverlay = (nextOverlay: "help" | "palette") => {
+    focusBeforeOverlay.current = focusId;
+    setComposerFocused(false);
+    setPaletteIndex(0);
+    setOverlay(nextOverlay);
+  };
+
+  const cancelAndExit = () => {
+    if (activeOperation.current !== null) {
+      activeOperation.current.abort();
+      onExit?.(130);
+      return;
+    }
+    if (view !== null && view.terminalOutcome === null) {
+      void client
+        .submit({
+          commandId: randomUUID(),
+          expectedRevision: view.revision,
+          protocolVersion: 1,
+          runId: view.runId,
+          type: "run.cancel",
+        })
+        .catch(() => undefined)
+        .finally(() => onExit?.(130));
+      return;
+    }
+    onExit?.(130);
+  };
+
+  const invokeCommand = (commandId: TuiCommandId) => {
+    switch (commandId) {
+      case "approve":
+        void resolveApproval("approve");
         return;
-      }
-      if (view !== null && view.terminalOutcome === null) {
-        void client
-          .submit({
-            commandId: randomUUID(),
-            expectedRevision: view.revision,
-            protocolVersion: 1,
-            runId: view.runId,
-            type: "run.cancel",
-          })
-          .catch(() => undefined)
-          .finally(() => onExit?.(130));
-      } else {
-        onExit?.(130);
-      }
-      return;
-    }
-    if (history.surface === "inspection") {
-      if (!key.meta && !key.option && key.name === "b") {
+      case "back":
         history.back();
-      }
-      return;
-    }
-    if (readinessConfirmationFocused) {
-      key.preventDefault();
-      key.stopPropagation();
-      if (key.name === "y") void checkProviderReadiness();
-      if (key.name === "n" || key.name === "escape") {
-        setReadinessConfirmationFocused(false);
-      }
-      return;
-    }
-    if (profileEditorFocused) {
-      if (key.name === "escape") {
-        key.preventDefault();
-        key.stopPropagation();
-        setProfileDraft("");
-        setProfileEditorFocused(false);
-      }
-      return;
-    }
-    if (history.surface === "history") {
-      if (key.meta || key.option) return;
-      if (key.name === "b") {
-        history.back();
-      } else if (key.name === "up") {
-        history.moveSelection(-1);
-      } else if (key.name === "down") {
-        history.moveSelection(1);
-      } else if (key.name === "return") {
-        void history.openInspection();
-      }
-      return;
-    }
-    if (key.name === "q" && view?.terminalOutcome !== null && view !== null) {
-      onExit?.(0);
-      return;
-    }
-    if (view === null && review !== null && !key.meta && !key.option) {
-      if (composerFocused) return;
-      if (key.name === "p") setProfileEditorFocused(true);
-      if (key.name === "c") {
+        return;
+      case "cancel":
+        cancelAndExit();
+        return;
+      case "composer":
+        if (review?.authority.taskStart === "allowed") setComposerFocused(true);
+        return;
+      case "connection":
         if (providerReadiness === null || providerReadiness.state === "unconfigured") {
           setError("Configure an active provider profile before checking the connection.");
         } else {
-          setReadinessConfirmationFocused(true);
+          focusBeforeOverlay.current = focusId;
+          setOverlay("readiness");
         }
-      }
-      if (key.name === "s") void selectNextProfile();
-      if (key.name === "x") void deleteProfile();
-      if (key.name === "l") void reloadProfiles();
-      if (key.name === "g") void recheckRepository();
-      if (["p", "c", "s", "x", "l", "g"].includes(key.name)) return;
-      if (review.authority.taskStart === "allowed") {
-        if (key.name === "return") setComposerFocused(true);
-        if (key.name === "h") history.openHistory();
-        if (key.name === "r") void resolveTrust("restrict");
+        return;
+      case "connection-confirm":
+        void checkProviderReadiness();
+        return;
+      case "delete-profile":
+        void deleteProfile();
+        return;
+      case "deny":
+        void resolveApproval("deny");
+        return;
+      case "exit":
+        onExit?.(0);
+        return;
+      case "history":
+        history.openHistory();
+        return;
+      case "profile":
+        focusBeforeOverlay.current = focusId;
+        setOverlay("profile");
+        return;
+      case "reload-profiles":
+        void reloadProfiles();
+        return;
+      case "repository":
+        void recheckRepository();
+        return;
+      case "retry":
+        void retryModel();
+        return;
+      case "revoke":
+        void resolveTrust("restrict");
+        return;
+      case "select-profile":
+        void selectNextProfile();
+        return;
+      case "show-context":
+        setRunPane("context");
+        return;
+      case "show-conversation":
+        setRunPane("conversation");
+        return;
+      case "show-recovery":
+        setRunPane("recovery");
+        return;
+      case "toggle-tools": {
+        const ids = view?.tools?.map((activity) => activity.call.toolCallId) ?? [];
+        if (ids.length === 0) return;
+        setExpandedToolIds((current) => {
+          const allExpanded = ids.every((id) => current.has(id));
+          return allExpanded ? new Set() : new Set(ids);
+        });
         return;
       }
-      if (key.name === "t") void resolveTrust("trust");
-      if (key.name === "h") history.openHistory();
-      if (key.name === "r") void resolveTrust("restrict");
+      case "trust":
+        void resolveTrust("trust");
+    }
+  };
+
+  const handleComposerKeyDown = (key: {
+    readonly ctrl: boolean;
+    readonly name: string;
+    preventDefault(): void;
+    stopPropagation(): void;
+  }) => {
+    if (key.ctrl && key.name === "p") {
+      key.preventDefault();
+      key.stopPropagation();
+      openOverlay("palette");
+    } else if (key.ctrl && key.name === "c") {
+      key.preventDefault();
+      key.stopPropagation();
+      cancelAndExit();
+    } else if (key.name === "escape") {
+      key.preventDefault();
+      key.stopPropagation();
+      setComposerFocused(false);
+    }
+  };
+
+  const handleProfileKeyDown = (key: {
+    readonly ctrl: boolean;
+    readonly name: string;
+    preventDefault(): void;
+    stopPropagation(): void;
+  }) => {
+    if (key.ctrl && key.name === "p") {
+      key.preventDefault();
+      key.stopPropagation();
+      openOverlay("palette");
+    } else if (key.name === "escape") {
+      key.preventDefault();
+      key.stopPropagation();
+      closeOverlay();
+    }
+  };
+
+  const handleGraphKey = (key: KeyEvent) => {
+    if (composerFocused && !(key.ctrl && (key.name === "c" || key.name === "p"))) {
+      if (key.name === "escape") {
+        key.preventDefault();
+        key.stopPropagation();
+        setComposerFocused(false);
+      }
       return;
     }
-    if (view?.approval !== null && view !== null && !key.meta && !key.option) {
-      if (key.name === "a") void resolveApproval("approve");
-      if (key.name === "d") void resolveApproval("deny");
+    const command = commandForKey(focusContext, key);
+    if (command === null) return;
+    key.preventDefault();
+    key.stopPropagation();
+    if (command.type === "open-palette") {
+      openOverlay("palette");
+      return;
     }
-    if (view?.phase === "awaiting-retry" && !key.meta && !key.option && key.name === "u") {
-      void retryModel();
+    if (command.type === "open-help") {
+      openOverlay("help");
+      return;
     }
-  });
+    if (command.type === "close-overlay") {
+      closeOverlay();
+      return;
+    }
+    if (command.type === "focus-next" || command.type === "focus-previous") {
+      setFocusId((current) =>
+        moveFocus(focusContext, current, command.type === "focus-next" ? 1 : -1),
+      );
+      return;
+    }
+    if (command.type === "move-selection") {
+      if (overlay === "palette") {
+        setPaletteIndex((current) =>
+          palette.length === 0
+            ? 0
+            : (current + command.direction + palette.length) % palette.length,
+        );
+      } else if (history.surface === "history") {
+        history.moveSelection(command.direction);
+      }
+      return;
+    }
+    if (command.type === "activate") {
+      if (overlay === "palette") {
+        const entry = palette[paletteIndex];
+        if (entry?.enabled) {
+          closeOverlay();
+          invokeCommand(entry.commandId);
+        }
+        return;
+      }
+      if (history.surface === "history" && focusId === "history.list") {
+        void history.openInspection();
+        return;
+      }
+      const focusCommand = commandForFocus(focusId);
+      if (focusCommand !== null) invokeCommand(focusCommand);
+      return;
+    }
+    invokeCommand(command.commandId);
+  };
+
+  useLayoutKeyboard(handleGraphKey);
+
+  useEffect(() => {
+    setFocusId((current) => reconcileFocus(focusContext, current));
+  }, [focusContext]);
+
+  const approvalIdentity = view?.approval?.approvalId ?? null;
+  const awaitingRetry = view?.phase === "awaiting-retry";
+  const activeRunId = view?.runId ?? null;
+  useEffect(() => {
+    if (activeRunId === null) return;
+    setRunPane(approvalIdentity !== null || awaitingRetry ? "recovery" : "conversation");
+  }, [activeRunId, approvalIdentity, awaitingRetry]);
+
+  const toolIdentity = view?.tools?.map((activity) => activity.call.toolCallId).join("\0") ?? "";
+  useEffect(() => {
+    if (toolIdentity.length === 0) return;
+    setExpandedToolIds((current) => {
+      const next = new Set(current);
+      for (const toolCallId of toolIdentity.split("\0")) next.add(toolCallId);
+      return next;
+    });
+  }, [toolIdentity]);
 
   useEffect(
     () => () => {
@@ -511,11 +722,16 @@ function EdenTuiSurface({
     [],
   );
 
+  useLayoutEffect(() => {
+    if (initialWorkspaceReview === undefined || readyPublished.current) return;
+    readyPublished.current = true;
+    onReady?.();
+  }, [initialWorkspaceReview, onReady]);
+
   useEffect(() => {
     if (initialWorkspaceReview !== undefined) {
       onWorkspaceReviewChange?.(initialWorkspaceReview);
       void history.loadCatalog();
-      onReady?.();
       return;
     }
     let active = true;
@@ -533,7 +749,10 @@ function EdenTuiSurface({
         }
       })
       .finally(() => {
-        if (active) onReady?.();
+        if (active && !readyPublished.current) {
+          readyPublished.current = true;
+          onReady?.();
+        }
       });
     return () => {
       active = false;
@@ -621,33 +840,43 @@ function EdenTuiSurface({
     return () => controller.abort();
   }, [client, followedRunId]);
 
-  const compact = height <= 20 || width <= 60;
+  const layoutMode = layoutModeForViewport(width, height);
   return (
     <EdenTuiLayout
+      authorityPending={authorityPending}
       catalog={history.catalog}
-      compact={compact}
+      compact={layoutMode === "narrow"}
       composerFocused={composerFocused}
       draft={draft}
       error={error}
+      expandedToolIds={expandedToolIds}
+      focusId={focusId}
       height={height}
       historyError={history.error}
       inspection={history.inspection}
       liveModelText={liveModelText?.text ?? null}
+      layoutMode={layoutMode}
+      onComposerKeyDown={handleComposerKeyDown}
       onDraftChange={setDraft}
       onProfileDraftChange={(displayed) =>
         setProfileDraft((previous) => reconcileMaskedProfileDraft(previous, displayed))
       }
+      onProfileKeyDown={handleProfileKeyDown}
       onProfileSave={() => saveProfile(profileDraft)}
       onStart={start}
+      overlay={overlay}
+      palette={palette}
+      paletteIndex={paletteIndex}
       review={review}
       profileCatalog={profileCatalog}
       profileDraft={maskedProfileDraft(profileDraft)}
-      profileEditorFocused={profileEditorFocused}
+      profileEditorFocused={overlay === "profile"}
       providerReadiness={providerReadiness}
-      readinessConfirmationFocused={readinessConfirmationFocused}
+      readinessConfirmationFocused={overlay === "readiness"}
       selectedIndex={history.selectedIndex}
       surface={history.surface}
       timeline={timeline}
+      runPane={runPane}
       view={view}
       width={width}
     />

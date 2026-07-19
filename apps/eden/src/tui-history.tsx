@@ -1,4 +1,4 @@
-import { AgentClientError } from "@eden/coding-runtime";
+import { AgentClientError } from "@eden/coding-runtime/agent-client";
 import type { AgentClient, ProductError, RunCatalog, RunInspection } from "@eden/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 

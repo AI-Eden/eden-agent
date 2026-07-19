@@ -3,14 +3,12 @@ import { join } from "node:path";
 
 import { decodeRepositoryToolResult } from "@eden/contracts";
 import { decodeKernelEvent, type KernelEffect, type KernelEvent } from "@eden/kernel";
-import {
-  decodeFakeModelResponse,
-  FakeModelDriver,
-  type ModelDriver,
-  type ModelStepDriver,
-  type ModelStepRequestV1,
-  type ModelVisibleTextListener,
-} from "@eden/providers";
+import { decodeFakeModelResponse, FakeModelDriver, type ModelDriver } from "@eden/providers/fake";
+import type {
+  ModelStepDriver,
+  ModelStepRequestV1,
+  ModelVisibleTextListener,
+} from "@eden/providers/model-step";
 
 import { fakeAction } from "./fake-action.ts";
 import type { EffectHost, ReconciliationResult } from "./runtime.ts";

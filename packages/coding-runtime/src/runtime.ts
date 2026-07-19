@@ -6,7 +6,7 @@ import {
   type RunState,
   reduce,
 } from "@eden/kernel";
-import type { ModelStepRequestV1 } from "@eden/providers";
+import type { ModelStepRequestV1 } from "@eden/providers/model-step";
 
 import type { JournalPort, JournalRecordV1 } from "./journal/index.ts";
 import { replayRecords } from "./replay.ts";

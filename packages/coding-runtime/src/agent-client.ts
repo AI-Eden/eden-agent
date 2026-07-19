@@ -13,6 +13,7 @@ import {
   type ProviderProfileCatalog,
   type ProviderReadiness,
   type ProviderReadinessCommand,
+  type RepositoryCapabilityReview,
   type ResolveWorkspaceTrustCommand,
   type RunCatalog,
   type RunId,
@@ -23,12 +24,13 @@ import {
   type WorkspaceReview,
 } from "@eden/contracts";
 import type { KernelEvent } from "@eden/kernel";
-import {
-  type ModelDriver,
-  type ModelStepDriver,
-  type ModelVisibleTextListener,
-  OpenAICompatibleProvider,
-} from "@eden/providers";
+import type { ModelDriver } from "@eden/providers/fake";
+import type {
+  ModelStepDriver,
+  ModelStepObservationV1,
+  ModelStepRequestV1,
+  ModelVisibleTextListener,
+} from "@eden/providers/model-step";
 import Schema from "typebox/schema";
 
 import {
@@ -84,6 +86,32 @@ export type InProcessAgentClientOptions = {
 
 function defaultIdSource(): RuntimeIdSource {
   return { next: randomUUID };
+}
+
+function defaultModelProvider(
+  resolved: ResolvedProviderProfile,
+  clock: RuntimeClock,
+): ModelStepDriver {
+  let driver: Promise<ModelStepDriver> | undefined;
+  return {
+    completeModelStep(
+      input: ModelStepRequestV1,
+      signal: AbortSignal,
+      onVisibleText?: ModelVisibleTextListener,
+    ): Promise<ModelStepObservationV1> {
+      driver ??= import("@eden/providers").then(
+        ({ OpenAICompatibleProvider }) =>
+          new OpenAICompatibleProvider({
+            apiKey: resolved.credential,
+            baseUrl: resolved.profile.baseUrl,
+            clock,
+            model: resolved.profile.model,
+            profileId: resolved.profile.id,
+          }),
+      );
+      return driver.then((provider) => provider.completeModelStep(input, signal, onVisibleText));
+    },
+  };
 }
 
 function durableContextItemId(item: ContextItem): string {
@@ -162,6 +190,7 @@ export class InProcessAgentClient implements AgentClient {
   private readonly profiles: ProviderProfileStore | null;
   private readonly readiness: ProviderReadinessService | null;
   private readonly repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
+  private repositoryReviewCache: RepositoryCapabilityReview | null = null;
   private repositoryTools: Promise<RepositoryToolService> | undefined;
   private readonly stateDirectory: string;
   private readonly trust: WorkspaceTrustService;
@@ -187,15 +216,7 @@ export class InProcessAgentClient implements AgentClient {
     this.clock = options.clock ?? { now: () => new Date() };
     this.context = context;
     this.createModelProvider =
-      options.createModelProvider ??
-      ((resolved) =>
-        new OpenAICompatibleProvider({
-          apiKey: resolved.credential,
-          baseUrl: resolved.profile.baseUrl,
-          clock: this.clock,
-          model: resolved.profile.model,
-          profileId: resolved.profile.id,
-        }));
+      options.createModelProvider ?? ((resolved) => defaultModelProvider(resolved, this.clock));
     this.cwd = trust.identity.canonicalRoot;
     this.idSource = options.idSource ?? defaultIdSource();
     this.prefixGeneratedRunIds = prefixGeneratedRunIds;
@@ -294,14 +315,7 @@ export class InProcessAgentClient implements AgentClient {
               ? undefined
               : (
                   options.createModelProvider ??
-                  ((resolved) =>
-                    new OpenAICompatibleProvider({
-                      apiKey: resolved.credential,
-                      baseUrl: resolved.profile.baseUrl,
-                      clock,
-                      model: resolved.profile.model,
-                      profileId: resolved.profile.id,
-                    }))
+                  ((resolved) => defaultModelProvider(resolved, clock))
                 )(existingResolved),
             undefined,
             options.repositoryTools ?? {},
@@ -542,15 +556,31 @@ export class InProcessAgentClient implements AgentClient {
 
   async getWorkspaceReview(): Promise<WorkspaceReview> {
     this.ensureOpen();
-    return this.workspaceReviewWithProfile(await this.trust.refresh());
-  }
-
-  private async workspaceReviewWithProfile(review: WorkspaceReview): Promise<WorkspaceReview> {
     this.repositoryTools ??= RepositoryToolService.open({
       ...this.repositoryToolOptions,
       workspaceRoot: this.cwd,
     });
-    const repository = await this.repositoryTools.then((tools) => tools.reviewCapabilities());
+    const [review, repository] = await Promise.all([
+      this.trust.refresh(),
+      this.repositoryTools.then((tools) => tools.reviewCapabilities()),
+    ]);
+    this.repositoryReviewCache = repository;
+    return this.workspaceReviewWithProfile(review, true);
+  }
+
+  private async workspaceReviewWithProfile(
+    review: WorkspaceReview,
+    reuseRepositoryReview = false,
+  ): Promise<WorkspaceReview> {
+    this.repositoryTools ??= RepositoryToolService.open({
+      ...this.repositoryToolOptions,
+      workspaceRoot: this.cwd,
+    });
+    const repository =
+      reuseRepositoryReview && this.repositoryReviewCache !== null
+        ? this.repositoryReviewCache
+        : await this.repositoryTools.then((tools) => tools.reviewCapabilities());
+    this.repositoryReviewCache = repository;
     const repositoryActions = [repository.ripgrep, repository.git].flatMap((capability) =>
       capability.state === "blocked" ? capability.error.suggestedActions : [],
     );

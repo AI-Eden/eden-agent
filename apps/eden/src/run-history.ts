@@ -1,4 +1,4 @@
-import { AgentClientError, InProcessAgentClient } from "@eden/coding-runtime";
+import { AgentClientError, InProcessAgentClient } from "@eden/coding-runtime/agent-client";
 import {
   decodeRunCatalog,
   decodeRunInspection,

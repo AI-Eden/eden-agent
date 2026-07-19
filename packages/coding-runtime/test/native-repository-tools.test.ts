@@ -15,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   type NativeProcessObservation,
   type NativeProcessPort,
@@ -460,5 +461,39 @@ describe("native repository semantic tools", () => {
     assert.equal(review.git.error?.code, "git_unavailable");
     assert.equal(JSON.stringify(review).includes(rgPath), false);
     assert.equal(decoder.decode(Buffer.from(JSON.stringify(review))).includes("stdout"), false);
+  });
+
+  it("probes independent ripgrep and Git prerequisites concurrently", async () => {
+    const root = await mkdtemp(join(tmpdir(), "eden-native-review-concurrent-"));
+    const asset = await pinnedRipgrep();
+    let release: () => void = () => undefined;
+    let bothStarted: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      bothStarted = resolve;
+    });
+    let calls = 0;
+    const nativeProcess: NativeProcessPort = {
+      async run(request) {
+        calls += 1;
+        if (calls === 2) bothStarted();
+        await gate;
+        return request.executable === asset.path
+          ? exited("ripgrep 15.0.0\n")
+          : exited("git version 2.43.0\n");
+      },
+    };
+    const service = await RepositoryToolService.open({
+      nativeProcess,
+      ripgrepAsset: asset,
+      workspaceRoot: root,
+    });
+    const reviewing = service.reviewCapabilities();
+    const concurrent = await Promise.race([started.then(() => true), delay(100).then(() => false)]);
+    release();
+    assert.equal((await reviewing).state, "ready");
+    assert.equal(concurrent, true);
   });
 });

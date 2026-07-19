@@ -1,7 +1,8 @@
 import { join } from "node:path";
 
 import type { ProductCommand, ProductError, ProductView, RunId } from "@eden/contracts";
-import type { ModelDriver, ModelStepDriver, ModelVisibleTextListener } from "@eden/providers";
+import type { ModelDriver } from "@eden/providers/fake";
+import type { ModelStepDriver, ModelVisibleTextListener } from "@eden/providers/model-step";
 
 import { FakeToolHost } from "./fake-tool-host.ts";
 import { FileJournal } from "./journal/index.ts";

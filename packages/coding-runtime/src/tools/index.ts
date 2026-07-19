@@ -490,7 +490,7 @@ export class RepositoryToolService {
   }
 
   async reviewCapabilities(signal?: AbortSignal): Promise<RepositoryCapabilityReview> {
-    const ripgrep = await this.verifyRipgrep(signal).then(
+    const ripgrepPromise = this.verifyRipgrep(signal).then(
       (asset) => ({
         contentHash: asset.contentHash,
         error: null,
@@ -514,7 +514,7 @@ export class RepositoryToolService {
         };
       },
     );
-    const git = await this.probeGit(signal).then(
+    const gitPromise = this.probeGit(signal).then(
       (version) => ({
         contentHash: null,
         error: null,
@@ -538,6 +538,7 @@ export class RepositoryToolService {
         };
       },
     );
+    const [ripgrep, git] = await Promise.all([ripgrepPromise, gitPromise]);
     return {
       git,
       ripgrep,

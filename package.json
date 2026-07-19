@@ -15,6 +15,7 @@
     "markdown:check": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
     "markdown:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\"",
     "test:r2-native-archive": "node scripts/r2-native-tools-archive.test.mjs apps/eden/dist",
+    "test:r2-tui-pty": "node scripts/r2-tui-pty.mjs apps/eden/dist/eden docs/benchmark-results/2026-07-20-r2-tui-linux-x64.json",
     "test": "node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test",
     "typecheck": "pnpm -r typecheck"
   },

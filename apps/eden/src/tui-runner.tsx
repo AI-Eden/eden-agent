@@ -1,28 +1,24 @@
-import { InProcessAgentClient, type InProcessAgentClientOptions } from "@eden/coding-runtime";
+import {
+  InProcessAgentClient,
+  type InProcessAgentClientOptions,
+} from "@eden/coding-runtime/agent-client";
 import type { WorkspaceReview } from "@eden/contracts";
-import { createCliRenderer } from "@opentui/core";
-import { createRoot } from "@opentui/react";
-
-import { EdenTuiApp } from "./tui.tsx";
 
 export type TuiEnvironment = {
   readonly cwd: string;
   readonly onReady?: (() => void) | undefined;
-  readonly repositoryTools?: InProcessAgentClientOptions["repositoryTools"];
+  readonly repositoryTools?:
+    | InProcessAgentClientOptions["repositoryTools"]
+    | Promise<InProcessAgentClientOptions["repositoryTools"]>;
   readonly stateDirectory: string;
 };
 
 export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
-  const client = await InProcessAgentClient.open({
-    cwd: environment.cwd,
-    ...(environment.repositoryTools === undefined
-      ? {}
-      : { repositoryTools: environment.repositoryTools }),
-    realProviderRuns: "when-configured",
-    stateDirectory: environment.stateDirectory,
-  });
-  let renderer: Awaited<ReturnType<typeof createCliRenderer>> | undefined;
-  let root: ReturnType<typeof createRoot> | undefined;
+  let client: InProcessAgentClient | undefined;
+  let renderer:
+    | Awaited<ReturnType<typeof import("@opentui/core")["createCliRenderer"]>>
+    | undefined;
+  let root: ReturnType<typeof import("@opentui/react")["createRoot"]> | undefined;
   let cleaned = false;
   const cleanup = async () => {
     if (cleaned) return;
@@ -33,18 +29,60 @@ export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
       try {
         renderer?.destroy();
       } finally {
-        await client.close();
+        await client?.close();
       }
     }
   };
   try {
-    const initialWorkspaceReview: WorkspaceReview = await client.getWorkspaceReview();
-    renderer = await createCliRenderer({
-      consoleMode: "disabled",
-      exitOnCtrlC: false,
-      screenMode: "alternate-screen",
-    });
-    root = createRoot(renderer);
+    const clientReviewPromise = Promise.resolve(environment.repositoryTools).then(
+      async (repositoryTools) => {
+        const openedClient = await InProcessAgentClient.open({
+          cwd: environment.cwd,
+          ...(repositoryTools === undefined ? {} : { repositoryTools }),
+          realProviderRuns: "when-configured",
+          stateDirectory: environment.stateDirectory,
+        });
+        client = openedClient;
+        const result = {
+          client: openedClient,
+          review: await openedClient.getWorkspaceReview(),
+        };
+        return result;
+      },
+    );
+    const corePromise = import("@opentui/core");
+    const rendererPromise = corePromise.then(({ createCliRenderer }) =>
+      createCliRenderer({
+        consoleMode: "disabled",
+        enableMouseMovement: false,
+        exitOnCtrlC: false,
+        screenMode: "alternate-screen",
+        useKittyKeyboard: null,
+        useMouse: false,
+      }),
+    );
+    const reactRendererPromise = import("@opentui/react");
+    const tuiPromise = import("./tui.tsx");
+    const reactPromise = import("react");
+    const [clientReviewResult, rendererResult, reactRenderer, tui, react] = await Promise.all([
+      Promise.resolve(clientReviewPromise).then(
+        (value) => ({ status: "fulfilled" as const, value }),
+        (reason: unknown) => ({ reason, status: "rejected" as const }),
+      ),
+      Promise.resolve(rendererPromise).then(
+        (value) => ({ status: "fulfilled" as const, value }),
+        (reason: unknown) => ({ reason, status: "rejected" as const }),
+      ),
+      reactRendererPromise,
+      tuiPromise,
+      reactPromise,
+    ]);
+    if (rendererResult.status === "fulfilled") renderer = rendererResult.value;
+    if (clientReviewResult.status === "rejected") throw clientReviewResult.reason;
+    if (rendererResult.status === "rejected") throw rendererResult.reason;
+    const activeClient = clientReviewResult.value.client;
+    const initialWorkspaceReview: WorkspaceReview = clientReviewResult.value.review;
+    root = reactRenderer.createRoot(rendererResult.value);
     return await new Promise((resolve, reject) => {
       let finishing = false;
       const finish = async (code: 0 | 130) => {
@@ -58,12 +96,12 @@ export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
         }
       };
       root?.render(
-        <EdenTuiApp
-          client={client}
-          initialWorkspaceReview={initialWorkspaceReview}
-          onExit={(code) => void finish(code)}
-          onReady={environment.onReady}
-        />,
+        react.createElement(tui.EdenTuiApp, {
+          client: activeClient,
+          initialWorkspaceReview,
+          onExit: (code: 0 | 130) => void finish(code),
+          onReady: environment.onReady,
+        }),
       );
     });
   } catch (error) {

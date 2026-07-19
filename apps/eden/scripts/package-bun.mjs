@@ -12,7 +12,7 @@ const ripgrepName = process.platform === "win32" ? "rg.exe" : "rg";
 await rm(distributionDirectory, { force: true, recursive: true });
 await mkdir(distributionDirectory, { recursive: true });
 
-const arguments_ = ["build", "--compile", "src/index.ts"];
+const arguments_ = ["build", "--compile", "--minify", "src/index.ts"];
 if (process.platform === "linux") {
   arguments_.push("--define", 'process.env.OPENTUI_LIBC="glibc"');
 }
