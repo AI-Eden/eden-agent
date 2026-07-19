@@ -23,6 +23,7 @@ import {
 import {
   type AgentClient,
   availableRunSummary,
+  executingProductView,
   type ProductView,
   type ProviderProfileCatalog,
   type ProviderReadiness,
@@ -813,6 +814,78 @@ test("Ctrl+C aborts an in-flight model operation before its repository tool can 
   } finally {
     act(() => fixture.renderer.renderer.destroy());
     await fixture.client.close();
+  }
+});
+
+test("a live model delta re-render does not abort the in-flight provider operation", async () => {
+  const submitted = deferred<AbortSignal>();
+  const submitResult = deferred<ProductView>();
+  const deltas = queue<{
+    readonly attemptId: string;
+    readonly cursor: number;
+    readonly offset: number;
+    readonly outputIndex: 0;
+    readonly protocolVersion: 1;
+    readonly runId: RunId;
+    readonly text: string;
+  }>();
+  const client: AgentClient = {
+    ...providerProfileMethods(),
+    close: async () => undefined,
+    getRunCatalog: async () => ({
+      entries: [],
+      notices: [],
+      protocolVersion: 1,
+      truncated: false,
+      workspace: trustedWorkspaceReview.workspace,
+    }),
+    getSnapshot: async () => executingProductView,
+    getWorkspaceReview: async () => trustedWorkspaceReview,
+    inspectRun: async () => readOnlyRunInspection,
+    resolveWorkspaceTrust: async () => trustedWorkspaceReview,
+    submit: async (_command, options) => {
+      if (options?.signal === undefined)
+        throw new Error("The provider operation requires a signal.");
+      submitted.resolve(options.signal);
+      return submitResult.promise;
+    },
+    subscribe: async function* () {},
+    subscribeModelText: async function* () {
+      yield await deltas.take();
+    },
+  };
+  const renderer = await testRender(
+    <EdenTuiApp client={client} initialWorkspaceReview={trustedWorkspaceReview} />,
+    { height: 30, width: 100 },
+  );
+  try {
+    await act(async () => renderer.mockInput.pressEnter());
+    await act(async () => renderer.mockInput.typeText("Inspect the repository"));
+    let signal: AbortSignal | undefined;
+    await act(async () => {
+      renderer.mockInput.pressEnter();
+      signal = await submitted.promise;
+    });
+    deltas.push({
+      attemptId: "attempt-live-1",
+      cursor: 0,
+      offset: 0,
+      outputIndex: 0,
+      protocolVersion: 1,
+      runId: executingProductView.runId,
+      text: "Visible provider text",
+    });
+    await act(async () => {
+      await delay(20);
+      renderer.flush();
+    });
+
+    expect(signal?.aborted).toBe(false);
+    submitResult.resolve(executingProductView);
+    await act(async () => renderer.flush());
+  } finally {
+    act(() => renderer.renderer.destroy());
+    await client.close();
   }
 });
 

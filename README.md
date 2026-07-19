@@ -13,9 +13,11 @@ agent: the R1 runtime uses no provider credential, does not read or change repos
 real process, has no network authority, and does not resume historical execution.
 
 R2 Build is in progress. The current public source adds host-side provider onboarding, explicit DeepSeek
-readiness, scoped instruction/context admission, bounded list/read/search/Git-status tools, and a verified
-application-local ripgrep archive. It still does not edit repository files, expose a shell, resume a real
-provider attempt, or claim R2 release support.
+readiness, scoped instruction/context admission, bounded list/read/search/Git-status tools, a verified
+application-local ripgrep archive, and an Eden-owned real model/tool loop with durable attempt recovery.
+A model-produced final answer ends in review as `completed`; it cannot claim verifier-owned `succeeded`.
+The product still does not edit repository files, expose a shell, resume a historical run, or claim R2
+release support.
 
 ## Intended product
 
@@ -104,6 +106,33 @@ In PowerShell, use `$env:EDEN_STATE_DIR = '<absolute-state-path>'` and the `.exe
 tests, build, package, copied-artifact smoke, and production PTY process boundary on hosted Ubuntu, Windows,
 and macOS. It does not establish Terminal.app, Windows Terminal, PowerShell IME, signing, installer, or
 release support.
+
+## R2 DeepSeek matching setup
+
+Provider credentials are host state, not repository configuration. Do not add a workspace `.env` or
+`properties.env`. Export the credential under an explicit environment name, keep the value out of shell
+history and captured output, and let `config.toml` store only the reference. For example:
+
+```sh
+export EDEN_DEEPSEEK_KEY='<private value>'
+export EDEN_STATE_DIR=/tmp/eden-r2-state
+./apps/eden/dist/eden
+```
+
+From workspace review, press `p` and save this pipe-delimited profile:
+
+```text
+deepseek-v4|https://api.deepseek.com|deepseek-v4-pro|pay_as_you_go|1000000|393216|env:EDEN_DEEPSEEK_KEY
+```
+
+`deepseek-v4-flash` is the other currently admitted DeepSeek V4 model name. Outside the editor, press `c`
+and then `y` to authorize the minimal streamed readiness request, which uses the network and may incur a
+small charge. `eden profile list --json` and `eden profile check --json` expose masked configuration and
+readiness only. A configured active profile makes normal TUI and `eden exec --json` tasks use the real
+provider loop; explicit fake-action approval retains the deterministic R1 fake path.
+
+This setup is matching guidance, not a support or security certification. Use a private local state root;
+provider secrets never belong in prompts, journals, events, diagnostics, or repository files.
 
 ## Design principles
 

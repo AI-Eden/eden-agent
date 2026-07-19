@@ -88,6 +88,14 @@ raw native-process event. The committed terminal observation contains only the c
 structured failure. Executable paths, argv, environment, stdout, stderr, process IDs, and archive paths
 remain adapter diagnostics and are never journal or product facts.
 
+Slice 6 implements the complete lifecycle with stable `provider.model.step` effects, durable attempt-started,
+attempt-completed, retry, context-commit, and model-observation events. A protocol-complete answer commits
+one ordered assistant turn and produces non-success `completed`; a closed tool call commits only after name
+and arguments validate, then its terminal result becomes the next ordered context item. A post-delta stop may
+commit a bounded interrupted snapshot for review but contributes no partial turn, usage, tool call, or private
+continuity. Replay folds these records with zero provider or tool calls, while unresolved crash work becomes
+visible `unknown` and requires explicit retry.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import type { ProductCommand, ProductError, ProductView, RunId } from "@eden/contracts";
-import type { ModelDriver } from "@eden/providers";
+import type { ModelDriver, ModelStepDriver, ModelVisibleTextListener } from "@eden/providers";
 
 import { FakeToolHost } from "./fake-tool-host.ts";
 import { FileJournal } from "./journal/index.ts";
@@ -72,6 +72,8 @@ export async function openRunSession(
   create: boolean,
   modelDriver?: ModelDriver,
   repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot"> = {},
+  modelStepDriver?: ModelStepDriver,
+  onVisibleText?: ModelVisibleTextListener,
 ): Promise<RunSession> {
   const runDirectory = runDirectoryPath(stateDirectory, workspaceId, runId);
   const journal = await FileJournal.open(
@@ -81,7 +83,14 @@ export async function openRunSession(
   );
   const engine = await RuntimeEngine.open(
     journal,
-    new FakeToolHost(join(runDirectory, "receipts"), cwd, modelDriver, repositoryToolOptions),
+    new FakeToolHost(
+      join(runDirectory, "receipts"),
+      cwd,
+      modelDriver,
+      repositoryToolOptions,
+      modelStepDriver,
+      onVisibleText,
+    ),
     clock,
     idSource,
   );

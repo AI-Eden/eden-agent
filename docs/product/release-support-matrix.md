@@ -78,3 +78,13 @@ digests. The copied four-file Bun archive completed one search and one dirty Git
 empty directory; its closed manifest hashes matched `eden`, `rg`, and notices. TUI fixtures distinguished
 missing ripgrep from missing Git and rechecked a restored asset. Hosted Ubuntu/macOS/Windows archive rows
 remain `not-run`; this local Linux/WSL evidence does not expand release support.
+
+Slice 6 locally exercised streamed text, split tool-call fields, malformed/unknown calls, exact/unknown
+usage, budgets, cancellation, post-delta interruption, crash reconciliation, explicit retry, private
+continuity isolation, and replay with zero dispatch. The authorized real `deepseek-v4-pro` run
+`run-9369765f-6361-48b3-a257-6a90ffd98eec` completed two exact-usage model attempts, one verified local
+ripgrep `search_repository` call, and one sourced `completed` review answer. An earlier live interrupted
+attempt exposed the explicit retry path and led to a renderer-lifecycle fix; deterministic transport tests
+prove the completed recovery branch. The matching host required disabled TLS certificate verification for
+its proxy, so this row does not prove production TLS verification. Kimi and hosted provider matching remain
+`not-run`; this local evidence does not expand release support.

@@ -2,6 +2,7 @@ import { RepositoryToolCallSchema, RepositoryToolResultSchema } from "@eden/cont
 import Type from "typebox";
 import Schema from "typebox/schema";
 
+export * from "./model-step.ts";
 export * from "./openai-compatible.ts";
 
 const closed = { additionalProperties: false } as const;

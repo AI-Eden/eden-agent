@@ -8,9 +8,11 @@ passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014
 and unchanged-R1 baseline, Slice 1 added host-side profile onboarding without provider traffic, and Slice 2
 closed the explicit readiness boundary with a real DeepSeek V4 Pro matching row, and Slice 3 implemented
 scoped instruction snapshots plus deterministic context admission. Slice 4 added durable bounded
-`list_files`/`read_file` activity through one fake-model tool round trip. Changes to trust, terminal states,
-public product contracts, or non-goals require an ADR and human approval. Kimi remains `not-run` without an
-owner-provided subscription credential, so the product makes no Kimi support claim.
+`list_files`/`read_file` activity through one fake-model tool round trip, Slice 5 completed the closed
+search/Git-status surface, and Slice 6 connected the real multi-step provider/tool loop with durable attempt
+recovery. Changes to trust, terminal states, public product contracts, or non-goals require an ADR and human
+approval. Kimi remains `not-run` without an owner-provided subscription credential, so the product makes no
+Kimi support claim.
 
 ## User story
 
@@ -26,6 +28,9 @@ As a developer in a local Git repository, I can give Eden a coding task and acce
 - An approval is bound to an action digest, working directory, scope, and lifetime.
 - Editing detects stale snapshots before writing.
 - Only the verifier can emit a successful terminal transition.
+- A complete model answer is a non-success `completed` review outcome; it cannot forge `succeeded`.
+- Attempt identity is durable before provider dispatch. Only proven `not_started` may retry automatically,
+  at most once; post-delta, unresolved, or unknown work requires explicit retry.
 
 ## Terminal states
 
@@ -93,6 +98,9 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
 - SDK retries are disabled. Live text deltas are ephemeral; one complete, closed model observation becomes
   durable after protocol-complete termination. Ambiguous attempts do not silently replay, missing usage is
   `unknown`, and raw provider errors never leave the adapter boundary.
+- One run permits at most four model steps and four tool calls. A provider response is bounded to 32 KiB,
+  private continuity to 8 KiB, and an ordered conversation item is appended only from a closed model or tool
+  observation. Provider-private continuity is rehydrated only inside the adapter and never projected.
 - The first repository surface is exactly `list_files`, `read_file`, `search_repository`, and `git_status`.
   The model cannot choose an executable, argv, cwd, environment, or shell. Search uses pinned application-
   local ripgrep; Git status uses a compatible, explicitly probed host Git.

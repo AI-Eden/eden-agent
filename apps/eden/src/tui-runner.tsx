@@ -18,6 +18,7 @@ export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
     ...(environment.repositoryTools === undefined
       ? {}
       : { repositoryTools: environment.repositoryTools }),
+    realProviderRuns: "when-configured",
     stateDirectory: environment.stateDirectory,
   });
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | undefined;

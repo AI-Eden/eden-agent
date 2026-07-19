@@ -44,6 +44,18 @@ async function takeThroughApproval(
   return events;
 }
 
+async function takeThroughRevision(
+  iterable: AsyncIterable<ProductEvent>,
+  revision: number,
+): Promise<readonly ProductEvent[]> {
+  const events: ProductEvent[] = [];
+  for await (const event of iterable) {
+    events.push(event);
+    if (event.revision >= revision && event.type === "model.attempt.updated") break;
+  }
+  return events;
+}
+
 function writeEvents(events: readonly ProductEvent[], environment: HeadlessEnvironment): void {
   for (const event of events) environment.io.stdout(`${JSON.stringify(event)}\n`);
 }
@@ -59,6 +71,7 @@ export async function runHeadless(
       ...(environment.repositoryTools === undefined
         ? {}
         : { repositoryTools: environment.repositoryTools }),
+      realProviderRuns: options.approveFakeAction ? false : "when-configured",
       stateDirectory: environment.stateDirectory,
     });
     if (options.trustWorkspace) {
@@ -79,6 +92,36 @@ export async function runHeadless(
       type: "run.start",
     });
     const runId = awaiting.runId;
+    if (awaiting.terminalOutcome?.state === "completed") {
+      writeEvents(await collect(client.subscribe(runId)), environment);
+      return 0;
+    }
+    if (awaiting.terminalOutcome !== null) {
+      writeEvents(await collect(client.subscribe(runId)), environment);
+      if (
+        awaiting.terminalOutcome.state === "blocked" ||
+        awaiting.terminalOutcome.state === "failed"
+      ) {
+        writeError(awaiting.terminalOutcome.error, environment);
+      }
+      return 1;
+    }
+    if (awaiting.phase === "awaiting-retry") {
+      writeEvents(
+        await takeThroughRevision(client.subscribe(runId), awaiting.revision),
+        environment,
+      );
+      writeError(
+        awaiting.retry?.reason ?? {
+          code: "model_retry_required",
+          message: "The provider model attempt requires an explicit retry.",
+          recoverability: "ask-user",
+          suggestedActions: ["Retry this run through an interactive client."],
+        },
+        environment,
+      );
+      return 1;
+    }
     if (!options.approveFakeAction) {
       writeEvents(await takeThroughApproval(client.subscribe(runId)), environment);
       writeError(

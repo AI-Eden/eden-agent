@@ -141,8 +141,81 @@ export type RepositoryToolExchange = {
   readonly result: RepositoryToolResult | null;
 };
 
+export type ModelRunConfiguration = {
+  readonly contextWindowTokens: number;
+  readonly maxOutputTokens: number;
+  readonly model: string;
+  readonly profileId: string;
+};
+
+export type ModelUsage = {
+  readonly completionTokens: number;
+  readonly promptTokens: number;
+  readonly totalTokens: number;
+};
+
+export type ModelConversationItem =
+  | { readonly content: string; readonly role: "user" }
+  | {
+      readonly content: string;
+      readonly privateContinuity: string | null;
+      readonly role: "assistant";
+      readonly toolCalls: readonly RepositoryToolCall[];
+    }
+  | {
+      readonly call: RepositoryToolCall;
+      readonly result: RepositoryToolResult;
+      readonly role: "tool";
+    };
+
+export type ModelContextItem = {
+  readonly content: string;
+  readonly contextItemId: string;
+};
+
+export type ModelAttemptError = {
+  readonly code: string;
+  readonly message: string;
+  readonly recoverability: "retry" | "reconfigure" | "ask-user" | "fatal";
+  readonly suggestedActions: readonly string[];
+};
+
+export type ModelStepObservation =
+  | {
+      readonly attemptId: string;
+      readonly finishStatus: "stop" | "tool_calls";
+      readonly privateContinuity: string | null;
+      readonly requestId: string | null;
+      readonly status: "completed";
+      readonly text: string;
+      readonly toolCalls: readonly RepositoryToolCall[];
+      readonly usage: ModelUsage | null;
+      readonly version: 1;
+    }
+  | {
+      readonly attemptId: string;
+      readonly error: ModelAttemptError;
+      readonly status: "not_started" | "unknown";
+      readonly version: 1;
+    }
+  | {
+      readonly attemptId: string;
+      readonly error: ModelAttemptError;
+      readonly partialText: string;
+      readonly status: "interrupted";
+      readonly version: 1;
+    };
+
+export type ModelAttempt = {
+  readonly attemptId: string;
+  readonly observation: ModelStepObservation | null;
+  readonly reason: "initial" | "automatic-not-started-retry" | "explicit-retry";
+  readonly step: number;
+};
+
 export type TerminalOutcome =
   | { readonly state: "succeeded"; readonly evidenceRef: string }
+  | { readonly state: "completed"; readonly answer: string }
   | { readonly state: "failed" | "blocked"; readonly error: KernelProductError }
   | { readonly state: "cancelled" };
 
@@ -153,6 +226,15 @@ export type KernelEffect =
       readonly runId: string;
       readonly task: string;
       readonly toolResult?: RepositoryToolResult;
+    }
+  | {
+      readonly type: "provider.model.step";
+      readonly effectId: string;
+      readonly maxOutputTokens: number;
+      readonly model: string;
+      readonly profileId: string;
+      readonly runId: string;
+      readonly step: number;
     }
   | {
       readonly type: "repository.tool.execute";
@@ -170,6 +252,7 @@ export type KernelEvent =
       readonly runId: string;
       readonly task: string;
       readonly workspace: RunWorkspace;
+      readonly model?: ModelRunConfiguration;
     }
   | {
       readonly type: "approval.resolved";
@@ -186,6 +269,24 @@ export type KernelEvent =
       readonly type: "fake.model.tool-requested";
       readonly effectId: string;
       readonly toolCall: RepositoryToolCall;
+    }
+  | {
+      readonly type: "model.context.committed";
+      readonly item: ModelContextItem;
+    }
+  | {
+      readonly type: "model.attempt.started";
+      readonly attemptId: string;
+      readonly effectId: string;
+      readonly reason: ModelAttempt["reason"];
+    }
+  | {
+      readonly type: "model.step.completed";
+      readonly effectId: string;
+      readonly observation: ModelStepObservation;
+    }
+  | {
+      readonly type: "model.retry.requested";
     }
   | {
       readonly type: "repository.tool.completed";
@@ -249,11 +350,60 @@ export type TerminalRunState = Omit<ActiveRunFields, "terminalOutcome"> & {
   readonly terminalOutcome: TerminalOutcome;
 };
 
+type ProviderActiveRunFields = {
+  readonly action: null;
+  readonly attempts: readonly ModelAttempt[];
+  readonly conversation: readonly ModelConversationItem[];
+  readonly context: readonly ModelContextItem[];
+  readonly correlationId: string;
+  readonly model: ModelRunConfiguration;
+  readonly modelStep: number;
+  readonly revision: number;
+  readonly runId: string;
+  readonly task: string;
+  readonly terminalOutcome: null;
+  readonly tool: RepositoryToolExchange | null;
+  readonly tools: readonly RepositoryToolExchange[];
+  readonly workspace: RunWorkspace;
+};
+
+export type ProviderExecutingRunState = ProviderActiveRunFields & {
+  readonly inFlightEffect: KernelEffect | null;
+  readonly phase: "executing";
+  readonly stage:
+    | "model-ready"
+    | "model-awaiting-attempt"
+    | "model-in-flight"
+    | "tool-ready"
+    | "tool-in-flight";
+};
+
+export type AwaitingRetryRunState = ProviderActiveRunFields & {
+  readonly inFlightEffect: Extract<KernelEffect, { readonly type: "provider.model.step" }>;
+  readonly interruption: Extract<
+    ModelStepObservation,
+    { readonly status: "interrupted" | "not_started" | "unknown" }
+  >;
+  readonly phase: "awaiting-retry";
+};
+
+export type ProviderTerminalRunState = Omit<ProviderActiveRunFields, "terminalOutcome"> & {
+  readonly inFlightEffect: null;
+  readonly phase: "terminal";
+  readonly terminalOutcome: Extract<
+    TerminalOutcome,
+    { readonly state: "completed" | "blocked" | "cancelled" }
+  >;
+};
+
 export type RunState =
   | IdleRunState
   | AwaitingApprovalRunState
   | ExecutingRunState
-  | TerminalRunState;
+  | TerminalRunState
+  | ProviderExecutingRunState
+  | AwaitingRetryRunState
+  | ProviderTerminalRunState;
 
 export type TransitionError = {
   readonly code: "illegal_transition";

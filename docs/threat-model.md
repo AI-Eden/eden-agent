@@ -59,6 +59,14 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   modified/wrong-target assets, and verify version plus SHA-256 before every search. Probe host Git with a
   minimum version, disable interactive/config/pager/optional-lock behavior, parse only bounded semantic
   output, and terminate the complete native process group on timeout or cancellation.
+- Keep streamed model deltas ephemeral and bounded. Commit only protocol-complete closed model observations;
+  exclude interrupted partial text, partial tool calls, usage, and private continuity from later context.
+- Persist provider attempt identity before dispatch, disable SDK retries, and allow automatic retry only for
+  one proven `not_started` attempt. Unknown or post-delta work requires an explicit user retry.
+- Never recurse through repository symlinks during search preflight and pass ripgrep an explicit no-follow
+  policy; a directly requested linked scope still fails closed.
+- Resolve an explicitly named credential only at the adapter boundary. Never write its value to workspace
+  configuration, prompts, tool environments, journals, product events, diagnostics, or evidence artifacts.
 
 ## Execution modes
 

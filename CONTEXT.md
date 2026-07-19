@@ -5,7 +5,7 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-4 are complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-6 are complete.
 
 ## Current truth
 
@@ -73,11 +73,18 @@ status probes host Git 2.31.0 or newer and uses fixed porcelain-v2/NUL arguments
 non-interactive environment. The complete Bun archive now contains `eden`, `rg`,
 `THIRD_PARTY_NOTICES.txt`, and `eden-assets.json`. Local Node, Bun, copied-archive, missing-prerequisite,
 pagination, zero-write, cancellation, process-tree, TUI, and full-workspace evidence is green.
+Slice 6 connects the real OpenAI-compatible streamed model step to the same four closed repository tools.
+The runtime owns the ordered conversation, stable attempt identities, four-step/four-tool budgets, exact or
+unknown usage, one automatic retry only for proven `not_started`, explicit retry after ambiguous attempts,
+and replay without provider or tool dispatch. Live deltas remain ephemeral; only closed terminal model
+observations and bounded context are durable. A model answer reaches `completed` review, never verifier-
+owned `succeeded`. The authorized local DeepSeek V4 Pro matching run completed one pinned-ripgrep tool round
+trip and returned a sourced answer; Kimi remains `not-run`.
 
 ## Next implementation slice
 
-Implement Slice 6: real multi-step provider/tool execution and durable attempt recovery through the same
-closed model/runtime contract. The approved later slices still exclude
+Implement Slice 7: product-quality responsive TUI integration, deterministic focus, help/palette behavior,
+and real PTY evidence through the same product/runtime contract. The approved later slices still exclude
 AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
 scope.
 
@@ -89,6 +96,9 @@ scope.
   hosted and real-provider rows remain later plan work.
 - Kimi remains `not-run` because no subscription credential is available; this is not evidence about Kimi
   compatibility and does not support a Kimi subscription claim.
+- The local DeepSeek matching environment required disabled TLS certificate verification because of the
+  host proxy setup. It proves the provider/product protocol path, not production TLS verification or release
+  support; Slice 8 must preserve this residual risk unless a verified environment replaces the row.
 - Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
   in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 

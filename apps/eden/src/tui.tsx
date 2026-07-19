@@ -85,6 +85,10 @@ function EdenTuiSurface({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
+  const [liveModelText, setLiveModelText] = useState<{
+    readonly attemptId: string;
+    readonly text: string;
+  } | null>(null);
   const [profileCatalog, setProfileCatalog] = useState<ProviderProfileCatalog | null>(null);
   const [profileDraft, setProfileDraft] = useState("");
   const [profileEditorFocused, setProfileEditorFocused] = useState(false);
@@ -376,6 +380,31 @@ function EdenTuiSurface({
     }
   };
 
+  const retryModel = async () => {
+    if (view === null || view.phase !== "awaiting-retry") return;
+    const controller = new AbortController();
+    activeOperation.current = controller;
+    try {
+      const nextView = await client.submit(
+        {
+          commandId: randomUUID(),
+          expectedRevision: view.revision,
+          protocolVersion: 1,
+          runId: view.runId,
+          type: "model.retry",
+        },
+        { signal: controller.signal },
+      );
+      setView(nextView);
+      onViewChange?.(nextView);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, "The model attempt could not be retried."));
+    } finally {
+      if (activeOperation.current === controller) activeOperation.current = null;
+    }
+  };
+
   useKeyboard((key) => {
     if (key.ctrl && key.name === "c") {
       if (activeOperation.current !== null) {
@@ -470,11 +499,17 @@ function EdenTuiSurface({
       if (key.name === "a") void resolveApproval("approve");
       if (key.name === "d") void resolveApproval("deny");
     }
+    if (view?.phase === "awaiting-retry" && !key.meta && !key.option && key.name === "u") {
+      void retryModel();
+    }
   });
 
-  useEffect(() => () => {
-    activeOperation.current?.abort();
-  });
+  useEffect(
+    () => () => {
+      activeOperation.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (initialWorkspaceReview !== undefined) {
@@ -542,6 +577,28 @@ function EdenTuiSurface({
     };
   }, [client, publishReadiness]);
 
+  useEffect(() => {
+    if (client.subscribeModelText === undefined) return;
+    const controller = new AbortController();
+    const follow = async () => {
+      for await (const delta of client.subscribeModelText?.({ signal: controller.signal }) ?? []) {
+        setLiveModelText((current) => {
+          if (current?.attemptId !== delta.attemptId || delta.offset === 0) {
+            return { attemptId: delta.attemptId, text: delta.text };
+          }
+          if (current.text.length !== delta.offset) return current;
+          return { attemptId: delta.attemptId, text: current.text + delta.text };
+        });
+      }
+    };
+    void follow().catch((cause) => {
+      if (!controller.signal.aborted) {
+        setError(errorMessage(cause, "The live model stream could not be displayed."));
+      }
+    });
+    return () => controller.abort();
+  }, [client]);
+
   const followedRunId = following ? (view?.runId ?? null) : null;
   useEffect(() => {
     if (followedRunId === null) return;
@@ -550,6 +607,9 @@ function EdenTuiSurface({
     const follow = async () => {
       for await (const event of client.subscribe(runId, undefined, { signal: controller.signal })) {
         setTimeline((current) => [...current, event.type]);
+        if (event.type === "model.attempt.updated" && event.attempt.state !== "started") {
+          setLiveModelText(null);
+        }
         setView(await client.getSnapshot(runId));
       }
     };
@@ -572,6 +632,7 @@ function EdenTuiSurface({
       height={height}
       historyError={history.error}
       inspection={history.inspection}
+      liveModelText={liveModelText?.text ?? null}
       onDraftChange={setDraft}
       onProfileDraftChange={(displayed) =>
         setProfileDraft((previous) => reconcileMaskedProfileDraft(previous, displayed))

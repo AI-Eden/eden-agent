@@ -80,7 +80,7 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         cursor += 1;
         break;
       case "fake.model.tool-requested": {
-        const activity = view.tools?.[0];
+        const activity = view.tools?.at(-1);
         if (activity === undefined) {
           throw new ProjectionError("A repository tool request requires visible activity.");
         }
@@ -95,7 +95,7 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         break;
       }
       case "repository.tool.completed": {
-        const activity = view.tools?.[0];
+        const activity = view.tools?.at(-1);
         if (activity === undefined) {
           throw new ProjectionError("A repository tool result requires visible activity.");
         }
@@ -119,6 +119,72 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         }
         break;
       }
+      case "model.attempt.started": {
+        const attempt = view.attempts?.at(-1);
+        if (attempt === undefined) {
+          throw new ProjectionError("A model attempt start requires a visible attempt.");
+        }
+        events.push({
+          ...base,
+          attempt,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          type: "model.attempt.updated",
+        });
+        cursor += 1;
+        break;
+      }
+      case "model.step.completed": {
+        const attempt = view.attempts?.at(-1);
+        if (attempt === undefined) {
+          throw new ProjectionError("A terminal model observation requires a visible attempt.");
+        }
+        events.push({
+          ...base,
+          attempt,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          type: "model.attempt.updated",
+        });
+        cursor += 1;
+        const turn = view.conversation?.at(-1);
+        if (
+          turn?.role === "assistant" &&
+          turn.attemptId === decoded.value.event.observation.attemptId
+        ) {
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:1`,
+            turn,
+            type: "conversation.updated",
+          });
+          cursor += 1;
+        }
+        if (state.phase === "terminal") {
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:2`,
+            outcome: requireTerminal(view),
+            type: "run.terminal",
+          });
+          cursor += 1;
+        }
+        break;
+      }
+      case "model.retry.requested":
+        events.push({
+          ...base,
+          currentAction: view.currentAction,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          phase: view.phase,
+          progress: progress(state),
+          type: "phase.progress",
+        });
+        cursor += 1;
+        break;
       case "approval.resolved":
         if (state.phase === "terminal") {
           events.push({
@@ -143,6 +209,7 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         cursor += 1;
         break;
       case "effect.requested":
+      case "model.context.committed":
       case "fake.action.completed":
         events.push({
           ...base,

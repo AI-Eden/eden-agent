@@ -9,6 +9,7 @@ import {
   readdir,
   readFile,
   rename,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -157,6 +158,33 @@ describe("native repository semantic tools", () => {
     assert.equal(await treeDigest(root), before);
   });
 
+  it("searches a repository with linked entries without following their external targets", async () => {
+    const root = await mkdtemp(join(tmpdir(), "eden-native-search-linked-"));
+    const outside = await mkdtemp(join(tmpdir(), "eden-native-search-outside-"));
+    await writeFile(join(root, "inside.txt"), "EDEN_NATIVE_MATCH inside\n");
+    await writeFile(join(outside, "outside.txt"), "EDEN_NATIVE_MATCH outside\n");
+    await symlink(join(outside, "outside.txt"), join(root, "linked.txt"));
+    const service = await RepositoryToolService.open({
+      ripgrepAsset: await pinnedRipgrep(),
+      workspaceRoot: root,
+    });
+
+    const result = await service.execute(searchCall());
+
+    assert.equal(result.productData.status, "succeeded");
+    assert.equal(result.productData.name, "search_repository");
+    if (
+      result.productData.status !== "succeeded" ||
+      result.productData.name !== "search_repository"
+    ) {
+      return;
+    }
+    assert.deepEqual(result.productData.data.matches, [
+      { byteColumn: 1, lineNumber: 1, path: "inside.txt", preview: "EDEN_NATIVE_MATCH inside\n" },
+    ]);
+    assert.equal(JSON.stringify(result.productData).includes("outside"), false);
+  });
+
   it("paginates real search results at the closed row bound without overlap", async () => {
     const root = await mkdtemp(join(tmpdir(), "eden-native-search-page-"));
     await writeFile(
@@ -294,6 +322,7 @@ describe("native repository semantic tools", () => {
         "--max-columns",
         "4096",
         "--max-columns-preview",
+        "--no-follow",
         "--glob",
         "!.git/**",
         "--",

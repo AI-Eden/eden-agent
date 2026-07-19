@@ -103,6 +103,10 @@ export const ResolveApprovalCommandSchema = Type.Object(
   },
   closed,
 );
+export const RetryModelCommandSchema = Type.Object(
+  { ...runCommandEnvelope, type: Type.Literal("model.retry") },
+  closed,
+);
 export const ResolveWorkspaceTrustCommandSchema = Type.Object(
   {
     ...commandEnvelope,
@@ -120,12 +124,14 @@ export const ProductCommandSchema = Type.Union([
   ResumeRunCommandSchema,
   CancelRunCommandSchema,
   ResolveApprovalCommandSchema,
+  RetryModelCommandSchema,
 ]);
 export type ProductCommand = Type.Static<typeof ProductCommandSchema>;
 
 export const ProductPhaseSchema = Type.Union([
   Type.Literal("awaiting-approval"),
   Type.Literal("executing"),
+  Type.Literal("awaiting-retry"),
   Type.Literal("review"),
 ]);
 export type ProductPhase = Type.Static<typeof ProductPhaseSchema>;
@@ -189,6 +195,13 @@ export const CheckResultSchema = Type.Object(
 export type CheckResult = Type.Static<typeof CheckResultSchema>;
 
 export const TerminalOutcomeSchema = Type.Union([
+  Type.Object(
+    {
+      answer: Type.String({ maxLength: 32_768, minLength: 1 }),
+      state: Type.Literal("completed"),
+    },
+    closed,
+  ),
   Type.Object(
     {
       state: Type.Literal("succeeded"),
@@ -497,6 +510,73 @@ export const ToolActivitySchema = Type.Refine(
 );
 export type ToolActivity = Type.Static<typeof ToolActivitySchema>;
 
+export const ModelUsageSummarySchema = Type.Union([
+  Type.Refine(
+    Type.Object(
+      {
+        completionTokens: Type.Integer(safeInteger),
+        promptTokens: Type.Integer(safeInteger),
+        state: Type.Literal("exact"),
+        totalTokens: Type.Integer(safeInteger),
+      },
+      closed,
+    ),
+    (value) => value.totalTokens === value.promptTokens + value.completionTokens,
+  ),
+  Type.Object({ state: Type.Literal("unknown") }, closed),
+]);
+export type ModelUsageSummary = Type.Static<typeof ModelUsageSummarySchema>;
+
+export const ModelAttemptSummarySchema = Type.Object(
+  {
+    attemptId: Type.String(identifierOptions),
+    error: Type.Union([ProductErrorSchema, Type.Null()]),
+    reason: Type.Union([
+      Type.Literal("initial"),
+      Type.Literal("automatic-not-started-retry"),
+      Type.Literal("explicit-retry"),
+    ]),
+    state: Type.Union([
+      Type.Literal("started"),
+      Type.Literal("completed"),
+      Type.Literal("not_started"),
+      Type.Literal("interrupted"),
+      Type.Literal("unknown"),
+    ]),
+    step: Type.Integer({ maximum: 4, minimum: 1 }),
+    usage: ModelUsageSummarySchema,
+  },
+  closed,
+);
+export type ModelAttemptSummary = Type.Static<typeof ModelAttemptSummarySchema>;
+
+export const ConversationTurnSchema = Type.Union([
+  Type.Object(
+    { content: boundedText(), role: Type.Literal("user"), turnId: Type.String(identifierOptions) },
+    closed,
+  ),
+  Type.Object(
+    {
+      attemptId: Type.String(identifierOptions),
+      content: Type.String({ maxLength: 32_768, minLength: 1 }),
+      role: Type.Literal("assistant"),
+      status: Type.Union([Type.Literal("complete"), Type.Literal("incomplete")]),
+      turnId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+]);
+export type ConversationTurn = Type.Static<typeof ConversationTurnSchema>;
+
+export const RetrySummarySchema = Type.Object(
+  {
+    available: Type.Boolean(),
+    reason: Type.Union([ProductErrorSchema, Type.Null()]),
+  },
+  closed,
+);
+export type RetrySummary = Type.Static<typeof RetrySummarySchema>;
+
 export const ContextPrioritySchema = Type.Union([
   Type.Literal("P0"),
   Type.Literal("P1"),
@@ -777,6 +857,9 @@ export const ProductViewSchema = Type.Object(
     terminalOutcome: Type.Union([TerminalOutcomeSchema, Type.Null()]),
     context: Type.Optional(ContextAdmissionSummarySchema),
     tools: Type.Optional(Type.Array(ToolActivitySchema, { maxItems: 4 })),
+    attempts: Type.Optional(Type.Array(ModelAttemptSummarySchema, { maxItems: 12 })),
+    conversation: Type.Optional(Type.Array(ConversationTurnSchema, { maxItems: 9 })),
+    retry: Type.Optional(RetrySummarySchema),
   },
   closed,
 );
@@ -872,6 +955,9 @@ function terminalOutcomesEqual(
   if (left.state === "succeeded" && right.state === "succeeded") {
     return left.evidenceRef === right.evidenceRef;
   }
+  if (left.state === "completed" && right.state === "completed") {
+    return left.answer === right.answer;
+  }
   if (
     (left.state === "blocked" || left.state === "failed") &&
     (right.state === "blocked" || right.state === "failed")
@@ -957,15 +1043,47 @@ export const ToolUpdatedEventSchema = Type.Object(
   },
   closed,
 );
+export const ModelAttemptUpdatedEventSchema = Type.Object(
+  {
+    ...eventEnvelope,
+    attempt: ModelAttemptSummarySchema,
+    type: Type.Literal("model.attempt.updated"),
+  },
+  closed,
+);
+export const ConversationUpdatedEventSchema = Type.Object(
+  {
+    ...eventEnvelope,
+    turn: ConversationTurnSchema,
+    type: Type.Literal("conversation.updated"),
+  },
+  closed,
+);
 export const ProductEventSchema = Type.Union([
   SessionSnapshotEventSchema,
   PhaseProgressEventSchema,
   ApprovalPresentedEventSchema,
   VerificationUpdatedEventSchema,
   ToolUpdatedEventSchema,
+  ModelAttemptUpdatedEventSchema,
+  ConversationUpdatedEventSchema,
   RunTerminalEventSchema,
 ]);
 export type ProductEvent = Type.Static<typeof ProductEventSchema>;
+
+export const ProductModelDeltaSchema = Type.Object(
+  {
+    attemptId: Type.String(identifierOptions),
+    cursor: EventCursorSchema,
+    offset: Type.Integer(safeInteger),
+    outputIndex: Type.Literal(0),
+    protocolVersion: ProductProtocolVersionSchema,
+    runId: RunIdSchema,
+    text: Type.String({ maxLength: 32_768, minLength: 1 }),
+  },
+  closed,
+);
+export type ProductModelDelta = Type.Static<typeof ProductModelDeltaSchema>;
 
 export const ProductCommandDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: ProductCommandSchema }, closed),
@@ -1066,6 +1184,9 @@ export interface AgentClient {
     afterCursor?: EventCursor,
     options?: { readonly signal?: AbortSignal },
   ): AsyncIterable<ProductEvent>;
+  subscribeModelText?(options?: {
+    readonly signal?: AbortSignal;
+  }): AsyncIterable<ProductModelDelta>;
   close(): Promise<void>;
 }
 

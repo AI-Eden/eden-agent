@@ -125,6 +125,14 @@ runtime never searches for another `rg`. Git remains a compatible host prerequis
 fixed porcelain-v2/NUL status parsing. Only bounded semantic matches/status rows and public prerequisite
 facts cross into contracts, kernel state, receipts, journal records, or renderers.
 
+Slice 6 completes the first real model/tool loop. `packages/providers` normalizes streamed content and
+split tool-call fields into one closed model-step observation; `coding-runtime` records attempt identity
+before dispatch, builds ordered context from durable state, verifies instruction snapshots at the final
+pre-network boundary, and dispatches only the four semantic tools. The kernel enforces four model steps,
+four tool calls, a single automatic retry for proven `not_started`, and explicit retry for ambiguous work.
+Provider-private continuity is bounded and adapter-only. Live deltas reach clients through a transient
+subscription but never become replay authority; a complete answer enters `completed` review, not success.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

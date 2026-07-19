@@ -42,6 +42,7 @@ function productError(error: KernelProductError) {
 function productOutcome(outcome: TerminalOutcome): ProductView["terminalOutcome"] {
   switch (outcome.state) {
     case "succeeded":
+    case "completed":
     case "cancelled":
       return outcome;
     case "blocked":
@@ -57,6 +58,15 @@ export function progress(state: Exclude<RunState, { readonly phase: "idle" }>) {
     case "awaiting-approval":
       return { completed: 1, summary: "Awaiting approval for the fake action.", total: 4 };
     case "executing":
+      if ("model" in state) {
+        const summary =
+          state.stage === "tool-ready" || state.stage === "tool-in-flight"
+            ? "Reading bounded repository context for the model."
+            : state.stage === "model-awaiting-attempt"
+              ? "Preparing an explicit provider attempt."
+              : "Generating a repository-grounded answer.";
+        return { completed: state.modelStep - 1, summary, total: 4 };
+      }
       switch (state.stage) {
         case "model-ready":
         case "model-in-flight":
@@ -80,14 +90,28 @@ export function progress(state: Exclude<RunState, { readonly phase: "idle" }>) {
         default:
           return assertNever(state);
       }
+    case "awaiting-retry":
+      return {
+        completed: state.modelStep - 1,
+        summary: "The model attempt requires an explicit retry decision.",
+        total: 4,
+      };
     case "terminal":
-      return { completed: 4, summary: "The deterministic fake task is terminal.", total: 4 };
+      return {
+        completed: 4,
+        summary:
+          "model" in state
+            ? "The repository answer is complete for review."
+            : "The deterministic fake task is terminal.",
+        total: 4,
+      };
     default:
       return assertNever(state);
   }
 }
 
 function checks(outcome: ProductView["terminalOutcome"]): ProductView["checks"] {
+  if (outcome?.state === "completed") return [];
   if (outcome?.state === "succeeded") {
     return [
       {
@@ -113,17 +137,89 @@ function checks(outcome: ProductView["terminalOutcome"]): ProductView["checks"] 
 }
 
 function productTools(state: Exclude<RunState, { readonly phase: "idle" }>): ProductView["tools"] {
-  if (state.tool === null) return undefined;
-  const call = decodeRepositoryToolCall(state.tool.call);
-  if (!call.ok) throw new ProjectionError("The repository tool call failed projection validation.");
-  if (state.tool.result === null) {
-    return [{ call: call.value, result: null, state: "requested" }];
+  const exchanges = "tools" in state ? state.tools : state.tool === null ? [] : [state.tool];
+  if (exchanges.length === 0) return undefined;
+  return exchanges.map((exchange) => {
+    const call = decodeRepositoryToolCall(exchange.call);
+    if (!call.ok) {
+      throw new ProjectionError("The repository tool call failed projection validation.");
+    }
+    if (exchange.result === null) {
+      return { call: call.value, result: null, state: "requested" } as const;
+    }
+    const result = decodeRepositoryToolResult(exchange.result);
+    if (!result.ok) {
+      throw new ProjectionError("The repository tool result failed projection validation.");
+    }
+    return { call: call.value, result: result.value, state: "completed" } as const;
+  });
+}
+
+function providerProjection(state: Exclude<RunState, { readonly phase: "idle" }>) {
+  if (!("model" in state)) return {};
+  const attempts = state.attempts.map((attempt) => ({
+    attemptId: attempt.attemptId,
+    error:
+      attempt.observation === null || attempt.observation.status === "completed"
+        ? null
+        : productError(attempt.observation.error),
+    reason: attempt.reason,
+    state: attempt.observation?.status ?? ("started" as const),
+    step: attempt.step,
+    usage:
+      attempt.observation?.status === "completed" && attempt.observation.usage !== null
+        ? { ...attempt.observation.usage, state: "exact" as const }
+        : { state: "unknown" as const },
+  }));
+  const conversation: NonNullable<ProductView["conversation"]> = [
+    {
+      content: state.task,
+      role: "user",
+      turnId: `user-${state.runId}`,
+    },
+  ];
+  let assistantIndex = 0;
+  for (const item of state.conversation) {
+    if (item.role !== "assistant" || item.content.length === 0) continue;
+    const attempt = state.attempts.filter((entry) => entry.step === assistantIndex + 1).at(-1);
+    if (attempt === undefined) continue;
+    conversation.push({
+      attemptId: attempt.attemptId,
+      content: item.content,
+      role: "assistant",
+      status: "complete",
+      turnId: `assistant-${attempt.attemptId}`,
+    });
+    assistantIndex += 1;
   }
-  const result = decodeRepositoryToolResult(state.tool.result);
-  if (!result.ok) {
-    throw new ProjectionError("The repository tool result failed projection validation.");
+  if (state.phase === "terminal" && state.terminalOutcome.state === "completed") {
+    const attempt = state.attempts.at(-1);
+    if (attempt !== undefined) {
+      conversation.push({
+        attemptId: attempt.attemptId,
+        content: state.terminalOutcome.answer,
+        role: "assistant",
+        status: "complete",
+        turnId: `assistant-${attempt.attemptId}`,
+      });
+    }
+  } else if (state.phase === "awaiting-retry" && state.interruption.status === "interrupted") {
+    conversation.push({
+      attemptId: state.interruption.attemptId,
+      content: state.interruption.partialText,
+      role: "assistant",
+      status: "incomplete",
+      turnId: `assistant-${state.interruption.attemptId}-incomplete`,
+    });
   }
-  return [{ call: call.value, result: result.value, state: "completed" }];
+  return {
+    attempts,
+    conversation,
+    retry: {
+      available: state.phase === "awaiting-retry",
+      reason: state.phase === "awaiting-retry" ? productError(state.interruption.error) : null,
+    },
+  };
 }
 
 export function projectView(state: RunState): ProductView {
@@ -131,6 +227,7 @@ export function projectView(state: RunState): ProductView {
     throw new ProjectionError("Idle state has no product run view.");
   }
   const awaitingApproval = state.phase === "awaiting-approval";
+  const awaitingRetry = state.phase === "awaiting-retry";
   const terminal = state.phase === "terminal";
   const terminalOutcome = terminal ? productOutcome(state.terminalOutcome) : null;
   const succeeded = terminalOutcome?.state === "succeeded";
@@ -148,10 +245,18 @@ export function projectView(state: RunState): ProductView {
     currentAction: terminal || state.action === null ? null : actionSummary(state.action),
     nextActions: awaitingApproval
       ? ["Approve or deny the deterministic fake action."]
-      : terminal
-        ? ["Review the terminal evidence."]
-        : ["Wait for the deterministic fake task to advance."],
-    phase: awaitingApproval ? "awaiting-approval" : terminal ? "review" : "executing",
+      : awaitingRetry
+        ? ["Explicitly retry from the last committed conversation turn or cancel the run."]
+        : terminal
+          ? ["Review the terminal evidence."]
+          : ["Wait for the deterministic fake task to advance."],
+    phase: awaitingApproval
+      ? "awaiting-approval"
+      : awaitingRetry
+        ? "awaiting-retry"
+        : terminal
+          ? "review"
+          : "executing",
     progress: progress(state),
     protocolVersion: 1,
     residualRisk: succeeded ? "This run exercised only deterministic fake boundaries." : null,
@@ -159,6 +264,7 @@ export function projectView(state: RunState): ProductView {
     runId: state.runId,
     terminalOutcome,
     ...(tools === undefined ? {} : { tools }),
+    ...providerProjection(state),
     viewId: `${state.runId}:view:${state.revision}`,
     workspace: state.workspace,
   };

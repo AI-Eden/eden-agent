@@ -774,14 +774,7 @@ export class RepositoryToolService {
     if (!target.metadata.isDirectory()) {
       throw toolError("tool_file_type_unsupported", "The search scope has an unsupported type.");
     }
-    await this.listFiles(
-      {
-        arguments: { continuation: null, path: call.arguments.path },
-        name: "list_files",
-        toolCallId: `${call.toolCallId}:preflight`,
-      },
-      signal,
-    );
+    abortIfNeeded(signal);
   }
 
   private parseSearchOutput(output: Uint8Array): SearchMatch[] {
@@ -878,6 +871,7 @@ export class RepositoryToolService {
             "--max-columns",
             "4096",
             "--max-columns-preview",
+            "--no-follow",
             "--glob",
             "!.git/**",
             "--",

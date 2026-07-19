@@ -1,12 +1,25 @@
+import { decodeRepositoryToolCall, type RepositoryToolCall } from "@eden/contracts";
 import OpenAI, {
   APIConnectionError,
   APIConnectionTimeoutError,
   APIError,
   APIUserAbortError,
 } from "openai";
-import type { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
+import type {
+  ChatCompletionCreateParamsStreaming,
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+} from "openai/resources/chat/completions";
 import Type from "typebox";
 import Schema from "typebox/schema";
+
+import type {
+  ModelStepObservationV1,
+  ModelStepRequestV1,
+  ModelUsage,
+  ModelVisibleTextListener,
+} from "./model-step.ts";
+import { decodeModelStepRequest } from "./model-step.ts";
 
 const closed = { additionalProperties: false } as const;
 
@@ -122,6 +135,10 @@ export type OpenAICompatibleProviderOptions = {
 };
 
 type OpenAICompatibleReadinessRequest = ChatCompletionCreateParamsStreaming & {
+  readonly thinking: { readonly type: "disabled" };
+};
+
+type OpenAICompatibleModelRequest = ChatCompletionCreateParamsStreaming & {
   readonly thinking: { readonly type: "disabled" };
 };
 
@@ -354,4 +371,325 @@ export class OpenAICompatibleProvider {
       throw this.failure(error);
     }
   }
+
+  async completeModelStep(
+    input: ModelStepRequestV1,
+    signal: AbortSignal,
+    onVisibleText?: ModelVisibleTextListener,
+  ): Promise<ModelStepObservationV1> {
+    let visibleText = "";
+    let privateContinuity = "";
+    let receivedApplicationDelta = false;
+    try {
+      signal.throwIfAborted();
+      validateModelStepInput(input);
+      const body: OpenAICompatibleModelRequest = {
+        max_tokens: input.maxOutputTokens,
+        messages: input.conversation.map(conversationMessage),
+        model: this.model,
+        parallel_tool_calls: false,
+        stream: true,
+        stream_options: { include_usage: true },
+        thinking: { type: "disabled" },
+        tools: input.enabledTools.map(repositoryTool),
+      };
+      const { data: stream, request_id: rawRequestId } = await this.client.chat.completions
+        .create(body, { signal })
+        .withResponse();
+      const toolFragments = new Map<
+        number,
+        { arguments: string; id: string; name: string; type: string | null }
+      >();
+      let finishStatus: "stop" | "tool_calls" | null = null;
+      let usage: ModelUsage | null = null;
+      for await (const chunk of stream) {
+        if (chunk.usage !== undefined && chunk.usage !== null) {
+          usage = validatedUsage(chunk.usage);
+        }
+        if (chunk.choices.length === 0) continue;
+        if (chunk.choices.length !== 1) throw new Error("invalid choice count");
+        const choice = chunk.choices[0];
+        if (choice === undefined || choice.index !== 0) throw new Error("invalid choice index");
+        const delta = choice.delta as typeof choice.delta & {
+          readonly reasoning_content?: unknown;
+          readonly tool_calls?: readonly {
+            readonly function?: { readonly arguments?: string; readonly name?: string };
+            readonly id?: string;
+            readonly index: number;
+            readonly type?: string;
+          }[];
+        };
+        const allowedDeltaKeys = new Set([
+          "content",
+          "reasoning_content",
+          "refusal",
+          "role",
+          "tool_calls",
+        ]);
+        if (Object.keys(choice.delta).some((key) => !allowedDeltaKeys.has(key))) {
+          throw new Error("unsupported model delta");
+        }
+        if (delta.refusal !== undefined && delta.refusal !== null) {
+          throw new Error("model refusal is unsupported");
+        }
+        if (typeof delta.content === "string" && delta.content.length > 0) {
+          receivedApplicationDelta = true;
+          const offset = visibleText.length;
+          visibleText += delta.content;
+          if (Buffer.byteLength(visibleText, "utf8") > 32_768) {
+            throw new Error("visible output exceeds the durable envelope");
+          }
+          onVisibleText?.({
+            attemptId: input.attemptId,
+            offset,
+            outputIndex: 0,
+            text: delta.content,
+            version: 1,
+          });
+        }
+        if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length > 0) {
+          receivedApplicationDelta = true;
+          privateContinuity += delta.reasoning_content;
+          if (Buffer.byteLength(privateContinuity, "utf8") > 8_192) {
+            throw new Error("private continuity exceeds the durable envelope");
+          }
+        }
+        for (const fragment of delta.tool_calls ?? []) {
+          receivedApplicationDelta = true;
+          if (!Number.isInteger(fragment.index) || fragment.index < 0 || fragment.index > 1) {
+            throw new Error("invalid tool-call index");
+          }
+          const current = toolFragments.get(fragment.index) ?? {
+            arguments: "",
+            id: "",
+            name: "",
+            type: null,
+          };
+          if (fragment.id !== undefined) current.id += fragment.id;
+          if (fragment.type !== undefined) current.type = fragment.type;
+          if (fragment.function?.name !== undefined) current.name += fragment.function.name;
+          if (fragment.function?.arguments !== undefined) {
+            current.arguments += fragment.function.arguments;
+          }
+          if (
+            Buffer.byteLength(current.arguments, "utf8") > 24_576 ||
+            current.id.length > 256 ||
+            current.name.length > 128
+          ) {
+            throw new Error("tool call exceeds the durable envelope");
+          }
+          toolFragments.set(fragment.index, current);
+        }
+        if (choice.finish_reason !== null) {
+          if (choice.finish_reason !== "stop" && choice.finish_reason !== "tool_calls") {
+            throw new Error("unsupported finish reason");
+          }
+          finishStatus = choice.finish_reason;
+        }
+      }
+      if (finishStatus === null) throw new Error("model stream did not terminate");
+      const toolCalls = [...toolFragments.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([, fragment]) => decodeToolFragment(fragment));
+      if (toolCalls.length > 1) throw new Error("parallel tool calls are unsupported");
+      if ((finishStatus === "tool_calls") !== (toolCalls.length === 1)) {
+        throw new Error("finish reason does not match tool output");
+      }
+      return {
+        attemptId: input.attemptId,
+        finishStatus,
+        privateContinuity: privateContinuity.length === 0 ? null : privateContinuity,
+        requestId: requestId(rawRequestId),
+        status: "completed",
+        text: visibleText,
+        toolCalls,
+        usage,
+        version: 1,
+      };
+    } catch (error) {
+      const code = errorCode(error);
+      if (receivedApplicationDelta && visibleText.length > 0) {
+        const cancellation = signal.aborted || code === "cancellation";
+        return {
+          attemptId: input.attemptId,
+          error: {
+            code: cancellation ? "cancellation" : "network",
+            message: cancellation
+              ? "The model attempt was cancelled after visible output."
+              : "The provider stream was interrupted after visible output.",
+            recoverability: "ask-user",
+            suggestedActions: ["Explicitly retry from the last committed conversation turn."],
+          },
+          partialText: visibleText,
+          status: "interrupted",
+          version: 1,
+        };
+      }
+      const description = failureDescriptions[code];
+      return {
+        attemptId: input.attemptId,
+        error: {
+          ...description,
+          message:
+            code === "protocol_incompatibility"
+              ? "The provider model output did not match the supported protocol."
+              : description.message.replace("readiness check", "model attempt"),
+        },
+        status: signal.aborted && !receivedApplicationDelta ? "not_started" : "unknown",
+        version: 1,
+      };
+    }
+  }
+}
+
+const repositoryToolDefinitions: Readonly<Record<RepositoryToolCall["name"], ChatCompletionTool>> =
+  {
+    git_status: {
+      function: {
+        description: "Return bounded structured Git status for the trusted repository.",
+        name: "git_status",
+        parameters: { additionalProperties: false, properties: {}, type: "object" },
+        strict: true,
+      },
+      type: "function",
+    },
+    list_files: {
+      function: {
+        description: "List bounded files below one trusted repository-relative path.",
+        name: "list_files",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            continuation: { anyOf: [{ type: "string" }, { type: "null" }] },
+            path: { type: "string" },
+          },
+          required: ["continuation", "path"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
+    read_file: {
+      function: {
+        description: "Read one bounded UTF-8 page from a trusted repository-relative file.",
+        name: "read_file",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            maxBytes: { maximum: 24576, minimum: 1, type: "integer" },
+            offset: { minimum: 0, type: "integer" },
+            path: { type: "string" },
+          },
+          required: ["maxBytes", "offset", "path"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
+    search_repository: {
+      function: {
+        description: "Search repository text with the pinned bounded search engine.",
+        name: "search_repository",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            continuation: { anyOf: [{ minimum: 0, type: "integer" }, { type: "null" }] },
+            path: { type: "string" },
+            pattern: { type: "string" },
+          },
+          required: ["continuation", "path", "pattern"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
+  };
+
+function validateModelStepInput(input: ModelStepRequestV1): void {
+  if (
+    !decodeModelStepRequest(input).ok ||
+    input.version !== 1 ||
+    !/^[A-Za-z0-9._:-]{1,256}$/u.test(input.attemptId) ||
+    !Number.isInteger(input.maxOutputTokens) ||
+    input.maxOutputTokens < 1 ||
+    input.maxOutputTokens > 8_192 ||
+    input.conversation.length === 0 ||
+    input.conversation.length > 64 ||
+    input.enabledTools.length > 4 ||
+    new Set(input.enabledTools).size !== input.enabledTools.length
+  ) {
+    throw new Error("invalid model-step input");
+  }
+}
+
+function conversationMessage(
+  item: ModelStepRequestV1["conversation"][number],
+): ChatCompletionMessageParam {
+  switch (item.role) {
+    case "system":
+    case "user":
+      return { content: item.content, role: item.role };
+    case "assistant":
+      return {
+        content: item.content,
+        role: "assistant",
+        ...(item.privateContinuity === null ? {} : { reasoning_content: item.privateContinuity }),
+        tool_calls: item.toolCalls.map((call) => ({
+          function: { arguments: JSON.stringify(call.arguments), name: call.name },
+          id: call.toolCallId,
+          type: "function",
+        })),
+      } as ChatCompletionMessageParam;
+    case "tool":
+      return { content: item.content, role: "tool", tool_call_id: item.toolCallId };
+  }
+}
+
+function repositoryTool(name: RepositoryToolCall["name"]): ChatCompletionTool {
+  const definition = repositoryToolDefinitions[name];
+  if (definition === undefined) throw new Error("unsupported repository tool");
+  return definition;
+}
+
+function decodeToolFragment(fragment: {
+  readonly arguments: string;
+  readonly id: string;
+  readonly name: string;
+  readonly type: string | null;
+}): RepositoryToolCall {
+  if (fragment.type !== null && fragment.type !== "function") {
+    throw new Error("unsupported tool-call type");
+  }
+  let argumentsValue: unknown;
+  try {
+    argumentsValue = JSON.parse(fragment.arguments);
+  } catch {
+    throw new Error("malformed tool-call arguments");
+  }
+  const decoded = decodeRepositoryToolCall({
+    arguments: argumentsValue,
+    name: fragment.name,
+    toolCallId: fragment.id,
+  });
+  if (!decoded.ok) throw new Error("invalid repository tool call");
+  return decoded.value;
+}
+
+function validatedUsage(value: {
+  readonly completion_tokens: number;
+  readonly prompt_tokens: number;
+  readonly total_tokens: number;
+}): ModelUsage {
+  const values = [value.completion_tokens, value.prompt_tokens, value.total_tokens];
+  if (values.some((token) => !Number.isSafeInteger(token) || token < 0)) {
+    throw new Error("invalid provider usage");
+  }
+  return {
+    completionTokens: value.completion_tokens,
+    promptTokens: value.prompt_tokens,
+    totalTokens: value.total_tokens,
+  };
 }

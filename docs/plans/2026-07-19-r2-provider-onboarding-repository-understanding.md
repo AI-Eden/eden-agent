@@ -1,6 +1,6 @@
 # R2 Provider Onboarding and Repository Understanding Plan
 
-- Status: Accepted; Build in progress; Slices 0-2 complete
+- Status: Accepted; Build in progress; Slices 0-6 complete
 - Date: 2026-07-19
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
@@ -613,6 +613,42 @@ final repository-grounded answer from Eden-owned conversation state.
 - **Matching surface:** real DeepSeek repository question performs at least one tool round trip and ends with
   a complete sourced answer; a forced mid-stream disconnect becomes visible and recovers only after explicit
   retry from the last committed turn.
+
+#### Slice 6 evidence
+
+Slice 6 adds one protocol-neutral model-step contract and keeps the official SDK plus provider-specific
+stream handling inside `packages/providers`. Scripted SSE fixtures cover coalesced text, split tool-call
+identity/name/arguments, unknown tools, malformed arguments, byte limits, exact and unknown usage,
+post-delta disconnect, controlled cancellation, and bounded private continuity. Kernel/runtime fixtures
+cover the four-step/four-tool budgets, stable pre-dispatch attempt identity, one automatic retry only for
+proven `not_started`, explicit retry after ambiguity, instruction revalidation, context commits, no cross-
+attempt concatenation, replay with zero dispatch, and the rule that model output ends in `completed` review
+rather than `succeeded`.
+
+The owner authorized a minimally billable DeepSeek matching run using an environment-referenced credential
+in a temporary private state root. On 2026-07-20, run
+`run-9369765f-6361-48b3-a257-6a90ffd98eec` completed two exact-usage streamed model attempts around one
+verified application-local ripgrep `search_repository` call. The final answer cited six repository source
+locations and the durable terminal outcome was `completed`, not success. Read-only history reconstructed the
+same review state. Earlier matching attempts exposed a recursive search-preflight symlink defect and a TUI
+effect-lifecycle cancellation defect; both received focused RED/GREEN regressions before the final run.
+
+The matching host proxy required disabled TLS certificate verification. This is explicit residual risk: the
+row validates the provider/product protocol and real tool loop, but not production TLS verification or R2
+release support. Kimi remains `not-run` because no subscription credential is available. No credential
+value entered the repository, config file, journal, product event, diagnostic, or evidence text.
+
+Fresh deterministic Slice 6 commands:
+
+```bash
+corepack pnpm@11.13.0 test
+corepack pnpm@11.13.0 typecheck
+corepack pnpm@11.13.0 code:check
+corepack pnpm@11.13.0 markdown:check
+corepack pnpm@11.13.0 build
+corepack pnpm@11.13.0 --filter @eden/cli package:bun
+node scripts/r2-native-tools-archive.test.mjs
+```
 
 ### Slice 7: Product-quality responsive TUI integration
 

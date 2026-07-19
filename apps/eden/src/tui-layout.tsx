@@ -107,6 +107,7 @@ export type EdenTuiLayoutProps = {
   readonly height: number;
   readonly historyError: ProductError | null;
   readonly inspection: RunInspection | null;
+  readonly liveModelText: string | null;
   readonly onDraftChange: (value: string) => void;
   readonly onProfileDraftChange: (value: string) => void;
   readonly onProfileSave: () => Promise<void>;
@@ -212,7 +213,11 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                     )}
                   </text>
                 )}
-                <text>execution: fake-only · network denied · sandbox not-configured</text>
+                <text>
+                  {props.profileCatalog?.activeProfileId === null
+                    ? "execution: fake-only · network denied · sandbox not-configured"
+                    : "execution: provider model + semantic tools · repository write denied · sandbox not-configured"}
+                </text>
                 <text>Trust does not approve actions.</text>
                 {props.review.notice !== null && (
                   <box style={{ flexDirection: "column" }}>
@@ -327,7 +332,11 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
             <text>Task</text>
             <input
               focused={props.composerFocused}
-              placeholder="Describe the fake task"
+              placeholder={
+                props.profileCatalog?.activeProfileId === null
+                  ? "Describe the fake task"
+                  : "Ask a repository question"
+              }
               value={props.draft}
               onInput={props.onDraftChange}
               onSubmit={() => props.onStart(props.draft)}
@@ -344,7 +353,9 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
         <box style={{ flexDirection: "column", marginTop: 1 }}>
           <text>phase: {props.view.phase}</text>
           <text>
-            authority: repository read bounded · write denied · process fake-only · network denied
+            {props.view.attempts === undefined
+              ? "authority: repository read bounded · write denied · process fake-only · network denied"
+              : "authority: repository read bounded · write denied · trusted-host policy-only · provider network allowed"}
           </text>
           {!props.compact && (
             <text>
@@ -352,6 +363,38 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
             </text>
           )}
           {!props.compact && <text>timeline: {props.timeline.join(" > ")}</text>}
+          {props.liveModelText !== null && props.view.terminalOutcome === null && (
+            <box
+              style={{
+                border: !props.compact,
+                flexDirection: "column",
+                padding: props.compact ? 0 : 1,
+              }}
+            >
+              <text>assistant · live</text>
+              <text>{safeTerminalBlock(props.liveModelText)}</text>
+            </box>
+          )}
+          {props.view.conversation?.map((turn) => (
+            <box
+              key={turn.turnId}
+              style={{
+                border: !props.compact && turn.role === "assistant",
+                flexDirection: "column",
+                padding: props.compact || turn.role === "user" ? 0 : 1,
+                width: "100%",
+              }}
+            >
+              <text>{turn.role === "user" ? "you" : `assistant · ${turn.status}`}</text>
+              <text>{safeTerminalBlock(turn.content)}</text>
+            </box>
+          ))}
+          {!props.compact &&
+            props.view.attempts?.map((attempt) => (
+              <text key={attempt.attemptId}>
+                model attempt {attempt.step}: {attempt.state} · usage {attempt.usage.state}
+              </text>
+            ))}
           {props.view.tools?.map((activity) => (
             <ToolCard activity={activity} compact={props.compact} key={activity.call.toolCallId} />
           ))}
@@ -381,12 +424,31 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
               <text>approve: a · deny: d</text>
             </box>
           )}
+          {props.view.phase === "awaiting-retry" && (
+            <box
+              style={{
+                border: !props.compact,
+                flexDirection: "column",
+                padding: props.compact ? 0 : 1,
+              }}
+            >
+              <text fg="#ED8796">model attempt: interrupted or unknown</text>
+              <text>
+                {fitTerminalLine(
+                  props.view.retry?.reason?.message ?? "Explicit retry is required.",
+                  props.width - 4,
+                )}
+              </text>
+              <text>retry from last committed turn: u · cancel: Ctrl+C</text>
+            </box>
+          )}
           {outcome !== null && outcome !== undefined && (
             <box style={{ flexDirection: "column", marginTop: 1 }}>
               <text>outcome: {outcome.state}</text>
               {outcome.state === "succeeded" && (
                 <text>{fitTerminalLine(`evidence: ${outcome.evidenceRef}`, props.width - 4)}</text>
               )}
+              {outcome.state === "completed" && <text>{safeTerminalBlock(outcome.answer)}</text>}
               {(outcome.state === "blocked" || outcome.state === "failed") && (
                 <text>{fitTerminalLine(`error: ${outcome.error.message}`, props.width - 4)}</text>
               )}

@@ -45,6 +45,16 @@ const RunWorkspaceSchema = Type.Object(
   closed,
 );
 
+const ModelRunConfigurationSchema = Type.Object(
+  {
+    contextWindowTokens: Type.Integer({ minimum: 1 }),
+    maxOutputTokens: Type.Integer({ maximum: 8_192, minimum: 1 }),
+    model: Type.String({ maxLength: 256, minLength: 1 }),
+    profileId: Type.String({ maxLength: 64, minLength: 1 }),
+  },
+  closed,
+);
+
 function isPortableRepositoryPath(value: string): boolean {
   if (
     value === "." ||
@@ -301,6 +311,84 @@ const RepositoryToolResultSchema = Type.Union([
   RepositoryToolFailureSchema,
 ]);
 
+const ModelUsageSchema = Type.Refine(
+  Type.Object(
+    {
+      completionTokens: Type.Integer({ minimum: 0 }),
+      promptTokens: Type.Integer({ minimum: 0 }),
+      totalTokens: Type.Integer({ minimum: 0 }),
+    },
+    closed,
+  ),
+  (value) => value.totalTokens === value.completionTokens + value.promptTokens,
+);
+
+const ModelAttemptErrorSchema = Type.Object(
+  {
+    code: identifier(),
+    message: boundedText(),
+    recoverability: Type.Union([
+      Type.Literal("retry"),
+      Type.Literal("reconfigure"),
+      Type.Literal("ask-user"),
+      Type.Literal("fatal"),
+    ]),
+    suggestedActions: Type.Array(boundedText(), { maxItems: 8 }),
+  },
+  closed,
+);
+
+const CompletedModelStepObservationSchema = Type.Refine(
+  Type.Object(
+    {
+      attemptId: identifier(),
+      finishStatus: Type.Union([Type.Literal("stop"), Type.Literal("tool_calls")]),
+      privateContinuity: Type.Union([Type.String({ maxLength: 8_192 }), Type.Null()]),
+      requestId: Type.Union([Type.String({ maxLength: 128, minLength: 1 }), Type.Null()]),
+      status: Type.Literal("completed"),
+      text: Type.String({ maxLength: 32_768 }),
+      toolCalls: Type.Array(RepositoryToolCallSchema, { maxItems: 1 }),
+      usage: Type.Union([ModelUsageSchema, Type.Null()]),
+      version: Type.Literal(1),
+    },
+    closed,
+  ),
+  (value) =>
+    new TextEncoder().encode(value.text).byteLength <= 32_768 &&
+    (value.privateContinuity === null ||
+      new TextEncoder().encode(value.privateContinuity).byteLength <= 8_192) &&
+    ((value.finishStatus === "stop" && value.toolCalls.length === 0) ||
+      (value.finishStatus === "tool_calls" && value.toolCalls.length === 1)),
+);
+const NonCompletedModelStepObservationSchema = Type.Union([
+  Type.Object(
+    {
+      attemptId: identifier(),
+      error: ModelAttemptErrorSchema,
+      status: Type.Union([Type.Literal("not_started"), Type.Literal("unknown")]),
+      version: Type.Literal(1),
+    },
+    closed,
+  ),
+  Type.Refine(
+    Type.Object(
+      {
+        attemptId: identifier(),
+        error: ModelAttemptErrorSchema,
+        partialText: Type.String({ maxLength: 32_768 }),
+        status: Type.Literal("interrupted"),
+        version: Type.Literal(1),
+      },
+      closed,
+    ),
+    (value) => new TextEncoder().encode(value.partialText).byteLength <= 32_768,
+  ),
+]);
+const ModelStepObservationSchema = Type.Union([
+  CompletedModelStepObservationSchema,
+  NonCompletedModelStepObservationSchema,
+]);
+
 const FakeActionEffectSchema = Type.Object(
   { effectId: identifier(), runId: identifier(), type: Type.Literal("fake.action.execute") },
   closed,
@@ -324,12 +412,25 @@ const RepositoryToolEffectSchema = Type.Object(
   },
   closed,
 );
+const ProviderModelEffectSchema = Type.Object(
+  {
+    effectId: identifier(),
+    maxOutputTokens: Type.Integer({ maximum: 8_192, minimum: 1 }),
+    model: Type.String({ maxLength: 256, minLength: 1 }),
+    profileId: Type.String({ maxLength: 64, minLength: 1 }),
+    runId: identifier(),
+    step: Type.Integer({ maximum: 4, minimum: 1 }),
+    type: Type.Literal("provider.model.step"),
+  },
+  closed,
+);
 const FakeVerificationEffectSchema = Type.Object(
   { effectId: identifier(), runId: identifier(), type: Type.Literal("fake.verification.run") },
   closed,
 );
 export const KernelEffectSchema = Type.Union([
   FakeModelEffectSchema,
+  ProviderModelEffectSchema,
   RepositoryToolEffectSchema,
   FakeActionEffectSchema,
   FakeVerificationEffectSchema,
@@ -338,14 +439,50 @@ export const KernelEffectSchema = Type.Union([
 export const KernelEventSchema = Type.Union([
   Type.Object(
     {
+      item: Type.Refine(
+        Type.Object(
+          { content: Type.String({ maxLength: 32_768 }), contextItemId: identifier() },
+          closed,
+        ),
+        (value) => new TextEncoder().encode(value.content).byteLength <= 32_768,
+      ),
+      type: Type.Literal("model.context.committed"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
       correlationId: identifier(),
       runId: identifier(),
       task: boundedText(),
       type: Type.Literal("run.started"),
       workspace: RunWorkspaceSchema,
+      model: Type.Optional(ModelRunConfigurationSchema),
     },
     closed,
   ),
+  Type.Object(
+    {
+      attemptId: identifier(),
+      effectId: identifier(),
+      reason: Type.Union([
+        Type.Literal("initial"),
+        Type.Literal("automatic-not-started-retry"),
+        Type.Literal("explicit-retry"),
+      ]),
+      type: Type.Literal("model.attempt.started"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      effectId: identifier(),
+      observation: ModelStepObservationSchema,
+      type: Type.Literal("model.step.completed"),
+    },
+    closed,
+  ),
+  Type.Object({ type: Type.Literal("model.retry.requested") }, closed),
   Type.Object(
     {
       effectId: identifier(),

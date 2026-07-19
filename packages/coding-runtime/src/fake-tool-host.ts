@@ -3,7 +3,14 @@ import { join } from "node:path";
 
 import { decodeRepositoryToolResult } from "@eden/contracts";
 import { decodeKernelEvent, type KernelEffect, type KernelEvent } from "@eden/kernel";
-import { decodeFakeModelResponse, FakeModelDriver, type ModelDriver } from "@eden/providers";
+import {
+  decodeFakeModelResponse,
+  FakeModelDriver,
+  type ModelDriver,
+  type ModelStepDriver,
+  type ModelStepRequestV1,
+  type ModelVisibleTextListener,
+} from "@eden/providers";
 
 import { fakeAction } from "./fake-action.ts";
 import type { EffectHost, ReconciliationResult } from "./runtime.ts";
@@ -96,8 +103,9 @@ async function inspectReceiptDirectory(path: string): Promise<"invalid" | "missi
   }
 }
 
-function receiptName(effectId: string): string {
-  return `${Buffer.from(effectId).toString("base64url")}.json`;
+function receiptName(effectId: string, attemptId?: string): string {
+  const identity = attemptId === undefined ? effectId : `${effectId}:${attemptId}`;
+  return `${Buffer.from(identity).toString("base64url")}.json`;
 }
 
 function modelFailure(code: string, message: string): KernelEvent {
@@ -122,6 +130,8 @@ async function observationFor(
   signal?: AbortSignal,
 ): Promise<KernelEvent> {
   switch (effect.type) {
+    case "provider.model.step":
+      throw new Error("Provider model effects require an explicit attempt identity.");
     case "fake.model.complete": {
       const effectSignal = signal ?? new AbortController().signal;
       try {
@@ -194,6 +204,10 @@ async function observationFor(
 
 function observationMatches(effect: KernelEffect, observation: KernelEvent): boolean {
   switch (effect.type) {
+    case "provider.model.step":
+      return (
+        observation.type === "model.step.completed" && observation.effectId === effect.effectId
+      );
     case "fake.model.complete":
       return (
         ((observation.type === "fake.model.completed" ||
@@ -222,6 +236,8 @@ function observationMatches(effect: KernelEffect, observation: KernelEvent): boo
 export class FakeToolHost implements EffectHost {
   private readonly cwd: string;
   private readonly modelDriver: ModelDriver;
+  private readonly modelStepDriver: ModelStepDriver | undefined;
+  private readonly onVisibleText: ModelVisibleTextListener | undefined;
   private readonly receiptsDirectory: string;
   private readonly repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
   private repositoryTools: Promise<RepositoryToolService> | undefined;
@@ -231,9 +247,13 @@ export class FakeToolHost implements EffectHost {
     cwd = ".",
     modelDriver: ModelDriver = new FakeModelDriver(),
     repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot"> = {},
+    modelStepDriver?: ModelStepDriver,
+    onVisibleText?: ModelVisibleTextListener,
   ) {
     this.cwd = cwd;
     this.modelDriver = modelDriver;
+    this.modelStepDriver = modelStepDriver;
+    this.onVisibleText = onVisibleText;
     this.receiptsDirectory = receiptsDirectory;
     this.repositoryToolOptions = repositoryToolOptions;
   }
@@ -279,6 +299,9 @@ export class FakeToolHost implements EffectHost {
   }
 
   async execute(effect: KernelEffect, signal?: AbortSignal): Promise<KernelEvent> {
+    if (effect.type === "provider.model.step") {
+      throw new Error("Provider model effects require executeModelAttempt().");
+    }
     const reconciled = await this.reconcile(effect);
     if (reconciled.status === "completed") {
       return reconciled.observation;
@@ -316,5 +339,92 @@ export class FakeToolHost implements EffectHost {
       await handle?.close();
     }
     return observation;
+  }
+
+  async reconcileModelAttempt(
+    effect: Extract<KernelEffect, { readonly type: "provider.model.step" }>,
+    attemptId: string,
+  ): Promise<ReconciliationResult> {
+    const directory = await inspectReceiptDirectory(this.receiptsDirectory);
+    if (directory === "missing") return { status: "not-started" };
+    if (directory === "invalid") return { status: "unknown" };
+    const receipt = await readReceipt(
+      join(this.receiptsDirectory, receiptName(effect.effectId, attemptId)),
+    );
+    if (receipt.kind === "missing") return { status: "not-started" };
+    if (receipt.kind === "invalid") return { status: "unknown" };
+    try {
+      const value: unknown = JSON.parse(receipt.content);
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        !("effectId" in value) ||
+        !("attemptId" in value) ||
+        !("observation" in value) ||
+        value.effectId !== effect.effectId ||
+        value.attemptId !== attemptId
+      ) {
+        return { status: "unknown" };
+      }
+      const decoded = decodeKernelEvent(value.observation);
+      if (
+        !decoded.ok ||
+        decoded.value.type !== "model.step.completed" ||
+        decoded.value.effectId !== effect.effectId ||
+        decoded.value.observation.attemptId !== attemptId
+      ) {
+        return { status: "unknown" };
+      }
+      return { observation: decoded.value, status: "completed" };
+    } catch {
+      return { status: "unknown" };
+    }
+  }
+
+  async executeModelAttempt(
+    effect: Extract<KernelEffect, { readonly type: "provider.model.step" }>,
+    request: ModelStepRequestV1,
+    signal?: AbortSignal,
+  ): Promise<KernelEvent> {
+    const { attemptId } = request;
+    const reconciled = await this.reconcileModelAttempt(effect, attemptId);
+    if (reconciled.status === "completed") return reconciled.observation;
+    if (reconciled.status === "unknown") {
+      throw new Error("Cannot execute a model attempt with unknown receipt state.");
+    }
+    if (this.modelStepDriver === undefined) {
+      throw new Error("The provider model-step driver is unavailable.");
+    }
+    await ensureReceiptDirectory(this.receiptsDirectory);
+    const observation = await this.modelStepDriver.completeModelStep(
+      request,
+      signal ?? new AbortController().signal,
+      this.onVisibleText,
+    );
+    const event: KernelEvent = {
+      effectId: effect.effectId,
+      observation,
+      type: "model.step.completed",
+    };
+    const path = join(this.receiptsDirectory, receiptName(effect.effectId, attemptId));
+    let handle: FileHandle | undefined;
+    try {
+      handle = await open(path, "wx");
+      await handle.writeFile(
+        `${JSON.stringify({ attemptId, effectId: effect.effectId, observation: event })}\n`,
+        "utf8",
+      );
+      await handle.sync();
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) {
+        throw error;
+      }
+      const raced = await this.reconcileModelAttempt(effect, attemptId);
+      if (raced.status === "completed") return raced.observation;
+      throw new Error("Concurrent model-attempt receipt creation did not produce a valid receipt.");
+    } finally {
+      await handle?.close();
+    }
+    return event;
   }
 }
