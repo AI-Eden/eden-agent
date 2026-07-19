@@ -3,8 +3,9 @@
 ## Status
 
 R1 completed with owner acceptance on 2026-07-17 after its exact-SHA evidence matrix and fresh exit review
-passed. R2 remains unfrozen. Changes to trust, terminal states, public product contracts, or non-goals
-require an ADR and human approval.
+passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014, and executable plan on
+2026-07-19. The contract below is frozen, but R2 implementation has not started. Changes to trust, terminal
+states, public product contracts, or non-goals require an ADR and human approval.
 
 ## User story
 
@@ -71,6 +72,35 @@ The default is local execution with explicit network visibility. R2 targets trus
 runners. Native OS sandbox claims require per-platform evidence and are not implied by a shared interface.
 
 Provider keys never enter prompts, tool environments, UI events, journals, or diagnostics. The UI displays the exact approved action representation bound to execution.
+
+## R2 first-slice contract
+
+- Provider profiles use one versioned host-side `config.toml` outside the workspace. The file is the only
+  profile authority and supports local create, masked read, update, selection, and delete. Each profile
+  selects one explicit inline-secret or named-environment credential source; ambient discovery is disabled.
+- The first provider adapter uses the official OpenAI JavaScript SDK inside `packages/providers` and an
+  explicit Chat Completions-compatible protocol. Eden owns conversation, attempts, tools, journal, and
+  completion authority. OpenAI Responses is a later, separate R2 protocol slice.
+- `configured`, `catalog_reachable`, and `completion_ready` are distinct evidence states. Only an explicit,
+  fixed-content, minimally billable streamed completion check establishes `completion_ready` for one
+  profile revision and selected model.
+- SDK retries are disabled. Live text deltas are ephemeral; one complete, closed model observation becomes
+  durable after protocol-complete termination. Ambiguous attempts do not silently replay, missing usage is
+  `unknown`, and raw provider errors never leave the adapter boundary.
+- The first repository surface is exactly `list_files`, `read_file`, `search_repository`, and `git_status`.
+  The model cannot choose an executable, argv, cwd, environment, or shell. Search uses pinned application-
+  local ripgrep; Git status uses a compatible, explicitly probed host Git.
+- Repository instructions load as complete scoped `AGENTS.md` snapshots with path, scope, hash, precedence,
+  and activation provenance. Nested instructions activate before governed repository content enters model
+  context. Applicable instructions that do not fit block before provider network access.
+- Known presets provide sourced model limits. Custom endpoints require explicit context-window and maximum-
+  output values. Context reserves output and safety headroom before non-evictable current invariants, recent
+  working context, and older supporting evidence.
+- The TUI uses a conversation-centered main flow with complete final answers, structured runtime blocks, a
+  persistent authority strip, contextual review, responsive layouts, and complete keyboard navigation.
+  Tool activity and supported reasoning summaries may fold; final answers may not be summarized away.
+- The slice runs closed read-only tools on the trusted host and makes no sandbox or isolation claim. It does
+  not add shell, writes, AnchorEdit, Docker execution, verification, or success.
 
 ## Persistence and recovery
 

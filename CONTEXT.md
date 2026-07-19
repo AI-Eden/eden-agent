@@ -3,8 +3,9 @@
 ## Current stage
 
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
-after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. R2 remains an
-unfrozen roadmap stage; no R2 implementation is authorized yet.
+after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
+decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
+executable plan on 2026-07-19. R2 Build has not started.
 
 ## Current truth
 
@@ -46,22 +47,24 @@ unfrozen roadmap stage; no R2 implementation is authorized yet.
 
 ## Current execution
 
-Explore and freeze the first bounded R2 slice from the accepted roadmap. R2 implementation remains
-unauthorized until the owner approves its public plan and any required architecture decisions.
+Publish the accepted R2 Freeze packet without starting Build. A fresh implementation session must revalidate
+the live repository and use `docs/plans/2026-07-19-r2-provider-onboarding-repository-understanding.md` as
+its accepted execution source.
 
 ## Next implementation slice
 
-Explore and freeze the first bounded R2 slice from the accepted roadmap. One real provider, repository
-tools, AnchorEdit, policy, execution modes, changed-file review, checks, recovery, and `eden doctor` remain
-R2 candidates rather than one pre-approved implementation batch. Stop for owner approval of the R2 plan
-before implementation.
+In the next authorized Build session, implement the first R2 vertical slice: local provider-profile onboarding, explicit
+connection evidence, one Chat Completions-compatible real provider adapter, scoped read-only repository
+tools and instructions, Eden-owned context/attempt truth, and the corresponding product-quality TUI. The
+approved plan explicitly excludes AnchorEdit, writes, general shell, Docker execution, changed-file review,
+checks, success, and later R2 slices.
 
 ## Known open questions
 
 - Hosted action dependencies emit Node.js 20 deprecation annotations while GitHub forces them onto Node.js
   24; the current lanes are green, but the action-version migration remains maintenance work.
-- The first R2 slice, provider choice, credential boundary, repository capability scope, and execution-mode
-  evidence are not frozen.
+- The first R2 decision set is publicly frozen and accepted; implementation and its evidence remain not
+  started.
 - Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
   in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 
