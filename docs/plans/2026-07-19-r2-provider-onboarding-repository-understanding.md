@@ -556,6 +556,43 @@ fallback and precise prerequisite recovery.
 - **Matching surface:** copied archive in an empty directory completes search/status; removing `rg` or Git
   produces distinct blocked prerequisites and recheck; no system package mutation occurs.
 
+#### Slice 5 evidence
+
+Slice 5 pins `@vscode/ripgrep` 1.18.0 as the build-time platform asset source and verifies the copied
+ripgrep 15.0.0 binary by application-relative filename, executable shape, single-link identity, version,
+and SHA-256 before search. The fixed native runner supplies exact argv/cwd/environment, five-second timeout,
+2 MiB capture bounds, cancellation, and POSIX process-group cleanup. Search parses only ripgrep JSON into
+bounded semantic pages. Git 2.31.0 or newer is probed separately and fixed porcelain-v2/NUL status is parsed
+into closed ordinary/rename/copy/unmerged/untracked rows. No executable, raw stdout/stderr, prompt, pager,
+editor, credential, shell, or write authority crosses the tool result boundary.
+
+Real temporary repositories independently exercised the bundled `rg` and host Git with frozen argv,
+exact match/status expectations, 256-row continuation, dirty/rename/untracked paths, and before/after
+zero-write digests. Node and project-pinned Bun both passed the seven native adapter cases. Launcher fakes
+were limited to missing/old, malformed, timeout, cancel, and overflow failures. The native runner separately
+proved exact env/argv, overflow/timeout/cancel/spawn recovery, and complete process-group termination.
+
+Packaging now emits exactly `eden`/`eden.exe`, `rg`/`rg.exe`, `THIRD_PARTY_NOTICES.txt`, and the closed
+`eden-assets.json`. `scripts/r2-native-tools-archive.test.mjs` copies that directory away from the checkout,
+independently verifies all three hashes and target provenance, then completes one real search and one real
+host-Git status round trip. TUI evidence distinguishes missing ripgrep from missing Git and changes a
+restored asset to ready only after explicit `g` recheck. These are local Linux/WSL rows; hosted macOS,
+Windows, and Linux archive evidence remains `not-run` until Slice 8.
+
+Fresh deterministic Slice 5 commands:
+
+```bash
+corepack pnpm@11.13.0 --filter @eden/contracts test
+corepack pnpm@11.13.0 --filter @eden/kernel test
+corepack pnpm@11.13.0 --filter @eden/providers test
+corepack pnpm@11.13.0 --filter @eden/coding-runtime test
+corepack pnpm@11.13.0 --filter @eden/cli test
+corepack pnpm@11.13.0 typecheck
+corepack pnpm@11.13.0 code:check
+corepack pnpm@11.13.0 --filter @eden/cli package:bun
+node scripts/r2-native-tools-archive.test.mjs apps/eden/dist
+```
+
 ### Slice 6: Real multi-step model/tool loop and durable attempt recovery
 
 **Outcome:** one real model can request a supported tool, receive its local result, and produce one complete

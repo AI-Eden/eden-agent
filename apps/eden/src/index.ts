@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+
+import { loadApplicationAssets } from "@eden/coding-runtime";
 
 import { helpText, parseArgs } from "./args.ts";
 import { runHeadless } from "./headless.ts";
@@ -18,12 +20,14 @@ if (!parsed.ok) {
   process.stdout.write(helpText);
 } else {
   const stateDirectory = process.env.EDEN_STATE_DIR ?? join(homedir(), ".eden-agent");
+  const repositoryTools = await loadApplicationAssets(dirname(process.execPath));
   const environment = {
     cwd: process.cwd(),
     io: {
       stderr: (value: string) => process.stderr.write(value),
       stdout: (value: string) => process.stdout.write(value),
     },
+    repositoryTools,
     stateDirectory,
   };
   if (parsed.value.mode === "headless") {
@@ -54,6 +58,7 @@ if (!parsed.ok) {
                 process.stderr.write("__EDEN_INPUT_READY__\n");
               }
             : undefined,
+        repositoryTools,
         stateDirectory,
       });
     } catch {

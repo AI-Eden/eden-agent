@@ -70,3 +70,11 @@ snapshots. One fake-model read round trip persisted requested/completed activity
 into one continuation, rendered complete CJK content and provenance, and replayed after the source file was
 removed with zero model/tool calls. `Ctrl+C` aborted an in-flight model before tool dispatch. Hosted and
 non-Linux tool rows remain `not-run`; this evidence does not expand release support.
+
+Slice 5 locally exercised the real pinned ripgrep 15.0.0 asset under both Node and Bun, compatible host Git
+2.43.0, fixed argv/environment, parsed JSON and porcelain-v2/NUL fixtures, 256-row search pagination,
+missing/modified/old/malformed/timeout/cancel/overflow recovery, process-group cleanup, and zero-write
+digests. The copied four-file Bun archive completed one search and one dirty Git-status round trip from an
+empty directory; its closed manifest hashes matched `eden`, `rg`, and notices. TUI fixtures distinguished
+missing ripgrep from missing Git and rechecked a restored asset. Hosted Ubuntu/macOS/Windows archive rows
+remain `not-run`; this local Linux/WSL evidence does not expand release support.

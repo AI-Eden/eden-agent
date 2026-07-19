@@ -55,6 +55,10 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   containment, sibling scope, provenance, and hard P0 budgets fail closed.
 - Keep repository tools semantic and read-only. Runtime code owns fixed native argv, scrubbed environment,
   cancellation, output bounds, and repeated path containment; the model never selects a process or shell.
+- Resolve ripgrep only from the closed application archive manifest, reject missing/linked/hardlinked/
+  modified/wrong-target assets, and verify version plus SHA-256 before every search. Probe host Git with a
+  minimum version, disable interactive/config/pager/optional-lock behavior, parse only bounded semantic
+  output, and terminate the complete native process group on timeout or cancellation.
 
 ## Execution modes
 

@@ -34,6 +34,9 @@ export async function runHistory(
   try {
     client = await InProcessAgentClient.openReadOnly({
       cwd: environment.cwd,
+      ...(environment.repositoryTools === undefined
+        ? {}
+        : { repositoryTools: environment.repositoryTools }),
       stateDirectory: environment.stateDirectory,
     });
     const requestOptions = signal === undefined ? undefined : { signal };

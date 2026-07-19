@@ -4,22 +4,35 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
   decodeRepositoryToolCall,
+  decodeRepositoryToolResult,
+  type GitStatusEntry,
   type ListFilesEntry,
   type ProductError,
+  type RepositoryCapabilityReview,
   type RepositoryToolCall,
   type RepositoryToolResult,
+  type SearchMatch,
 } from "@eden/contracts";
+
+import {
+  type NativeProcessObservation,
+  type NativeProcessPort,
+  NativeProcessRunner,
+} from "../native-process.ts";
 
 const listVisitLimit = 4_096;
 const listRowLimit = 256;
 const modelContentByteLimit = 24 * 1_024;
+const nativeOutputByteLimit = 2 * 1_024 * 1_024;
+const nativeToolTimeoutMs = 5_000;
+const ripgrepBinaryByteLimit = 32 * 1_024 * 1_024;
 const fatalUtf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
 export interface ToolResult {
   readonly modelContent: string;
   readonly productData: RepositoryToolResult;
   readonly diagnostics: {
-    readonly name: "list_files" | "read_file";
+    readonly name: RepositoryToolCall["name"];
     readonly source: "trusted-workspace";
     readonly status: "failed" | "succeeded";
     readonly toolCallId: string;
@@ -27,6 +40,14 @@ export interface ToolResult {
 }
 
 export type RepositoryToolServiceOptions = {
+  readonly gitExecutable?: string;
+  readonly nativeProcess?: NativeProcessPort;
+  readonly ripgrepAsset?: {
+    readonly contentHash: string;
+    readonly path: string;
+    readonly version: "15.0.0";
+  };
+  readonly ripgrepAssetError?: ProductError;
   readonly workspaceRoot: string;
 };
 
@@ -110,13 +131,17 @@ function abortIfNeeded(signal?: AbortSignal): void {
 }
 
 function failureIdentity(call: unknown): {
-  readonly name: "list_files" | "read_file";
+  readonly name: RepositoryToolCall["name"];
   readonly toolCallId: string;
 } {
   if (typeof call !== "object" || call === null) {
     return { name: "list_files", toolCallId: "invalid-tool-call" };
   }
-  const name = "name" in call && call.name === "read_file" ? "read_file" : "list_files";
+  const name =
+    "name" in call &&
+    (call.name === "read_file" || call.name === "search_repository" || call.name === "git_status")
+      ? call.name
+      : "list_files";
   const toolCallId =
     "toolCallId" in call && typeof call.toolCallId === "string" && call.toolCallId.length > 0
       ? call.toolCallId.slice(0, 256)
@@ -124,11 +149,119 @@ function failureIdentity(call: unknown): {
   return { name, toolCallId };
 }
 
+function nativeEnvironment(includePath: boolean): Record<string, string> {
+  const environment: Record<string, string> = {
+    GCM_INTERACTIVE: "Never",
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_OPTIONAL_LOCKS: "0",
+    GIT_PAGER: "cat",
+    GIT_TERMINAL_PROMPT: "0",
+    LANG: "C",
+    LC_ALL: "C",
+    NO_COLOR: "1",
+    PAGER: "cat",
+  };
+  const names = includePath
+    ? ["PATH", "PATHEXT", "SystemRoot", "WINDIR", "COMSPEC", "TEMP", "TMP"]
+    : ["SystemRoot", "WINDIR", "TEMP", "TMP"];
+  for (const name of names) {
+    const value = process.env[name];
+    if (value !== undefined) environment[name] = value;
+  }
+  environment.GIT_CONFIG_GLOBAL = process.platform === "win32" ? "NUL" : "/dev/null";
+  return environment;
+}
+
+function decodeNativeText(value: Uint8Array): string {
+  try {
+    return fatalUtf8Decoder.decode(value);
+  } catch {
+    throw toolError("native_output_invalid", "A native repository tool returned invalid UTF-8.");
+  }
+}
+
+function requireExited(
+  observation: NativeProcessObservation,
+  toolName: "git" | "ripgrep",
+): Extract<NativeProcessObservation, { readonly status: "exited" }> {
+  if (observation.status === "exited") return observation;
+  const label = toolName === "git" ? "Git" : "ripgrep";
+  switch (observation.status) {
+    case "aborted":
+      throw toolError(
+        "operation_aborted",
+        `The ${label} operation was aborted.`,
+        "retry",
+        `Retry the ${label} operation when ready.`,
+      );
+    case "timed-out":
+      throw toolError(
+        "native_tool_timeout",
+        `The ${label} operation exceeded the five-second limit.`,
+        "retry",
+        `Narrow the repository operation and retry ${label}.`,
+      );
+    case "output-overflow":
+      throw toolError(
+        "native_output_overflow",
+        `The ${label} output exceeded its internal capture limit.`,
+        "reconfigure",
+        "Narrow the repository operation and retry.",
+      );
+    case "cleanup-failed":
+      throw toolError(
+        "native_process_cleanup_failed",
+        `The ${label} process tree could not be terminated safely.`,
+        "fatal",
+        "Close Eden, terminate the remaining native process tree, and inspect the host before retrying.",
+      );
+    case "spawn-failed":
+      throw toolError(
+        toolName === "git" ? "git_unavailable" : "ripgrep_asset_unavailable",
+        `${label} is unavailable.`,
+        "reconfigure",
+        toolName === "git"
+          ? "Install Git from https://git-scm.com/downloads and recheck repository prerequisites."
+          : "Restore the complete Eden archive and recheck repository prerequisites.",
+      );
+  }
+}
+
+function versionAtLeast(actual: string, minimum: string): boolean {
+  const actualParts = actual.split(".").map(Number);
+  const minimumParts = minimum.split(".").map(Number);
+  if (
+    actualParts.length < 2 ||
+    minimumParts.length < 2 ||
+    [...actualParts, ...minimumParts].some((part) => !Number.isSafeInteger(part) || part < 0)
+  ) {
+    return false;
+  }
+  for (let index = 0; index < Math.max(actualParts.length, minimumParts.length); index += 1) {
+    const left = actualParts[index] ?? 0;
+    const right = minimumParts[index] ?? 0;
+    if (left !== right) return left > right;
+  }
+  return true;
+}
+
 export class RepositoryToolService {
+  private readonly gitExecutable: string;
+  private readonly nativeProcess: NativeProcessPort;
+  private readonly ripgrepAsset: RepositoryToolServiceOptions["ripgrepAsset"];
+  private readonly ripgrepAssetError: ProductError | undefined;
   private readonly rootIdentity: FileIdentity;
   private readonly workspaceRoot: string;
 
-  private constructor(workspaceRoot: string, rootIdentity: FileIdentity) {
+  private constructor(
+    workspaceRoot: string,
+    rootIdentity: FileIdentity,
+    options: RepositoryToolServiceOptions,
+  ) {
+    this.gitExecutable = options.gitExecutable ?? "git";
+    this.nativeProcess = options.nativeProcess ?? new NativeProcessRunner();
+    this.ripgrepAsset = options.ripgrepAsset;
+    this.ripgrepAssetError = options.ripgrepAssetError;
     this.workspaceRoot = workspaceRoot;
     this.rootIdentity = rootIdentity;
   }
@@ -142,7 +275,11 @@ export class RepositoryToolService {
         "The trusted workspace identity is unavailable.",
       );
     }
-    return new RepositoryToolService(workspaceRoot, { dev: metadata.dev, ino: metadata.ino });
+    return new RepositoryToolService(
+      workspaceRoot,
+      { dev: metadata.dev, ino: metadata.ino },
+      options,
+    );
   }
 
   private async verifyRoot(): Promise<void> {
@@ -196,6 +333,218 @@ export class RepositoryToolService {
     return { absolutePath, metadata: await lstat(absolutePath) };
   }
 
+  private async verifyRipgrep(signal?: AbortSignal): Promise<{
+    readonly contentHash: string;
+    readonly path: string;
+    readonly version: "15.0.0";
+  }> {
+    abortIfNeeded(signal);
+    if (this.ripgrepAssetError !== undefined) {
+      throw new RepositoryToolError(this.ripgrepAssetError);
+    }
+    const asset = this.ripgrepAsset;
+    if (
+      asset === undefined ||
+      !isAbsolute(asset.path) ||
+      !/^sha256:[a-f0-9]{64}$/u.test(asset.contentHash)
+    ) {
+      throw toolError(
+        "ripgrep_asset_missing",
+        "The pinned application-local ripgrep asset is missing.",
+        "reconfigure",
+        "Restore the complete Eden archive and recheck repository prerequisites.",
+      );
+    }
+    let before: Awaited<ReturnType<typeof lstat>>;
+    try {
+      before = await lstat(asset.path);
+    } catch {
+      throw toolError(
+        "ripgrep_asset_missing",
+        "The pinned application-local ripgrep asset is missing.",
+        "reconfigure",
+        "Restore the complete Eden archive and recheck repository prerequisites.",
+      );
+    }
+    if (
+      !before.isFile() ||
+      before.isSymbolicLink() ||
+      before.nlink !== 1 ||
+      before.size <= 0 ||
+      before.size > ripgrepBinaryByteLimit ||
+      (process.platform !== "win32" && (before.mode & 0o111) === 0)
+    ) {
+      throw toolError(
+        "ripgrep_asset_invalid",
+        "The pinned application-local ripgrep asset is invalid.",
+        "reconfigure",
+        "Restore the complete Eden archive and recheck repository prerequisites.",
+      );
+    }
+    const handle = await open(asset.path, "r").catch(() => {
+      throw toolError("ripgrep_asset_invalid", "The pinned ripgrep asset cannot be read.");
+    });
+    let bytes: Uint8Array;
+    try {
+      const opened = await handle.stat();
+      if (
+        !opened.isFile() ||
+        opened.nlink !== 1 ||
+        opened.size !== before.size ||
+        !sameIdentity(before, opened)
+      ) {
+        throw toolError("ripgrep_asset_modified", "The pinned ripgrep asset changed.");
+      }
+      bytes = await handle.readFile();
+      const after = await handle.stat();
+      const current = await lstat(asset.path);
+      if (
+        bytes.byteLength !== opened.size ||
+        !sameIdentity(opened, after) ||
+        opened.size !== after.size ||
+        !sameIdentity(opened, current) ||
+        opened.size !== current.size
+      ) {
+        throw toolError("ripgrep_asset_modified", "The pinned ripgrep asset changed.");
+      }
+    } finally {
+      await handle.close();
+    }
+    const contentHash = sha256(bytes);
+    if (contentHash !== asset.contentHash) {
+      throw toolError(
+        "ripgrep_asset_modified",
+        "The pinned application-local ripgrep asset failed integrity verification.",
+        "reconfigure",
+        "Restore the complete Eden archive and recheck repository prerequisites.",
+      );
+    }
+    const versionResult = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: ["--version"],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(false),
+          executable: asset.path,
+          maxStderrBytes: 4_096,
+          maxStdoutBytes: 4_096,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "ripgrep",
+    );
+    if (versionResult.exitCode !== 0 || versionResult.stderr.byteLength !== 0) {
+      throw toolError("ripgrep_asset_invalid", "The pinned ripgrep version probe failed.");
+    }
+    const match = /^ripgrep ([0-9]+\.[0-9]+\.[0-9]+)/u.exec(decodeNativeText(versionResult.stdout));
+    if (match?.[1] !== asset.version || asset.version !== "15.0.0") {
+      throw toolError(
+        "ripgrep_asset_incompatible",
+        "The application-local ripgrep version is incompatible.",
+        "reconfigure",
+        "Restore the complete Eden archive and recheck repository prerequisites.",
+      );
+    }
+    return { contentHash, path: asset.path, version: asset.version };
+  }
+
+  private async probeGit(signal?: AbortSignal): Promise<string> {
+    abortIfNeeded(signal);
+    const result = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: ["--version"],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(true),
+          executable: this.gitExecutable,
+          maxStderrBytes: 4_096,
+          maxStdoutBytes: 4_096,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "git",
+    );
+    if (result.exitCode !== 0 || result.stderr.byteLength !== 0) {
+      throw toolError(
+        "git_unavailable",
+        "Git could not be probed.",
+        "reconfigure",
+        "Install Git from https://git-scm.com/downloads and recheck repository prerequisites.",
+      );
+    }
+    const match = /^git version ([0-9]+\.[0-9]+(?:\.[0-9]+)?)/u.exec(
+      decodeNativeText(result.stdout).trim(),
+    );
+    const version = match?.[1];
+    if (version === undefined || !versionAtLeast(version, "2.31.0")) {
+      throw toolError(
+        "git_incompatible",
+        "Git 2.31.0 or newer is required.",
+        "reconfigure",
+        "Update Git from https://git-scm.com/downloads and recheck repository prerequisites.",
+      );
+    }
+    return version;
+  }
+
+  async reviewCapabilities(signal?: AbortSignal): Promise<RepositoryCapabilityReview> {
+    const ripgrep = await this.verifyRipgrep(signal).then(
+      (asset) => ({
+        contentHash: asset.contentHash,
+        error: null,
+        minimumVersion: "15.0.0" as const,
+        name: "ripgrep" as const,
+        state: "ready" as const,
+        version: asset.version,
+      }),
+      (error: unknown) => {
+        const productError =
+          error instanceof RepositoryToolError
+            ? error.productError
+            : toolError("ripgrep_asset_unavailable", "ripgrep is unavailable.").productError;
+        return {
+          contentHash: null,
+          error: productError,
+          minimumVersion: "15.0.0" as const,
+          name: "ripgrep" as const,
+          state: "blocked" as const,
+          version: null,
+        };
+      },
+    );
+    const git = await this.probeGit(signal).then(
+      (version) => ({
+        contentHash: null,
+        error: null,
+        minimumVersion: "2.31.0" as const,
+        name: "git" as const,
+        state: "ready" as const,
+        version,
+      }),
+      (error: unknown) => {
+        const productError =
+          error instanceof RepositoryToolError
+            ? error.productError
+            : toolError("git_unavailable", "Git is unavailable.").productError;
+        return {
+          contentHash: null,
+          error: productError,
+          minimumVersion: "2.31.0" as const,
+          name: "git" as const,
+          state: "blocked" as const,
+          version: null,
+        };
+      },
+    );
+    return {
+      git,
+      ripgrep,
+      state: git.state === "ready" && ripgrep.state === "ready" ? "ready" : "blocked",
+    };
+  }
+
   private async listFiles(
     call: Extract<RepositoryToolCall, { readonly name: "list_files" }>,
     signal?: AbortSignal,
@@ -241,6 +590,9 @@ export class RepositoryToolService {
             discovered.push({ kind: "directory", path, size: null });
             directories.push({ absolutePath, relativePath: path });
           } else if (metadata.isFile()) {
+            if (metadata.nlink !== 1) {
+              throw toolError("tool_path_linked", "Linked repository tool paths are not allowed.");
+            }
             discovered.push({ kind: "file", path, size: metadata.size });
           } else {
             throw toolError(
@@ -252,7 +604,11 @@ export class RepositoryToolService {
           }
         }
       } finally {
-        await handle.close().catch(() => undefined);
+        try {
+          await handle.close();
+        } catch {
+          // Node and Bun differ when async iteration already closed the directory handle.
+        }
       }
     }
     discovered.sort((left, right) => comparePortablePaths(left.path, right.path));
@@ -404,6 +760,332 @@ export class RepositoryToolService {
     }
   }
 
+  private async preflightSearchPath(
+    call: Extract<RepositoryToolCall, { readonly name: "search_repository" }>,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const target = await this.resolvePath(call.arguments.path);
+    if (target.metadata.isFile()) {
+      if (target.metadata.nlink !== 1) {
+        throw toolError("tool_path_linked", "Linked repository tool paths are not allowed.");
+      }
+      return;
+    }
+    if (!target.metadata.isDirectory()) {
+      throw toolError("tool_file_type_unsupported", "The search scope has an unsupported type.");
+    }
+    await this.listFiles(
+      {
+        arguments: { continuation: null, path: call.arguments.path },
+        name: "list_files",
+        toolCallId: `${call.toolCallId}:preflight`,
+      },
+      signal,
+    );
+  }
+
+  private parseSearchOutput(output: Uint8Array): SearchMatch[] {
+    const text = decodeNativeText(output);
+    const matches: SearchMatch[] = [];
+    const records = text.length === 0 ? [] : text.trimEnd().split("\n");
+    if (records.length > 8_192) {
+      throw toolError("native_output_invalid", "ripgrep returned too many protocol records.");
+    }
+    for (const record of records) {
+      let value: unknown;
+      try {
+        value = JSON.parse(record);
+      } catch {
+        throw toolError("native_output_invalid", "ripgrep returned malformed JSON.");
+      }
+      if (typeof value !== "object" || value === null || !("type" in value)) {
+        throw toolError("native_output_invalid", "ripgrep returned an invalid protocol record.");
+      }
+      if (value.type === "begin" || value.type === "end" || value.type === "summary") continue;
+      if (value.type !== "match" || !("data" in value)) {
+        throw toolError(
+          "native_output_invalid",
+          "ripgrep returned an unsupported protocol record.",
+        );
+      }
+      const data = value.data;
+      if (
+        typeof data !== "object" ||
+        data === null ||
+        !("path" in data) ||
+        !("lines" in data) ||
+        !("line_number" in data) ||
+        !("submatches" in data) ||
+        typeof data.path !== "object" ||
+        data.path === null ||
+        !("text" in data.path) ||
+        typeof data.path.text !== "string" ||
+        typeof data.lines !== "object" ||
+        data.lines === null ||
+        !("text" in data.lines) ||
+        typeof data.lines.text !== "string" ||
+        !Number.isSafeInteger(data.line_number) ||
+        Number(data.line_number) < 1 ||
+        !Array.isArray(data.submatches)
+      ) {
+        throw toolError("native_output_invalid", "ripgrep returned an invalid match record.");
+      }
+      const path = data.path.text.startsWith("./") ? data.path.text.slice(2) : data.path.text;
+      for (const submatch of data.submatches) {
+        if (
+          typeof submatch !== "object" ||
+          submatch === null ||
+          !("start" in submatch) ||
+          !Number.isSafeInteger(submatch.start) ||
+          Number(submatch.start) < 0
+        ) {
+          throw toolError("native_output_invalid", "ripgrep returned an invalid submatch.");
+        }
+        matches.push({
+          byteColumn: Number(submatch.start) + 1,
+          lineNumber: Number(data.line_number),
+          path,
+          preview: data.lines.text,
+        });
+        if (matches.length > 4_096) {
+          throw toolError("native_output_overflow", "ripgrep returned too many matches.");
+        }
+      }
+    }
+    return matches;
+  }
+
+  private async searchRepository(
+    call: Extract<RepositoryToolCall, { readonly name: "search_repository" }>,
+    signal?: AbortSignal,
+  ): Promise<RepositoryToolResult> {
+    abortIfNeeded(signal);
+    await this.verifyRoot();
+    await this.preflightSearchPath(call, signal);
+    const asset = await this.verifyRipgrep(signal);
+    const observation = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: [
+            "--json",
+            "--no-config",
+            "--color",
+            "never",
+            "--line-number",
+            "--column",
+            "--sort",
+            "path",
+            "--max-columns",
+            "4096",
+            "--max-columns-preview",
+            "--glob",
+            "!.git/**",
+            "--",
+            call.arguments.pattern,
+            call.arguments.path,
+          ],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(false),
+          executable: asset.path,
+          maxStderrBytes: 64 * 1_024,
+          maxStdoutBytes: nativeOutputByteLimit,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "ripgrep",
+    );
+    if (
+      (observation.exitCode !== 0 && observation.exitCode !== 1) ||
+      observation.stderr.byteLength !== 0
+    ) {
+      throw toolError(
+        "repository_search_failed",
+        "ripgrep could not complete the repository search.",
+        "reconfigure",
+        "Check repository readability or narrow the search scope and retry.",
+      );
+    }
+    const allMatches = this.parseSearchOutput(observation.stdout);
+    const cursor = call.arguments.continuation ?? 0;
+    if (cursor > allMatches.length) {
+      throw toolError(
+        "tool_search_continuation_invalid",
+        "The repository search continuation is no longer valid.",
+        "retry",
+        "Restart the repository search without a continuation.",
+      );
+    }
+    const matches: SearchMatch[] = [];
+    for (const match of allMatches.slice(cursor)) {
+      const next = [...matches, match];
+      if (
+        next.length > 256 ||
+        Buffer.byteLength(JSON.stringify(next), "utf8") > modelContentByteLimit
+      ) {
+        break;
+      }
+      matches.push(match);
+    }
+    const consumed = cursor + matches.length;
+    const truncated = consumed < allMatches.length;
+    await this.verifyRoot();
+    return {
+      data: {
+        contentHash: sha256(JSON.stringify(matches)),
+        continuation: truncated ? consumed : null,
+        engine: { contentHash: asset.contentHash, name: "ripgrep", version: asset.version },
+        matches,
+        sourcePath: call.arguments.path,
+        truncated,
+      },
+      name: "search_repository",
+      status: "succeeded",
+      toolCallId: call.toolCallId,
+    };
+  }
+
+  private gitEntryKind(
+    type: "1" | "2" | "?" | "u",
+    xy: string,
+    score?: string,
+  ): GitStatusEntry["kind"] {
+    if (type === "?") return "untracked";
+    if (type === "u" || xy.includes("U")) return "unmerged";
+    if (type === "2") return score?.startsWith("C") === true ? "copied" : "renamed";
+    if (xy.includes("A")) return "added";
+    if (xy.includes("D")) return "deleted";
+    return "modified";
+  }
+
+  private parseGitStatus(output: Uint8Array): GitStatusEntry[] {
+    const text = decodeNativeText(output);
+    const records = text.split("\0");
+    if (records.at(-1) !== "") {
+      throw toolError("native_output_invalid", "Git status output was not NUL-terminated.");
+    }
+    records.pop();
+    const entries: GitStatusEntry[] = [];
+    for (let index = 0; index < records.length; index += 1) {
+      const record = records[index];
+      if (record === undefined || record.length < 3) {
+        throw toolError("native_output_invalid", "Git returned an invalid status record.");
+      }
+      const type = record[0];
+      let xy: string;
+      let path: string;
+      let originalPath: string | null = null;
+      let score: string | undefined;
+      if (type === "?") {
+        xy = "??";
+        path = record.slice(2);
+      } else if (type === "1") {
+        const fields = record.split(" ");
+        if (fields.length < 9)
+          throw toolError("native_output_invalid", "Git returned an invalid ordinary record.");
+        xy = fields[1] ?? "";
+        path = fields.slice(8).join(" ");
+      } else if (type === "2") {
+        const fields = record.split(" ");
+        if (fields.length < 10)
+          throw toolError("native_output_invalid", "Git returned an invalid rename record.");
+        xy = fields[1] ?? "";
+        score = fields[8];
+        path = fields.slice(9).join(" ");
+        originalPath = records[index + 1] ?? null;
+        index += 1;
+      } else if (type === "u") {
+        const fields = record.split(" ");
+        if (fields.length < 11)
+          throw toolError("native_output_invalid", "Git returned an invalid unmerged record.");
+        xy = fields[1] ?? "";
+        path = fields.slice(10).join(" ");
+      } else {
+        throw toolError("native_output_invalid", "Git returned an unsupported status record.");
+      }
+      if (!/^[.MADRCUT?!]{2}$/u.test(xy) || path.length === 0) {
+        throw toolError("native_output_invalid", "Git returned invalid status fields.");
+      }
+      entries.push({
+        indexStatus: xy[0] ?? ".",
+        kind: this.gitEntryKind(type, xy, score),
+        originalPath,
+        path,
+        worktreeStatus: xy[1] ?? ".",
+      });
+      if (
+        entries.length > 256 ||
+        Buffer.byteLength(JSON.stringify(entries), "utf8") > modelContentByteLimit
+      ) {
+        throw toolError(
+          "git_status_result_limit",
+          "Git status exceeded the bounded result limit.",
+          "reconfigure",
+          "Reduce the repository status set and recheck.",
+        );
+      }
+    }
+    return entries.sort((left, right) => comparePortablePaths(left.path, right.path));
+  }
+
+  private async gitStatus(
+    call: Extract<RepositoryToolCall, { readonly name: "git_status" }>,
+    signal?: AbortSignal,
+  ): Promise<RepositoryToolResult> {
+    abortIfNeeded(signal);
+    await this.verifyRoot();
+    const gitVersion = await this.probeGit(signal);
+    const observation = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: [
+            "--no-optional-locks",
+            "-c",
+            "core.quotepath=false",
+            "-c",
+            "color.ui=false",
+            "-c",
+            "core.fsmonitor=false",
+            "status",
+            "--porcelain=v2",
+            "-z",
+            "--untracked-files=all",
+            "--ignore-submodules=none",
+          ],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(true),
+          executable: this.gitExecutable,
+          maxStderrBytes: 64 * 1_024,
+          maxStdoutBytes: nativeOutputByteLimit,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "git",
+    );
+    if (observation.exitCode !== 0 || observation.stderr.byteLength !== 0) {
+      throw toolError(
+        "git_repository_required",
+        "Git status requires a readable Git worktree.",
+        "reconfigure",
+        "Open a Git worktree and recheck repository prerequisites.",
+      );
+    }
+    const entries = this.parseGitStatus(observation.stdout);
+    await this.verifyRoot();
+    return {
+      data: {
+        contentHash: sha256(JSON.stringify(entries)),
+        entries,
+        gitVersion,
+        sourcePath: ".",
+      },
+      name: "git_status",
+      status: "succeeded",
+      toolCallId: call.toolCallId,
+    };
+  }
+
   private async executeProduct(call: unknown, signal?: AbortSignal): Promise<RepositoryToolResult> {
     const identity = failureIdentity(call);
     try {
@@ -411,9 +1093,26 @@ export class RepositoryToolService {
       if (!decoded.ok) {
         throw toolError("tool_call_invalid", "The repository tool call is invalid.", "fatal");
       }
-      return decoded.value.name === "list_files"
-        ? await this.listFiles(decoded.value, signal)
-        : await this.readFile(decoded.value, signal);
+      let result: RepositoryToolResult;
+      switch (decoded.value.name) {
+        case "list_files":
+          result = await this.listFiles(decoded.value, signal);
+          break;
+        case "read_file":
+          result = await this.readFile(decoded.value, signal);
+          break;
+        case "search_repository":
+          result = await this.searchRepository(decoded.value, signal);
+          break;
+        case "git_status":
+          result = await this.gitStatus(decoded.value, signal);
+          break;
+      }
+      const validated = decodeRepositoryToolResult(result);
+      if (!validated.ok) {
+        throw toolError("tool_result_invalid", "The repository tool result is invalid.", "fatal");
+      }
+      return validated.value;
     } catch (error) {
       const productError =
         error instanceof RepositoryToolError
@@ -430,7 +1129,9 @@ export class RepositoryToolService {
         ? JSON.stringify({ error: productData.error })
         : productData.name === "read_file"
           ? productData.data.content
-          : JSON.stringify(productData.data.entries);
+          : productData.name === "search_repository"
+            ? JSON.stringify(productData.data.matches)
+            : JSON.stringify(productData.data.entries);
     return {
       diagnostics: {
         name: productData.name,

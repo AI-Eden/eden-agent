@@ -118,6 +118,13 @@ journals do not reopen the repository or redispatch the model. TUI cards render 
 sanitize terminal controls without changing the durable result. No executable, argv, shell, write, or
 renderer authority enters this boundary.
 
+Slice 5 completes the four-tool repository surface without adding a shell. One native-process port owns
+exact executable, argv, cwd, environment, output, timeout, cancellation, and POSIX process-group cleanup.
+Search accepts only the hash-verified ripgrep 15.0.0 file named by the closed application archive manifest;
+runtime never searches for another `rg`. Git remains a compatible host prerequisite and is probed before
+fixed porcelain-v2/NUL status parsing. Only bounded semantic matches/status rows and public prerequisite
+facts cross into contracts, kernel state, receipts, journal records, or renderers.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

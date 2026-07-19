@@ -51,6 +51,7 @@ import {
   inspectStateSubdirectory,
   StatePathError,
 } from "./state-path.ts";
+import { RepositoryToolService, type RepositoryToolServiceOptions } from "./tools/index.ts";
 import { WorkspaceTrustError, WorkspaceTrustService } from "./workspace/index.ts";
 
 export { AgentClientError } from "./client-session.ts";
@@ -64,6 +65,7 @@ export type InProcessAgentClientOptions = {
   readonly createReadinessProvider?: ProviderReadinessServiceOptions["createProvider"];
   readonly contextTokenEstimator?: ContextAdmissionServiceOptions["estimateTokens"];
   readonly runId?: RunId;
+  readonly repositoryTools?: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
   readonly stateDirectory: string;
 };
 
@@ -79,6 +81,7 @@ async function openSession(
   idSource: RuntimeIdSource,
   cwd: string,
   modelDriver: ModelDriver | undefined,
+  repositoryTools: Omit<RepositoryToolServiceOptions, "workspaceRoot">,
   existing: boolean,
 ): Promise<RunSession> {
   try {
@@ -102,6 +105,7 @@ async function openSession(
       cwd,
       !existing,
       modelDriver,
+      repositoryTools,
     );
   } catch (error) {
     if (!existing && error instanceof Error && "code" in error && error.code === "EEXIST") {
@@ -129,6 +133,8 @@ export class InProcessAgentClient implements AgentClient {
   private readonly modelDriver: ModelDriver | undefined;
   private readonly profiles: ProviderProfileStore | null;
   private readonly readiness: ProviderReadinessService | null;
+  private readonly repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
+  private repositoryTools: Promise<RepositoryToolService> | undefined;
   private readonly stateDirectory: string;
   private readonly trust: WorkspaceTrustService;
   private readonly waiters = new Set<() => void>();
@@ -156,6 +162,7 @@ export class InProcessAgentClient implements AgentClient {
     this.modelDriver = options.modelDriver;
     this.profiles = profiles;
     this.readiness = readiness;
+    this.repositoryToolOptions = options.repositoryTools ?? {};
     this.stateDirectory = stateDirectory;
     this.trust = trust;
     this.session = session;
@@ -223,6 +230,7 @@ export class InProcessAgentClient implements AgentClient {
             idSource,
             trust.identity.canonicalRoot,
             options.modelDriver,
+            options.repositoryTools ?? {},
             true,
           );
     return new InProcessAgentClient(
@@ -307,7 +315,20 @@ export class InProcessAgentClient implements AgentClient {
   }
 
   private async workspaceReviewWithProfile(review: WorkspaceReview): Promise<WorkspaceReview> {
-    if (this.profiles === null) return review;
+    this.repositoryTools ??= RepositoryToolService.open({
+      ...this.repositoryToolOptions,
+      workspaceRoot: this.cwd,
+    });
+    const repository = await this.repositoryTools.then((tools) => tools.reviewCapabilities());
+    const repositoryActions = [repository.ripgrep, repository.git].flatMap((capability) =>
+      capability.state === "blocked" ? capability.error.suggestedActions : [],
+    );
+    const reviewed = {
+      ...review,
+      nextActions: [...repositoryActions, ...review.nextActions],
+      repository,
+    };
+    if (this.profiles === null) return reviewed;
     try {
       const catalog = await this.requireReadiness().decorateCatalog(await this.profiles.read());
       const active =
@@ -373,8 +394,8 @@ export class InProcessAgentClient implements AgentClient {
             ? ["Run the explicit provider readiness check before a real repository task."]
             : [];
       return {
-        ...review,
-        nextActions: [...contextActions, ...profileActions, ...review.nextActions],
+        ...reviewed,
+        nextActions: [...contextActions, ...profileActions, ...reviewed.nextActions],
         context,
         profile:
           active === null || active.credential.presence === "missing"
@@ -572,6 +593,7 @@ export class InProcessAgentClient implements AgentClient {
             this.idSource,
             this.cwd,
             this.modelDriver,
+            this.repositoryToolOptions,
             false,
           );
           const event: KernelEvent = {

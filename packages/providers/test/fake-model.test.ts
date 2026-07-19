@@ -91,3 +91,41 @@ test("the fake model boundary accepts one closed tool call and one terminal cont
     false,
   );
 });
+
+test("the matching fake tasks request the closed search and Git status tools once", async () => {
+  const driver = new FakeModelDriver();
+  deepStrictEqual(
+    await driver.complete(
+      { task: "Search the repository for EDEN_NATIVE_SMOKE.", version: 1 },
+      new AbortController().signal,
+    ),
+    {
+      proposal: {
+        call: {
+          arguments: { continuation: null, path: ".", pattern: "EDEN_NATIVE_SMOKE" },
+          name: "search_repository",
+          toolCallId: "fake-search-repository",
+        },
+        kind: "repository-tool-call",
+      },
+      version: 1,
+    },
+  );
+  deepStrictEqual(
+    await driver.complete(
+      { task: "Show the current repository status.", version: 1 },
+      new AbortController().signal,
+    ),
+    {
+      proposal: {
+        call: {
+          arguments: {},
+          name: "git_status",
+          toolCallId: "fake-git-status",
+        },
+        kind: "repository-tool-call",
+      },
+      version: 1,
+    },
+  );
+});

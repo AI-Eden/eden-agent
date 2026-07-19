@@ -142,6 +142,15 @@ function EdenTuiSurface({
     }
   };
 
+  const recheckRepository = async () => {
+    try {
+      publishReview(await client.getWorkspaceReview());
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, "Repository prerequisites could not be rechecked."));
+    }
+  };
+
   const checkProviderReadiness = async () => {
     if (profileCatalog?.activeProfileId === null || profileCatalog?.activeProfileId === undefined) {
       setError("Configure an active provider profile before checking the connection.");
@@ -444,7 +453,8 @@ function EdenTuiSurface({
       if (key.name === "s") void selectNextProfile();
       if (key.name === "x") void deleteProfile();
       if (key.name === "l") void reloadProfiles();
-      if (["p", "c", "s", "x", "l"].includes(key.name)) return;
+      if (key.name === "g") void recheckRepository();
+      if (["p", "c", "s", "x", "l", "g"].includes(key.name)) return;
       if (review.authority.taskStart === "allowed") {
         if (key.name === "return") setComposerFocused(true);
         if (key.name === "h") history.openHistory();

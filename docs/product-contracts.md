@@ -115,12 +115,25 @@ this slice.
 
 ## Repository tool activity
 
-Protocol v1 admits one closed Slice 4 `list_files` or `read_file` call per fake-model run. Calls carry a
+Protocol v1 admits one closed `list_files`, `read_file`, `search_repository`, or `git_status` call per
+fake-model run. Calls carry a
 runtime-correlated tool-call ID and root-relative semantic arguments; they never carry an executable, cwd,
 environment, shell, or write request. Results are terminal `succeeded` or `failed` values with the same
 tool-call ID and name. Successful list pages include bounded typed rows, visited count, continuation, source
 path, and SHA-256 hash. Successful read pages include complete UTF-8 text for the accepted byte range,
 exact offset/length/total, continuation, source path, and SHA-256 hash.
+
+Successful search pages include at most 256 parsed path/line/byte-column/preview matches and 24 KiB,
+integer continuation, result hash, source path, and the verified ripgrep version/content hash. Successful
+Git-status results include at most 256 parsed ordinary/rename/copy/unmerged/untracked rows and 24 KiB,
+result hash, source path, and probed Git version. Neither value exposes native stdout/stderr or process
+configuration.
+
+`WorkspaceReview.repository` projects the independently ready/blocked ripgrep and Git prerequisites.
+Ripgrep requires the target-specific closed `eden-assets.json`, the exact application-local filename,
+version 15.0.0, and matching SHA-256. Git requires host version 2.31.0 or newer. Missing, modified, wrong-
+target, incompatible, timeout, overflow, and malformed-output states carry fixed recovery without exposing
+an executable path. TUI recheck repeats the probes and never installs or mutates a system package.
 
 `ProductView.tools` and `tool.updated` expose the same requested/completed activity without renderer-owned
 fields. Journal replay reconstructs the durable result without tool or model I/O. A failed tool result

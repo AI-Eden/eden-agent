@@ -72,6 +72,34 @@ export class FakeModelDriver implements ModelDriver {
     if (!decodeFakeModelRequest(request).ok) {
       throw new Error("The fake model request failed validation.");
     }
+    if (request.toolResult === undefined) {
+      if (request.task === "Search the repository for EDEN_NATIVE_SMOKE.") {
+        return {
+          proposal: {
+            call: {
+              arguments: { continuation: null, path: ".", pattern: "EDEN_NATIVE_SMOKE" },
+              name: "search_repository",
+              toolCallId: "fake-search-repository",
+            },
+            kind: "repository-tool-call",
+          },
+          version: 1,
+        };
+      }
+      if (request.task === "Show the current repository status.") {
+        return {
+          proposal: {
+            call: {
+              arguments: {},
+              name: "git_status",
+              toolCallId: "fake-git-status",
+            },
+            kind: "repository-tool-call",
+          },
+          version: 1,
+        };
+      }
+    }
     return {
       proposal: {
         kind: "deterministic-fake-action",

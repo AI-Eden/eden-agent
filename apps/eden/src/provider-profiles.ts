@@ -1,4 +1,8 @@
-import { AgentClientError, InProcessAgentClient } from "@eden/coding-runtime";
+import {
+  AgentClientError,
+  InProcessAgentClient,
+  type InProcessAgentClientOptions,
+} from "@eden/coding-runtime";
 
 import type { CliArguments } from "./args.ts";
 
@@ -10,6 +14,7 @@ export type ProviderProfileEnvironment = {
     readonly stderr: (value: string) => unknown;
     readonly stdout: (value: string) => unknown;
   };
+  readonly repositoryTools?: InProcessAgentClientOptions["repositoryTools"];
   readonly stateDirectory: string;
 };
 
@@ -19,6 +24,9 @@ export async function runProviderProfiles(
 ): Promise<0 | 1> {
   const client = await InProcessAgentClient.open({
     cwd: environment.cwd,
+    ...(environment.repositoryTools === undefined
+      ? {}
+      : { repositoryTools: environment.repositoryTools }),
     stateDirectory: environment.stateDirectory,
   });
   try {

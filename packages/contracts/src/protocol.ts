@@ -270,9 +270,38 @@ export const ReadFileToolCallSchema = Type.Object(
   },
   closed,
 );
+const SearchPatternSchema = Type.Refine(
+  Type.String({ maxLength: 1_024, minLength: 1 }),
+  (value) => !value.includes("\0"),
+);
+export const SearchRepositoryToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      {
+        continuation: Type.Union([Type.Integer(safeInteger), Type.Null()]),
+        path: RepositoryPathSchema,
+        pattern: SearchPatternSchema,
+      },
+      closed,
+    ),
+    name: Type.Literal("search_repository"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const GitStatusToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object({}, closed),
+    name: Type.Literal("git_status"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
 export const RepositoryToolCallSchema = Type.Union([
   ListFilesToolCallSchema,
   ReadFileToolCallSchema,
+  SearchRepositoryToolCallSchema,
+  GitStatusToolCallSchema,
 ]);
 export type RepositoryToolCall = Type.Static<typeof RepositoryToolCallSchema>;
 
@@ -342,10 +371,100 @@ export const ReadFileToolSuccessSchema = Type.Refine(
       : value.data.nextOffset === value.data.offset + value.data.bytesRead &&
         value.data.nextOffset < value.data.totalBytes),
 );
+export const SearchMatchSchema = Type.Object(
+  {
+    byteColumn: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
+    lineNumber: Type.Integer({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }),
+    path: RepositoryPathSchema,
+    preview: Type.String({ maxLength: 4_096 }),
+  },
+  closed,
+);
+export type SearchMatch = Type.Static<typeof SearchMatchSchema>;
+export const SearchRepositoryToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          contentHash: contentHashSchema,
+          continuation: Type.Union([Type.Integer(safeInteger), Type.Null()]),
+          engine: Type.Object(
+            {
+              contentHash: contentHashSchema,
+              name: Type.Literal("ripgrep"),
+              version: Type.String({ maxLength: 64, minLength: 1 }),
+            },
+            closed,
+          ),
+          matches: Type.Array(SearchMatchSchema, { maxItems: 256 }),
+          sourcePath: RepositoryPathSchema,
+          truncated: Type.Boolean(),
+        },
+        closed,
+      ),
+      name: Type.Literal("search_repository"),
+      status: Type.Literal("succeeded"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (value) =>
+    value.data.truncated === (value.data.continuation !== null) &&
+    new TextEncoder().encode(JSON.stringify(value.data.matches)).byteLength <= 24_576,
+);
+const GitStatusCodeSchema = Type.String({ maxLength: 1, minLength: 1, pattern: "^[.MADRCUT?!]$" });
+export const GitStatusEntrySchema = Type.Refine(
+  Type.Object(
+    {
+      indexStatus: GitStatusCodeSchema,
+      kind: Type.Union([
+        Type.Literal("added"),
+        Type.Literal("copied"),
+        Type.Literal("deleted"),
+        Type.Literal("modified"),
+        Type.Literal("renamed"),
+        Type.Literal("unmerged"),
+        Type.Literal("untracked"),
+      ]),
+      originalPath: Type.Union([RepositoryPathSchema, Type.Null()]),
+      path: RepositoryPathSchema,
+      worktreeStatus: GitStatusCodeSchema,
+    },
+    closed,
+  ),
+  (value) =>
+    (value.kind === "renamed" || value.kind === "copied") === (value.originalPath !== null),
+);
+export type GitStatusEntry = Type.Static<typeof GitStatusEntrySchema>;
+export const GitStatusToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          contentHash: contentHashSchema,
+          entries: Type.Array(GitStatusEntrySchema, { maxItems: 256 }),
+          gitVersion: Type.String({ maxLength: 64, minLength: 1 }),
+          sourcePath: Type.Literal("."),
+        },
+        closed,
+      ),
+      name: Type.Literal("git_status"),
+      status: Type.Literal("succeeded"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (value) => new TextEncoder().encode(JSON.stringify(value.data.entries)).byteLength <= 24_576,
+);
 export const RepositoryToolFailureSchema = Type.Object(
   {
     error: ProductErrorSchema,
-    name: Type.Union([Type.Literal("list_files"), Type.Literal("read_file")]),
+    name: Type.Union([
+      Type.Literal("list_files"),
+      Type.Literal("read_file"),
+      Type.Literal("search_repository"),
+      Type.Literal("git_status"),
+    ]),
     status: Type.Literal("failed"),
     toolCallId: Type.String(identifierOptions),
   },
@@ -354,6 +473,8 @@ export const RepositoryToolFailureSchema = Type.Object(
 export const RepositoryToolResultSchema = Type.Union([
   ListFilesToolSuccessSchema,
   ReadFileToolSuccessSchema,
+  SearchRepositoryToolSuccessSchema,
+  GitStatusToolSuccessSchema,
   RepositoryToolFailureSchema,
 ]);
 export type RepositoryToolResult = Type.Static<typeof RepositoryToolResultSchema>;
@@ -498,6 +619,70 @@ export const ContextAdmissionSummarySchema = Type.Union([
 ]);
 export type ContextAdmissionSummary = Type.Static<typeof ContextAdmissionSummarySchema>;
 
+const RipgrepCapabilitySchema = Type.Union([
+  Type.Object(
+    {
+      contentHash: contentHashSchema,
+      error: Type.Null(),
+      minimumVersion: Type.Literal("15.0.0"),
+      name: Type.Literal("ripgrep"),
+      state: Type.Literal("ready"),
+      version: Type.Literal("15.0.0"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      contentHash: Type.Union([contentHashSchema, Type.Null()]),
+      error: ProductErrorSchema,
+      minimumVersion: Type.Literal("15.0.0"),
+      name: Type.Literal("ripgrep"),
+      state: Type.Literal("blocked"),
+      version: Type.Union([Type.String({ maxLength: 64, minLength: 1 }), Type.Null()]),
+    },
+    closed,
+  ),
+]);
+const GitCapabilitySchema = Type.Union([
+  Type.Object(
+    {
+      contentHash: Type.Null(),
+      error: Type.Null(),
+      minimumVersion: Type.Literal("2.31.0"),
+      name: Type.Literal("git"),
+      state: Type.Literal("ready"),
+      version: Type.String({ maxLength: 64, minLength: 1 }),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      contentHash: Type.Null(),
+      error: ProductErrorSchema,
+      minimumVersion: Type.Literal("2.31.0"),
+      name: Type.Literal("git"),
+      state: Type.Literal("blocked"),
+      version: Type.Union([Type.String({ maxLength: 64, minLength: 1 }), Type.Null()]),
+    },
+    closed,
+  ),
+]);
+export const RepositoryCapabilityReviewSchema = Type.Refine(
+  Type.Object(
+    {
+      git: GitCapabilitySchema,
+      ripgrep: RipgrepCapabilitySchema,
+      state: Type.Union([Type.Literal("ready"), Type.Literal("blocked")]),
+    },
+    closed,
+  ),
+  (value) =>
+    (value.state === "ready" && value.git.state === "ready" && value.ripgrep.state === "ready") ||
+    (value.state === "blocked" &&
+      (value.git.state === "blocked" || value.ripgrep.state === "blocked")),
+);
+export type RepositoryCapabilityReview = Type.Static<typeof RepositoryCapabilityReviewSchema>;
+
 export const WorkspaceReviewSchema = Type.Object(
   {
     protocolVersion: ProductProtocolVersionSchema,
@@ -540,6 +725,7 @@ export const WorkspaceReviewSchema = Type.Object(
     notice: Type.Union([ProductErrorSchema, Type.Null()]),
     nextActions: Type.Array(shortText(), { maxItems: 16 }),
     context: ContextAdmissionSummarySchema,
+    repository: Type.Optional(RepositoryCapabilityReviewSchema),
   },
   closed,
 );
@@ -813,6 +999,10 @@ export const RepositoryToolResultDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: RepositoryToolResultSchema }, closed),
   DecodeFailureSchema,
 ]);
+export const RepositoryCapabilityReviewDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: RepositoryCapabilityReviewSchema }, closed),
+  DecodeFailureSchema,
+]);
 export const RunCatalogDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: RunCatalogSchema }, closed),
   DecodeFailureSchema,
@@ -840,6 +1030,9 @@ export type RepositoryToolCallDecodeResult = Type.Static<
 >;
 export type RepositoryToolResultDecodeResult = Type.Static<
   typeof RepositoryToolResultDecodeResultSchema
+>;
+export type RepositoryCapabilityReviewDecodeResult = Type.Static<
+  typeof RepositoryCapabilityReviewDecodeResultSchema
 >;
 export type RunCatalogDecodeResult = Type.Static<typeof RunCatalogDecodeResultSchema>;
 export type RunInspectionDecodeResult = Type.Static<typeof RunInspectionDecodeResultSchema>;
@@ -883,6 +1076,7 @@ const workspaceReviewValidator = Schema.Compile(WorkspaceReviewSchema);
 const contextAdmissionSummaryValidator = Schema.Compile(ContextAdmissionSummarySchema);
 const repositoryToolCallValidator = Schema.Compile(RepositoryToolCallSchema);
 const repositoryToolResultValidator = Schema.Compile(RepositoryToolResultSchema);
+const repositoryCapabilityReviewValidator = Schema.Compile(RepositoryCapabilityReviewSchema);
 const workspaceTrustCommandValidator = Schema.Compile(ResolveWorkspaceTrustCommandSchema);
 const runCatalogValidator = Schema.Compile(RunCatalogSchema);
 const runInspectionValidator = Schema.Compile(RunInspectionSchema);
@@ -895,6 +1089,7 @@ type DecodedKind =
   | "run_catalog"
   | "run_id"
   | "run_inspection"
+  | "repository_capability"
   | "tool_call"
   | "tool_result"
   | "view";
@@ -963,6 +1158,12 @@ export function decodeRepositoryToolCall(value: unknown): RepositoryToolCallDeco
 
 export function decodeRepositoryToolResult(value: unknown): RepositoryToolResultDecodeResult {
   return decode("tool_result", repositoryToolResultValidator, value);
+}
+
+export function decodeRepositoryCapabilityReview(
+  value: unknown,
+): RepositoryCapabilityReviewDecodeResult {
+  return decode("repository_capability", repositoryCapabilityReviewValidator, value);
 }
 
 export function decodeRunCatalog(value: unknown): RunCatalogDecodeResult {

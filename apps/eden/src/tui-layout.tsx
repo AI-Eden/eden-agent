@@ -19,7 +19,7 @@ function ToolCard({
   readonly activity: NonNullable<ProductView["tools"]>[number];
   readonly compact: boolean;
 }) {
-  const path = activity.call.arguments.path;
+  const path = activity.call.name === "git_status" ? "." : activity.call.arguments.path;
   const safePath = fitTerminalLine(path, Number.MAX_SAFE_INTEGER);
   const result = activity.result;
   return (
@@ -57,6 +57,39 @@ function ToolCard({
           {result.data.entries.map((entry) => (
             <text key={entry.path}>
               {entry.kind}: {fitTerminalLine(entry.path, Number.MAX_SAFE_INTEGER)}
+            </text>
+          ))}
+        </box>
+      )}
+      {result?.status === "succeeded" && result.name === "search_repository" && (
+        <box style={{ flexDirection: "column" }}>
+          <text>
+            matches: {result.data.matches.length} · engine: {result.data.engine.name}{" "}
+            {result.data.engine.version} · next: {result.data.continuation ?? "complete"}
+          </text>
+          <text>hash: {result.data.contentHash}</text>
+          {result.data.matches.map((match) => (
+            <text key={`${match.path}:${match.lineNumber}:${match.byteColumn}:${match.preview}`}>
+              {fitTerminalLine(match.path, Number.MAX_SAFE_INTEGER)}:{match.lineNumber}:
+              {match.byteColumn}: {safeTerminalBlock(match.preview)}
+            </text>
+          ))}
+        </box>
+      )}
+      {result?.status === "succeeded" && result.name === "git_status" && (
+        <box style={{ flexDirection: "column" }}>
+          <text>
+            rows: {result.data.entries.length} · Git {result.data.gitVersion}
+          </text>
+          <text>hash: {result.data.contentHash}</text>
+          {result.data.entries.map((entry) => (
+            <text key={`${entry.path}:${entry.originalPath ?? ""}`}>
+              {entry.indexStatus}
+              {entry.worktreeStatus} {entry.kind}:{" "}
+              {fitTerminalLine(entry.path, Number.MAX_SAFE_INTEGER)}
+              {entry.originalPath === null
+                ? ""
+                : ` ← ${fitTerminalLine(entry.originalPath, Number.MAX_SAFE_INTEGER)}`}
             </text>
           ))}
         </box>
@@ -127,6 +160,48 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                     props.width - 4,
                   )}
                 </text>
+                {props.review.repository !== undefined && (
+                  <box style={{ flexDirection: "column" }}>
+                    <text>
+                      {props.compact
+                        ? `repo: ${props.review.repository.state} · rg ${props.review.repository.ripgrep.state} · Git ${props.review.repository.git.state} · g recheck`
+                        : `repository prerequisites: ${props.review.repository.state} · ripgrep ${props.review.repository.ripgrep.state} · Git ${props.review.repository.git.state}`}
+                    </text>
+                    {!props.compact && props.review.repository.ripgrep.state === "blocked" && (
+                      <box style={{ flexDirection: "column" }}>
+                        <text fg="#ED8796">
+                          {fitTerminalLine(
+                            `ripgrep block: ${props.review.repository.ripgrep.error.message}`,
+                            props.width - 4,
+                          )}
+                        </text>
+                        <text>
+                          {fitTerminalLine(
+                            `ripgrep recovery: ${props.review.repository.ripgrep.error.suggestedActions[0] ?? ""}`,
+                            props.width - 4,
+                          )}
+                        </text>
+                      </box>
+                    )}
+                    {!props.compact && props.review.repository.git.state === "blocked" && (
+                      <box style={{ flexDirection: "column" }}>
+                        <text fg="#ED8796">
+                          {fitTerminalLine(
+                            `Git block: ${props.review.repository.git.error.message}`,
+                            props.width - 4,
+                          )}
+                        </text>
+                        <text>
+                          {fitTerminalLine(
+                            `Git recovery: ${props.review.repository.git.error.suggestedActions[0] ?? ""}`,
+                            props.width - 4,
+                          )}
+                        </text>
+                      </box>
+                    )}
+                    {!props.compact && <text>repository prerequisite recheck: g</text>}
+                  </box>
+                )}
                 {props.review.context.instructions.length > 0 && (
                   <text>
                     {fitTerminalLine(
@@ -173,7 +248,8 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                 {props.review.context.state !== "blocked" && (
                   <box style={{ flexDirection: "column" }}>
                     <text>
-                      profile: p · connection check: c · history: h · trust: t · revoke: r
+                      profile: p · connection check: c · repository recheck: g · history: h · trust:
+                      t · revoke: r
                     </text>
                     <text>history runs: {props.catalog?.entries.length ?? 0}</text>
                   </box>

@@ -12,6 +12,11 @@ fake task, durable JSONL replay, and current-workspace read-only run history. It
 agent: the R1 runtime uses no provider credential, does not read or change repository files, executes no
 real process, has no network authority, and does not resume historical execution.
 
+R2 Build is in progress. The current public source adds host-side provider onboarding, explicit DeepSeek
+readiness, scoped instruction/context admission, bounded list/read/search/Git-status tools, and a verified
+application-local ripgrep archive. It still does not edit repository files, expose a shell, resume a real
+provider attempt, or claim R2 release support.
+
 ## Intended product
 
 The first complete release target is an installable terminal product:
@@ -57,15 +62,17 @@ pnpm markdown:check
 pnpm --filter @eden/cli package:bun
 ```
 
-The artifact is `apps/eden/dist/eden` on Linux/macOS and `apps/eden/dist/eden.exe` on Windows. Copy it to
-an empty directory to exercise the standalone boundary; it does not need checkout source or
-`node_modules` at runtime.
+The complete R2 application archive is the `apps/eden/dist/` directory. It contains `eden`/`eden.exe`,
+`rg`/`rg.exe`, `THIRD_PARTY_NOTICES.txt`, and `eden-assets.json`. Copy all four files together to exercise
+repository search; runtime does not need checkout source or `node_modules` and never falls back to a host
+`rg`. A compatible host Git 2.31.0 or newer remains an explicit prerequisite for Git status.
 
 Use a disposable workspace and state root. On Linux/macOS:
 
 ```sh
 mkdir -p /tmp/eden-r1-demo/workspace /tmp/eden-r1-demo/bin
-cp apps/eden/dist/eden /tmp/eden-r1-demo/bin/eden
+cp apps/eden/dist/eden apps/eden/dist/rg apps/eden/dist/THIRD_PARTY_NOTICES.txt \
+  apps/eden/dist/eden-assets.json /tmp/eden-r1-demo/bin/
 cd /tmp/eden-r1-demo/workspace
 export EDEN_STATE_DIR=/tmp/eden-r1-demo/state
 ../bin/eden --help

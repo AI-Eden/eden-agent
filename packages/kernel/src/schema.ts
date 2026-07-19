@@ -95,7 +95,39 @@ const ReadFileToolCallSchema = Type.Object(
   },
   closed,
 );
-const RepositoryToolCallSchema = Type.Union([ListFilesToolCallSchema, ReadFileToolCallSchema]);
+const SearchPatternSchema = Type.Refine(
+  Type.String({ maxLength: 1_024, minLength: 1 }),
+  (value) => !value.includes("\0"),
+);
+const SearchRepositoryToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      {
+        continuation: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+        path: RepositoryPathSchema,
+        pattern: SearchPatternSchema,
+      },
+      closed,
+    ),
+    name: Type.Literal("search_repository"),
+    toolCallId: identifier(),
+  },
+  closed,
+);
+const GitStatusToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object({}, closed),
+    name: Type.Literal("git_status"),
+    toolCallId: identifier(),
+  },
+  closed,
+);
+const RepositoryToolCallSchema = Type.Union([
+  ListFilesToolCallSchema,
+  ReadFileToolCallSchema,
+  SearchRepositoryToolCallSchema,
+  GitStatusToolCallSchema,
+]);
 const ListFilesEntrySchema = Type.Union([
   Type.Object(
     { kind: Type.Literal("directory"), path: RepositoryPathSchema, size: Type.Null() },
@@ -164,10 +196,98 @@ const ReadFileToolSuccessSchema = Type.Refine(
       : value.data.nextOffset === value.data.offset + value.data.bytesRead &&
         value.data.nextOffset < value.data.totalBytes),
 );
+const SearchMatchSchema = Type.Object(
+  {
+    byteColumn: Type.Integer({ minimum: 1 }),
+    lineNumber: Type.Integer({ minimum: 1 }),
+    path: RepositoryPathSchema,
+    preview: Type.String({ maxLength: 4_096 }),
+  },
+  closed,
+);
+const SearchRepositoryToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          contentHash,
+          continuation: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()]),
+          engine: Type.Object(
+            {
+              contentHash,
+              name: Type.Literal("ripgrep"),
+              version: Type.String({ maxLength: 64, minLength: 1 }),
+            },
+            closed,
+          ),
+          matches: Type.Array(SearchMatchSchema, { maxItems: 256 }),
+          sourcePath: RepositoryPathSchema,
+          truncated: Type.Boolean(),
+        },
+        closed,
+      ),
+      name: Type.Literal("search_repository"),
+      status: Type.Literal("succeeded"),
+      toolCallId: identifier(),
+    },
+    closed,
+  ),
+  (value) =>
+    value.data.truncated === (value.data.continuation !== null) &&
+    new TextEncoder().encode(JSON.stringify(value.data.matches)).byteLength <= 24_576,
+);
+const GitStatusCodeSchema = Type.String({ maxLength: 1, minLength: 1, pattern: "^[.MADRCUT?!]$" });
+const GitStatusEntrySchema = Type.Refine(
+  Type.Object(
+    {
+      indexStatus: GitStatusCodeSchema,
+      kind: Type.Union([
+        Type.Literal("added"),
+        Type.Literal("copied"),
+        Type.Literal("deleted"),
+        Type.Literal("modified"),
+        Type.Literal("renamed"),
+        Type.Literal("unmerged"),
+        Type.Literal("untracked"),
+      ]),
+      originalPath: Type.Union([RepositoryPathSchema, Type.Null()]),
+      path: RepositoryPathSchema,
+      worktreeStatus: GitStatusCodeSchema,
+    },
+    closed,
+  ),
+  (value) =>
+    (value.kind === "renamed" || value.kind === "copied") === (value.originalPath !== null),
+);
+const GitStatusToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          contentHash,
+          entries: Type.Array(GitStatusEntrySchema, { maxItems: 256 }),
+          gitVersion: Type.String({ maxLength: 64, minLength: 1 }),
+          sourcePath: Type.Literal("."),
+        },
+        closed,
+      ),
+      name: Type.Literal("git_status"),
+      status: Type.Literal("succeeded"),
+      toolCallId: identifier(),
+    },
+    closed,
+  ),
+  (value) => new TextEncoder().encode(JSON.stringify(value.data.entries)).byteLength <= 24_576,
+);
 const RepositoryToolFailureSchema = Type.Object(
   {
     error: ProductErrorSchema,
-    name: Type.Union([Type.Literal("list_files"), Type.Literal("read_file")]),
+    name: Type.Union([
+      Type.Literal("list_files"),
+      Type.Literal("read_file"),
+      Type.Literal("search_repository"),
+      Type.Literal("git_status"),
+    ]),
     status: Type.Literal("failed"),
     toolCallId: identifier(),
   },
@@ -176,6 +296,8 @@ const RepositoryToolFailureSchema = Type.Object(
 const RepositoryToolResultSchema = Type.Union([
   ListFilesToolSuccessSchema,
   ReadFileToolSuccessSchema,
+  SearchRepositoryToolSuccessSchema,
+  GitStatusToolSuccessSchema,
   RepositoryToolFailureSchema,
 ]);
 

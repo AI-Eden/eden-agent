@@ -15,5 +15,8 @@
     "@eden/providers": "workspace:*",
     "smol-toml": "1.7.0",
     "typebox": "1.3.6"
+  },
+  "devDependencies": {
+    "@vscode/ripgrep": "1.18.0"
   }
 }

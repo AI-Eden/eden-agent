@@ -67,10 +67,16 @@ activity. Paths remain inside the captured workspace identity; links, binary dat
 limit overflow, cancellation, and stale workspace identity fail closed. The TUI shows complete bounded
 results, source/hash/continuation provenance, and read-only authority while preserving zero write or process
 authority.
+Slice 5 adds closed `search_repository` and `git_status` calls behind one bounded native-process port.
+Search verifies the application-local ripgrep 15.0.0 asset by SHA-256 and never falls back to `PATH`; Git
+status probes host Git 2.31.0 or newer and uses fixed porcelain-v2/NUL arguments with a scrubbed,
+non-interactive environment. The complete Bun archive now contains `eden`, `rg`,
+`THIRD_PARTY_NOTICES.txt`, and `eden-assets.json`. Local Node, Bun, copied-archive, missing-prerequisite,
+pagination, zero-write, cancellation, process-tree, TUI, and full-workspace evidence is green.
 
 ## Next implementation slice
 
-Implement Slice 5: pinned application-local ripgrep and compatible host Git semantic tools behind the same
+Implement Slice 6: real multi-step provider/tool execution and durable attempt recovery through the same
 closed model/runtime contract. The approved later slices still exclude
 AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
 scope.

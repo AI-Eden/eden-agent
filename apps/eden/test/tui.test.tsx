@@ -1,11 +1,25 @@
 import { expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { AgentClientError, InProcessAgentClient } from "@eden/coding-runtime";
+import {
+  AgentClientError,
+  InProcessAgentClient,
+  type InProcessAgentClientOptions,
+} from "@eden/coding-runtime";
 import {
   type AgentClient,
   availableRunSummary,
@@ -20,6 +34,7 @@ import {
   type WorkspaceReview,
 } from "@eden/contracts";
 import { testRender } from "@opentui/react/test-utils";
+import { rgPath } from "@vscode/ripgrep";
 import { act } from "react";
 
 import { EdenTuiApp } from "../src/tui.tsx";
@@ -197,6 +212,7 @@ async function setup(
   height = 30,
   paths?: Awaited<ReturnType<typeof directories>>,
   modelDriver?: RuntimeModelDriver,
+  repositoryTools?: InProcessAgentClientOptions["repositoryTools"],
 ) {
   const fixturePaths = paths ?? (await directories());
   const client = await InProcessAgentClient.open({
@@ -213,6 +229,7 @@ async function setup(
       "event-7",
     ),
     ...(modelDriver === undefined ? {} : { modelDriver }),
+    ...(repositoryTools === undefined ? {} : { repositoryTools }),
     stateDirectory: fixturePaths.stateDirectory,
   });
   const initialWorkspaceReview = await client.getWorkspaceReview();
@@ -257,6 +274,74 @@ async function setup(
     views,
   };
 }
+
+test("repository prerequisites show distinct recovery and recheck a restored archive asset", async () => {
+  const paths = await directories();
+  const applicationDirectory = await mkdtemp(join(tmpdir(), "eden-tui-assets-"));
+  const applicationRipgrep = join(
+    applicationDirectory,
+    process.platform === "win32" ? "rg.exe" : "rg",
+  );
+  const contentHash = `sha256:${createHash("sha256")
+    .update(await readFile(rgPath))
+    .digest("hex")}`;
+  const fixture = await setup(100, 32, paths, undefined, {
+    ripgrepAsset: { contentHash, path: applicationRipgrep, version: "15.0.0" },
+  });
+  try {
+    const blockedFrame = fixture.renderer.captureCharFrame();
+    expect(blockedFrame).toContain(
+      "repository prerequisites: blocked · ripgrep blocked · Git ready",
+    );
+    expect(blockedFrame).toContain("Restore the complete Eden archive");
+    expect(blockedFrame).toContain("repository prerequisite recheck: g");
+
+    await copyFile(rgPath, applicationRipgrep);
+    if (process.platform !== "win32") await chmod(applicationRipgrep, 0o755);
+    await act(async () => {
+      const rechecked = fixture.reviews.take();
+      fixture.renderer.mockInput.pressKey("g");
+      expect((await rechecked)?.repository?.state).toBe("ready");
+    });
+    await act(async () => {
+      await delay(20);
+      fixture.renderer.flush();
+    });
+    expect(fixture.renderer.captureCharFrame()).toContain(
+      "repository prerequisites: ready · ripgrep ready · Git ready",
+    );
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
+
+test("repository prerequisites distinguish a missing compatible host Git", async () => {
+  const paths = await directories();
+  const applicationDirectory = await mkdtemp(join(tmpdir(), "eden-tui-missing-git-"));
+  const applicationRipgrep = join(
+    applicationDirectory,
+    process.platform === "win32" ? "rg.exe" : "rg",
+  );
+  await copyFile(rgPath, applicationRipgrep);
+  if (process.platform !== "win32") await chmod(applicationRipgrep, 0o755);
+  const contentHash = `sha256:${createHash("sha256")
+    .update(await readFile(applicationRipgrep))
+    .digest("hex")}`;
+  const fixture = await setup(100, 32, paths, undefined, {
+    gitExecutable: join(applicationDirectory, "missing-git"),
+    ripgrepAsset: { contentHash, path: applicationRipgrep, version: "15.0.0" },
+  });
+  try {
+    const frame = fixture.renderer.captureCharFrame();
+    expect(frame).toContain("repository prerequisites: blocked · ripgrep ready · Git blocked");
+    expect(frame).toContain("Git is unavailable");
+    expect(frame).toContain("Install Git from https://git-scm.com/downloads");
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+  }
+});
 
 async function trustWorkspace(fixture: Awaited<ReturnType<typeof setup>>) {
   const changed = fixture.reviews.take();

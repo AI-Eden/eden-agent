@@ -101,6 +101,12 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   Reads return at most 24 KiB at an exact UTF-8 byte offset with SHA-256 provenance and a next offset.
   Absolute/traversal/linked paths, binary or malformed UTF-8, stale workspace identity, cancellation, and
   limit overflow fail closed. Neither tool grants process execution or repository writes.
+- `search_repository` accepts one bounded pattern, root-relative path, and integer continuation. Runtime
+  resolves only the verified archive-local ripgrep 15.0.0 asset, executes fixed JSON arguments with no
+  inherited `PATH`, and returns at most 256 parsed matches and 24 KiB per page. `git_status` probes host Git
+  2.31.0 or newer and executes one fixed porcelain-v2/NUL status shape with prompts, pagers, editors, and
+  optional locks disabled. Both adapters have a five-second timeout, 2 MiB capture ceiling, complete
+  process-tree cancellation, closed recovery, and no raw stdout/stderr projection.
 - Repository instructions load as complete scoped `AGENTS.md` snapshots with path, scope, hash, precedence,
   and activation provenance. Nested instructions activate before governed repository content enters model
   context. Applicable instructions that do not fit block before provider network access.

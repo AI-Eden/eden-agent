@@ -1,6 +1,10 @@
 export type { InProcessAgentClientOptions } from "./agent-client.ts";
 export { AgentClientError, InProcessAgentClient } from "./agent-client.ts";
 export {
+  type ApplicationAssets,
+  loadApplicationAssets,
+} from "./application-assets.ts";
+export {
   ContextAdmissionError,
   ContextAdmissionService,
   type ContextAdmissionServiceOptions,
@@ -15,6 +19,12 @@ export { FakeToolHost } from "./fake-tool-host.ts";
 export type { GoalSpec } from "./goals/index.js";
 export type { JournalPort } from "./journal/index.js";
 export * from "./journal/index.ts";
+export {
+  type NativeProcessObservation,
+  type NativeProcessPort,
+  type NativeProcessRequest,
+  NativeProcessRunner,
+} from "./native-process.ts";
 export type { PlanArtifact } from "./planning/index.js";
 export type { PolicyDecision } from "./policy/index.js";
 export {

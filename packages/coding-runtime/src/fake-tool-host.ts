@@ -7,7 +7,7 @@ import { decodeFakeModelResponse, FakeModelDriver, type ModelDriver } from "@ede
 
 import { fakeAction } from "./fake-action.ts";
 import type { EffectHost, ReconciliationResult } from "./runtime.ts";
-import { RepositoryToolService } from "./tools/index.ts";
+import { RepositoryToolService, type RepositoryToolServiceOptions } from "./tools/index.ts";
 
 function isMissingFile(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
@@ -223,20 +223,26 @@ export class FakeToolHost implements EffectHost {
   private readonly cwd: string;
   private readonly modelDriver: ModelDriver;
   private readonly receiptsDirectory: string;
+  private readonly repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
   private repositoryTools: Promise<RepositoryToolService> | undefined;
 
   constructor(
     receiptsDirectory: string,
     cwd = ".",
     modelDriver: ModelDriver = new FakeModelDriver(),
+    repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot"> = {},
   ) {
     this.cwd = cwd;
     this.modelDriver = modelDriver;
     this.receiptsDirectory = receiptsDirectory;
+    this.repositoryToolOptions = repositoryToolOptions;
   }
 
   private openRepositoryTools(): Promise<RepositoryToolService> {
-    this.repositoryTools ??= RepositoryToolService.open({ workspaceRoot: this.cwd });
+    this.repositoryTools ??= RepositoryToolService.open({
+      ...this.repositoryToolOptions,
+      workspaceRoot: this.cwd,
+    });
     return this.repositoryTools;
   }
 

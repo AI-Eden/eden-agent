@@ -1,4 +1,4 @@
-import { InProcessAgentClient } from "@eden/coding-runtime";
+import { InProcessAgentClient, type InProcessAgentClientOptions } from "@eden/coding-runtime";
 import type { WorkspaceReview } from "@eden/contracts";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
@@ -8,12 +8,16 @@ import { EdenTuiApp } from "./tui.tsx";
 export type TuiEnvironment = {
   readonly cwd: string;
   readonly onReady?: (() => void) | undefined;
+  readonly repositoryTools?: InProcessAgentClientOptions["repositoryTools"];
   readonly stateDirectory: string;
 };
 
 export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
   const client = await InProcessAgentClient.open({
     cwd: environment.cwd,
+    ...(environment.repositoryTools === undefined
+      ? {}
+      : { repositoryTools: environment.repositoryTools }),
     stateDirectory: environment.stateDirectory,
   });
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | undefined;

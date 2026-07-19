@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { AgentClientError, InProcessAgentClient } from "@eden/coding-runtime";
+import {
+  AgentClientError,
+  InProcessAgentClient,
+  type InProcessAgentClientOptions,
+} from "@eden/coding-runtime";
 import type { ProductError, ProductEvent } from "@eden/contracts";
 
 export type HeadlessOptions = {
@@ -15,6 +19,7 @@ export type HeadlessEnvironment = {
     readonly stdout: (value: string) => void;
   };
   readonly openClient?: typeof InProcessAgentClient.open;
+  readonly repositoryTools?: InProcessAgentClientOptions["repositoryTools"];
   readonly stateDirectory: string;
 };
 
@@ -51,6 +56,9 @@ export async function runHeadless(
   try {
     client = await (environment.openClient ?? InProcessAgentClient.open)({
       cwd: environment.cwd,
+      ...(environment.repositoryTools === undefined
+        ? {}
+        : { repositoryTools: environment.repositoryTools }),
       stateDirectory: environment.stateDirectory,
     });
     if (options.trustWorkspace) {

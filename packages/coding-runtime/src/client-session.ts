@@ -6,6 +6,7 @@ import type { ModelDriver } from "@eden/providers";
 import { FakeToolHost } from "./fake-tool-host.ts";
 import { FileJournal } from "./journal/index.ts";
 import { type RuntimeClock, RuntimeEngine, type RuntimeIdSource } from "./runtime.ts";
+import type { RepositoryToolServiceOptions } from "./tools/index.ts";
 
 export type RunSession = {
   readonly engine: RuntimeEngine;
@@ -70,6 +71,7 @@ export async function openRunSession(
   cwd: string,
   create: boolean,
   modelDriver?: ModelDriver,
+  repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot"> = {},
 ): Promise<RunSession> {
   const runDirectory = runDirectoryPath(stateDirectory, workspaceId, runId);
   const journal = await FileJournal.open(
@@ -79,7 +81,7 @@ export async function openRunSession(
   );
   const engine = await RuntimeEngine.open(
     journal,
-    new FakeToolHost(join(runDirectory, "receipts"), cwd, modelDriver),
+    new FakeToolHost(join(runDirectory, "receipts"), cwd, modelDriver, repositoryToolOptions),
     clock,
     idSource,
   );

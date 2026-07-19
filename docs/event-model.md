@@ -83,6 +83,11 @@ continuation effect carrying the closed result. A failed observation blocks with
 call, and result identities must match exactly, a second tool request is rejected, and replay folds the
 committed observations without opening the repository.
 
+Slice 5 adds search and Git-status variants to the same lifecycle; it does not add a new event owner or
+raw native-process event. The committed terminal observation contains only the closed semantic result or
+structured failure. Executable paths, argv, environment, stdout, stderr, process IDs, and archive paths
+remain adapter diagnostics and are never journal or product facts.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

@@ -36,6 +36,20 @@ export type RepositoryToolCall =
       };
       readonly name: "read_file";
       readonly toolCallId: string;
+    }
+  | {
+      readonly arguments: {
+        readonly continuation: number | null;
+        readonly path: string;
+        readonly pattern: string;
+      };
+      readonly name: "search_repository";
+      readonly toolCallId: string;
+    }
+  | {
+      readonly arguments: object;
+      readonly name: "git_status";
+      readonly toolCallId: string;
     };
 
 export type RepositoryToolResult =
@@ -70,8 +84,54 @@ export type RepositoryToolResult =
       readonly toolCallId: string;
     }
   | {
+      readonly data: {
+        readonly contentHash: string;
+        readonly continuation: number | null;
+        readonly engine: {
+          readonly contentHash: string;
+          readonly name: "ripgrep";
+          readonly version: string;
+        };
+        readonly matches: readonly {
+          readonly byteColumn: number;
+          readonly lineNumber: number;
+          readonly path: string;
+          readonly preview: string;
+        }[];
+        readonly sourcePath: string;
+        readonly truncated: boolean;
+      };
+      readonly name: "search_repository";
+      readonly status: "succeeded";
+      readonly toolCallId: string;
+    }
+  | {
+      readonly data: {
+        readonly contentHash: string;
+        readonly entries: readonly {
+          readonly indexStatus: string;
+          readonly kind:
+            | "added"
+            | "copied"
+            | "deleted"
+            | "modified"
+            | "renamed"
+            | "unmerged"
+            | "untracked";
+          readonly originalPath: string | null;
+          readonly path: string;
+          readonly worktreeStatus: string;
+        }[];
+        readonly gitVersion: string;
+        readonly sourcePath: ".";
+      };
+      readonly name: "git_status";
+      readonly status: "succeeded";
+      readonly toolCallId: string;
+    }
+  | {
       readonly error: KernelProductError;
-      readonly name: "list_files" | "read_file";
+      readonly name: "git_status" | "list_files" | "read_file" | "search_repository";
       readonly status: "failed";
       readonly toolCallId: string;
     };
