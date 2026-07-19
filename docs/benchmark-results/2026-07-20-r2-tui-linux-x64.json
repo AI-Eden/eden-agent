@@ -32,12 +32,7 @@
       "frameSha256": "bc0c60721248a01da4485678e2d1efb09be91f5e76b7e7e4249315e20f027a21",
       "help": "observed",
       "keyboardOnly": true,
-      "resizeSequence": [
-        "60x20",
-        "80x24",
-        "100x30",
-        "60x20"
-      ],
+      "resizeSequence": ["60x20", "80x24", "100x30", "60x20"],
       "status": "passed",
       "terminalRestoration": "restored",
       "viewport": "60x20"
@@ -49,12 +44,7 @@
       "frameSha256": "ccda313dd4153447f42f42c6df8ac9bab98b4325c7a15ebdddb9f3416c857b7b",
       "help": "observed",
       "keyboardOnly": true,
-      "resizeSequence": [
-        "60x20",
-        "80x24",
-        "100x30",
-        "80x24"
-      ],
+      "resizeSequence": ["60x20", "80x24", "100x30", "80x24"],
       "status": "passed",
       "terminalRestoration": "restored",
       "viewport": "80x24"
@@ -66,12 +56,7 @@
       "frameSha256": "a26979ae9736c370bd6c472d45ccb90f1fa625b1fa2538a284544751c038cbba",
       "help": "observed",
       "keyboardOnly": true,
-      "resizeSequence": [
-        "60x20",
-        "80x24",
-        "100x30",
-        "100x30"
-      ],
+      "resizeSequence": ["60x20", "80x24", "100x30", "100x30"],
       "status": "passed",
       "terminalRestoration": "restored",
       "viewport": "100x30"

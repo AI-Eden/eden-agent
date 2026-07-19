@@ -1,0 +1,85 @@
+name: R2 acceptance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/r2-acceptance.yml"
+      - "apps/eden/**"
+      - "packages/**"
+      - "scripts/**"
+      - "docs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/r2-acceptance.yml"
+      - "apps/eden/**"
+      - "packages/**"
+      - "scripts/**"
+      - "docs/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-acceptance:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: pnpm
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.3.14
+      - run: pnpm install --frozen-lockfile
+      - name: Restore node-pty helper permissions
+        if: runner.os == 'macOS'
+        run: chmod +x node_modules/.pnpm/node-pty@1.1.0/node_modules/node-pty/prebuilds/darwin-*/spawn-helper
+      - run: pnpm peers check
+      - run: pnpm test
+      - run: pnpm test:r2-process
+      - run: pnpm test:r2-provider-fixtures
+      - run: pnpm test:r2-secret-canaries
+      - run: pnpm test:r2-budgets
+      - run: pnpm typecheck
+      - run: pnpm build
+      - run: pnpm code:check
+      - run: pnpm markdown:check
+      - run: pnpm --filter @eden/cli package:bun
+      - run: pnpm test:r2-native-archive
+      - name: Packaged process evidence
+        shell: bash
+        run: |
+          mkdir -p r2-evidence/production-pty
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            artifact=apps/eden/dist/eden.exe
+          else
+            artifact=apps/eden/dist/eden
+          fi
+          node scripts/smoke-standalone.mjs "$artifact" r2-evidence/standalone.json
+          node scripts/r1-production-pty.mjs "$artifact" r2-evidence/production-pty
+      - name: Linux R2 responsive PTY evidence
+        if: runner.os == 'Linux'
+        run: node scripts/r2-tui-pty.mjs apps/eden/dist/eden r2-evidence/r2-tui.json ${{ github.sha }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: r2-acceptance-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            apps/eden/dist/eden*
+            apps/eden/dist/rg*
+            apps/eden/dist/THIRD_PARTY_NOTICES.txt
+            r2-evidence/**
+          if-no-files-found: error

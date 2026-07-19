@@ -15,6 +15,10 @@
     "markdown:check": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
     "markdown:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\"",
     "test:r2-native-archive": "node scripts/r2-native-tools-archive.test.mjs apps/eden/dist",
+    "test:r2-budgets": "node --test scripts/r2-contract-budgets.test.mjs",
+    "test:r2-process": "node --test packages/coding-runtime/test/native-process.test.ts packages/coding-runtime/test/workspace-trust-process.test.ts packages/coding-runtime/test/workspace-trust-matrix-process.test.ts apps/eden/test/headless-process.test.ts",
+    "test:r2-provider-fixtures": "pnpm --filter @eden/providers test && node --test packages/coding-runtime/test/provider-agent-client.test.ts packages/coding-runtime/test/provider-model-loop.test.ts packages/coding-runtime/test/provider-readiness.test.ts",
+    "test:r2-secret-canaries": "node --test packages/providers/test/openai-compatible.test.ts packages/coding-runtime/test/provider-profile-store.test.ts packages/coding-runtime/test/provider-readiness.test.ts apps/eden/test/run-history.test.ts",
     "test:r2-tui-pty": "node scripts/r2-tui-pty.mjs apps/eden/dist/eden docs/benchmark-results/2026-07-20-r2-tui-linux-x64.json",
     "test": "node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test",
     "typecheck": "pnpm -r typecheck"
