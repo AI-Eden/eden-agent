@@ -1,6 +1,16 @@
 export type { InProcessAgentClientOptions } from "./agent-client.ts";
 export { AgentClientError, InProcessAgentClient } from "./agent-client.ts";
-export type { ContextItem } from "./context/index.js";
+export {
+  ContextAdmissionError,
+  ContextAdmissionService,
+  type ContextAdmissionServiceOptions,
+  type ContextItem,
+  type ContextLimits,
+  type ContextTarget,
+  type InstructionSnapshot,
+  type PrepareContextOptions,
+  type PreparedContext,
+} from "./context/index.ts";
 export { FakeToolHost } from "./fake-tool-host.ts";
 export type { GoalSpec } from "./goals/index.js";
 export type { JournalPort } from "./journal/index.js";

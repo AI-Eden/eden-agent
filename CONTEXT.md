@@ -5,7 +5,7 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-2 are complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-3 are complete.
 
 ## Current truth
 
@@ -57,11 +57,15 @@ explicit possible-charge confirmation, local SSE fixtures, and TUI recovery are 
 DeepSeek V4 Pro row reached `completion_ready` after the adapter explicitly selected non-thinking mode; real
 invalid-key authentication and local network-reset recovery remained closed and redacted. Kimi is
 `not-run` because the owner has no subscription credential, so no Kimi support claim is made.
+Slice 3 adds complete root-to-leaf `AGENTS.md` snapshots, exact scope/hash/precedence/activation
+provenance, deterministic P0/P1/P2 admission, and closed pre-network blocks. Restricted workspaces do not
+read instructions. Trusted workspace review and TUI projections expose the context state and exact used
+sources without exposing instruction content.
 
 ## Next implementation slice
 
-Implement Slice 3: scope-aware complete `AGENTS.md` snapshots and deterministic P0/P1/P2 context admission
-before any governed repository content or provider request. The approved later slices still exclude
+Implement Slice 4: bounded `list_files` and `read_file` tools through one deterministic fake-model turn,
+with durable semantic results and zero write authority. The approved later slices still exclude
 AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
 scope.
 

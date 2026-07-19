@@ -97,6 +97,22 @@ as a salted host fingerprint and timestamp, so changing parsed profile content o
 returns the profile to `configured`. Closed recovery values contain fixed copy, status family, bounded
 request ID, and profile/model identity; they never contain the credential or raw provider payload.
 
+## Context admission
+
+`WorkspaceReview.context` is a required closed summary with `restricted`, `unconfigured`, `ready`, or
+`blocked` state. R2 `ProductView` values may carry the same summary while existing R1 journal projections
+remain compatible. The summary contains no instruction text. It exposes complete instruction provenance,
+the explicit input/output/safety budget, and one item ledger with source, scope, token estimate, P0/P1/P2
+priority, selection reason, and `complete` or `omitted` disposition.
+
+Restricted review has no instruction or item entries. Trusted review requires explicit active-profile
+limits before admission. Applicable instruction snapshots identify `sourcePath`, `scopePath`, SHA-256
+content hash, root-to-leaf precedence, selection reason, and the context item IDs that activated them.
+Missing limits, invalid paths or metadata, unavailable/linked/oversized/conflicting instructions,
+aggregate instruction overflow, P0 overflow, or a snapshot change produce a closed blocker before the
+provider callback. P1/P2 omission is deterministic and visible; no model-generated compaction exists in
+this slice.
+
 ## Run catalog and inspection
 
 The pre-release protocol v1 adds closed, non-throwing decoders for these renderer-independent values:

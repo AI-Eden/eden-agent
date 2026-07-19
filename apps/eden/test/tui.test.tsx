@@ -292,6 +292,7 @@ test("fresh onboarding shows exact restricted authority and creates no run", asy
     const frame = fixture.renderer.captureCharFrame();
     expect(initial).toContain(await realpath(fixture.paths.workspaceDirectory));
     expect(frame).toContain("trust: restricted");
+    expect(frame).toContain("context: restricted · repository: read disabled");
     expect(frame).toContain("repository: read disabled · write denied");
     expect(frame).toContain("network denied · sandbox not-configured");
     expect(frame).toContain("Trust does not approve actions");
@@ -301,6 +302,70 @@ test("fresh onboarding shows exact restricted authority and creates no run", asy
   } finally {
     act(() => fixture.renderer.renderer.destroy());
     await fixture.client.close();
+  }
+});
+
+test("trusted context shows exact instruction sources and an oversized pre-network recovery", async () => {
+  for (const oversized of [false, true]) {
+    const paths = await directories();
+    await writeFile(
+      join(paths.workspaceDirectory, "AGENTS.md"),
+      oversized ? "x".repeat(32 * 1024 + 1) : "trusted root rules\n",
+      "utf8",
+    );
+    const seed = await InProcessAgentClient.open({
+      cwd: paths.workspaceDirectory,
+      stateDirectory: paths.stateDirectory,
+    });
+    try {
+      const profiles = await seed.getProviderProfiles();
+      await seed.saveProviderProfile({
+        commandId: "command-context-profile",
+        expectedRevision: profiles.revision,
+        profile: {
+          baseUrl: "https://api.deepseek.com",
+          billingSource: "pay_as_you_go",
+          contextWindowTokens: 1_000_000,
+          credential: { source: "inline", value: "PUBLIC_CONTEXT_TUI_CANARY" },
+          id: "context-profile",
+          maxOutputTokens: 393_216,
+          model: "deepseek-v4-pro",
+          protocol: "openai_chat_completions",
+          reasoningDisplay: "off",
+        },
+        protocolVersion: 1,
+        select: true,
+        type: "provider.profile.save",
+      });
+      const review = await seed.getWorkspaceReview();
+      await seed.resolveWorkspaceTrust({
+        commandId: "command-context-trust",
+        decision: "trust",
+        expectedRevision: review.revision,
+        protocolVersion: 1,
+        type: "workspace.trust.resolve",
+        workspaceId: review.workspace.workspaceId,
+      });
+    } finally {
+      await seed.close();
+    }
+
+    const fixture = await setup(100, 30, paths);
+    try {
+      const frame = fixture.renderer.captureCharFrame();
+      expect(frame).not.toContain("PUBLIC_CONTEXT_TUI_CANARY");
+      if (oversized) {
+        expect(frame).toContain("context: blocked");
+        expect(frame).toContain("context block: An applicable instruction exceeds the file budget");
+        expect(frame).toContain("context recovery: Inspect the context inputs and retry");
+      } else {
+        expect(frame).toContain("context: ready");
+        expect(frame).toContain("context sources: AGENTS.md");
+      }
+    } finally {
+      act(() => fixture.renderer.renderer.destroy());
+      await fixture.client.close();
+    }
   }
 });
 

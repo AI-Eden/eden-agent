@@ -228,6 +228,20 @@ function review(workspace: WorkspaceIdentity, trust: LoadedTrust): WorkspaceRevi
       sandbox: "not-configured",
       taskStart: trusted ? "allowed" : "blocked",
     },
+    context: trusted
+      ? {
+          blocker: {
+            code: "context_profile_limits_required",
+            message: "Provider context limits are required before context admission.",
+            recoverability: "reconfigure",
+            suggestedActions: ["Configure an active provider profile with explicit limits."],
+          },
+          budget: null,
+          instructions: [],
+          items: [],
+          state: "unconfigured",
+        }
+      : { blocker: null, budget: null, instructions: [], items: [], state: "restricted" },
     nextActions: trusted
       ? ["Describe the deterministic fake task or restrict this workspace."]
       : ["Trust this exact workspace or exit."],

@@ -32,6 +32,11 @@ import {
   openRunSession,
   type RunSession,
 } from "./client-session.ts";
+import {
+  ContextAdmissionError,
+  ContextAdmissionService,
+  type ContextAdmissionServiceOptions,
+} from "./context/index.ts";
 import { ProviderProfileStore, ProviderProfileStoreError } from "./profiles/index.ts";
 import {
   ProviderReadinessError,
@@ -57,6 +62,7 @@ export type InProcessAgentClientOptions = {
   readonly modelDriver?: ModelDriver;
   readonly profileEnvironment?: Readonly<Record<string, string | undefined>>;
   readonly createReadinessProvider?: ProviderReadinessServiceOptions["createProvider"];
+  readonly contextTokenEstimator?: ContextAdmissionServiceOptions["estimateTokens"];
   readonly runId?: RunId;
   readonly stateDirectory: string;
 };
@@ -115,6 +121,7 @@ const runIdValidator = Schema.Compile(RunIdSchema);
 
 export class InProcessAgentClient implements AgentClient {
   private readonly clock: RuntimeClock;
+  private readonly context: ContextAdmissionService;
   private readonly cwd: string;
   private readonly idSource: RuntimeIdSource;
   private readonly prefixGeneratedRunIds: boolean;
@@ -131,6 +138,7 @@ export class InProcessAgentClient implements AgentClient {
 
   private constructor(
     options: InProcessAgentClientOptions,
+    context: ContextAdmissionService,
     stateDirectory: string,
     trust: WorkspaceTrustService,
     session: RunSession | null,
@@ -140,6 +148,7 @@ export class InProcessAgentClient implements AgentClient {
     readOnly: boolean,
   ) {
     this.clock = options.clock ?? { now: () => new Date() };
+    this.context = context;
     this.cwd = trust.identity.canonicalRoot;
     this.idSource = options.idSource ?? defaultIdSource();
     this.prefixGeneratedRunIds = prefixGeneratedRunIds;
@@ -181,6 +190,10 @@ export class InProcessAgentClient implements AgentClient {
       stateDirectory: options.stateDirectory,
     });
     const stateDirectory = trust.stateDirectory;
+    const context = await ContextAdmissionService.open({
+      estimateTokens: options.contextTokenEstimator,
+      workspaceRoot: trust.identity.canonicalRoot,
+    });
     const profiles = readOnly
       ? null
       : await ProviderProfileStore.open({
@@ -214,6 +227,7 @@ export class InProcessAgentClient implements AgentClient {
           );
     return new InProcessAgentClient(
       { ...options, clock, idSource },
+      context,
       stateDirectory,
       trust,
       session,
@@ -298,20 +312,70 @@ export class InProcessAgentClient implements AgentClient {
       const catalog = await this.requireReadiness().decorateCatalog(await this.profiles.read());
       const active =
         catalog.profiles.find((profile) => profile.id === catalog.activeProfileId) ?? null;
+      let context = review.context;
+      const contextActions: string[] = [];
+      if (review.workspace.trust === "trusted" && active !== null) {
+        try {
+          context = (
+            await this.context.prepare({
+              items: [
+                {
+                  content: "Eden provider and host-authority contract v1.",
+                  contextItemId: "provider-contract-v1",
+                  order: 0,
+                  priority: "P0",
+                  scopePath: ".",
+                  source: "provider_contract",
+                },
+                {
+                  content: JSON.stringify({
+                    trust: review.workspace.trust,
+                    workspaceId: review.workspace.workspaceId,
+                    workspaceRoot: review.workspace.root,
+                  }),
+                  contextItemId: "workspace-identity",
+                  order: 1,
+                  priority: "P0",
+                  scopePath: ".",
+                  source: "workspace_identity",
+                },
+              ],
+              limits: {
+                contextWindowTokens: active.contextWindowTokens,
+                maxOutputTokens: active.maxOutputTokens,
+              },
+              targets: [
+                {
+                  activatedContextItemIds: ["workspace-review"],
+                  relativePath: ".",
+                },
+              ],
+            })
+          ).summary;
+        } catch (error) {
+          if (!(error instanceof ContextAdmissionError)) throw error;
+          context =
+            error.summary ??
+            ({
+              blocker: error.productError,
+              budget: null,
+              instructions: [],
+              items: [],
+              state: "blocked",
+            } as const);
+          contextActions.push(...error.productError.suggestedActions);
+        }
+      }
+      const profileActions =
+        active === null || active.credential.presence === "missing"
+          ? ["Configure an active provider profile before a real repository task."]
+          : active.readiness !== "completion_ready"
+            ? ["Run the explicit provider readiness check before a real repository task."]
+            : [];
       return {
         ...review,
-        nextActions:
-          active === null || active.credential.presence === "missing"
-            ? [
-                "Configure an active provider profile before a real repository task.",
-                ...review.nextActions,
-              ]
-            : active.readiness !== "completion_ready"
-              ? [
-                  "Run the explicit provider readiness check before a real repository task.",
-                  ...review.nextActions,
-                ]
-              : review.nextActions,
+        nextActions: [...contextActions, ...profileActions, ...review.nextActions],
+        context,
         profile:
           active === null || active.credential.presence === "missing"
             ? { active: null, state: "unconfigured" }

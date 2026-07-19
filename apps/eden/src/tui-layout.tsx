@@ -68,7 +68,22 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                   {props.profileCatalog?.activeProfileId ?? "not configured"} · readiness:{" "}
                   {props.providerReadiness?.state ?? "loading"}
                 </text>
-                <text>repository: read disabled · write denied</text>
+                <text>
+                  {fitTerminalLine(
+                    `context: ${props.review.context.state} · repository: read disabled · write denied`,
+                    props.width - 4,
+                  )}
+                </text>
+                {props.review.context.instructions.length > 0 && (
+                  <text>
+                    {fitTerminalLine(
+                      `context sources: ${props.review.context.instructions
+                        .map((instruction) => instruction.sourcePath)
+                        .join(", ")}`,
+                      props.width - 4,
+                    )}
+                  </text>
+                )}
                 <text>execution: fake-only · network denied · sandbox not-configured</text>
                 <text>Trust does not approve actions.</text>
                 {props.review.notice !== null && (
@@ -84,8 +99,32 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                     </text>
                   </box>
                 )}
-                <text>profile: p · connection check: c · history: h · trust: t · revoke: r</text>
-                <text>history runs: {props.catalog?.entries.length ?? 0}</text>
+                {props.review.context.state === "blocked" && (
+                  <box style={{ flexDirection: "column" }}>
+                    <text fg="#ED8796">
+                      {fitTerminalLine(
+                        `context block: ${props.review.context.blocker.message}`,
+                        props.width - 4,
+                      )}
+                    </text>
+                    <text>
+                      {fitTerminalLine(
+                        `context recovery: ${
+                          props.review.context.blocker.suggestedActions[0] ?? ""
+                        }`,
+                        props.width - 4,
+                      )}
+                    </text>
+                  </box>
+                )}
+                {props.review.context.state !== "blocked" && (
+                  <box style={{ flexDirection: "column" }}>
+                    <text>
+                      profile: p · connection check: c · history: h · trust: t · revoke: r
+                    </text>
+                    <text>history runs: {props.catalog?.entries.length ?? 0}</text>
+                  </box>
+                )}
               </box>
             )}
           {props.view === null &&
@@ -96,6 +135,7 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                   profile: {props.profileCatalog?.activeProfileId ?? "not configured"} · readiness:{" "}
                   {props.providerReadiness?.state ?? "loading"}
                 </text>
+                <text>context: {props.review.context.state}</text>
                 <text>authority: repository read disabled/write denied · network denied</text>
               </box>
             )}

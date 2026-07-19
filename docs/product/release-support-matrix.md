@@ -57,3 +57,9 @@ disabled provider thinking. A public invalid credential reached the fixed authen
 local connection-reset fixture reached the fixed network recovery without exposing either canary. Kimi is
 `not-run` because no owner-provided subscription credential is available; no Kimi support claim is made.
 This local DeepSeek row is provider matching evidence, not release-support evidence.
+
+Slice 3 locally exercised complete scoped instruction snapshots and deterministic context admission with
+real filesystem fixtures. The TUI displayed exact used sources and one pre-network oversized-instruction
+recovery; the request-counting provider remained at zero. POSIX unreadable-file behavior is evidenced on
+Linux/WSL; Windows permission behavior and hosted context matching remain `not-run`. This evidence does not
+expand release support.

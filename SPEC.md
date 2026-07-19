@@ -6,9 +6,10 @@ R1 completed with owner acceptance on 2026-07-17 after its exact-SHA evidence ma
 passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014, and executable plan on
 2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19; Slice 0 closed its fixture budgets
 and unchanged-R1 baseline, Slice 1 added host-side profile onboarding without provider traffic, and Slice 2
-closed the explicit readiness boundary with a real DeepSeek V4 Pro matching row. Changes to trust, terminal
-states, public product contracts, or non-goals require an ADR and human approval. Kimi remains `not-run`
-without an owner-provided subscription credential, so the product makes no Kimi support claim.
+closed the explicit readiness boundary with a real DeepSeek V4 Pro matching row, and Slice 3 implemented
+scoped instruction snapshots plus deterministic context admission. Changes to trust, terminal states,
+public product contracts, or non-goals require an ADR and human approval. Kimi remains `not-run` without an
+owner-provided subscription credential, so the product makes no Kimi support claim.
 
 ## User story
 
@@ -99,7 +100,8 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   context. Applicable instructions that do not fit block before provider network access.
 - Known presets provide sourced model limits. Custom endpoints require explicit context-window and maximum-
   output values. Context reserves output and safety headroom before non-evictable current invariants, recent
-  working context, and older supporting evidence.
+  working context, and older supporting evidence. The public context ledger records source, scope, estimate,
+  priority, selection reason, and complete-or-omitted disposition; estimates never become billing usage.
 - The TUI uses a conversation-centered main flow with complete final answers, structured runtime blocks, a
   persistent authority strip, contextual review, responsive layouts, and complete keyboard navigation.
   Tool activity and supported reasoning summaries may fold; final answers may not be summarized away.

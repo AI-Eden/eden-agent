@@ -465,6 +465,31 @@ context before any repository content or provider request.
 - **Matching surface:** a nested-package repository question shows the exact applicable sources; an
   oversized applicable instruction blocks with inspect/reconfigure actions before network.
 
+#### Slice 3 evidence
+
+Slice 3 implements closed instruction and context summaries in `@eden/contracts`, scope-aware discovery and
+admission in `@eden/coding-runtime`, and visible context state/source/recovery blocks in the TUI. Real
+filesystem fixtures prove root-to-leaf order, nested activation, sibling isolation, duplicate suppression,
+exact SHA-256 hashes, unsupported-name isolation, unavailable and aggregate/individual oversize failures,
+conflict and pre-dispatch change detection, root containment, explicit profile limits, P0 must-fit, and
+deterministic P1/P2 selection. The request-counting provider remains at zero for every pre-network failure.
+
+The matching TUI projects `context: ready` with the exact `AGENTS.md` source and projects the fixed blocker
+and recovery for an individually oversized applicable instruction. Secret canaries remain absent. The
+cross-process trust suite and local-loopback TUI suite require the unsandboxed test lane because the hosted
+agent sandbox suppresses child-process pipes and local port binding; both passed on the same working tree.
+No repository read tool, real model turn, journal schema, or write authority is added in this slice.
+
+Fresh deterministic Slice 3 commands:
+
+```bash
+corepack pnpm@11.13.0 --filter @eden/contracts test
+corepack pnpm@11.13.0 --filter @eden/coding-runtime test
+corepack pnpm@11.13.0 --filter @eden/cli test
+corepack pnpm@11.13.0 typecheck
+corepack pnpm@11.13.0 code:check
+```
+
 ### Slice 4: Bounded list and read tools through one fake model turn
 
 **Outcome:** the runtime can accept one validated list/read tool call, persist its bounded semantic result,

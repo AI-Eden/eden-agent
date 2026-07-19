@@ -218,6 +218,129 @@ export const WorkspaceSummarySchema = Type.Object(
   closed,
 );
 export type WorkspaceSummary = Type.Static<typeof WorkspaceSummarySchema>;
+
+export const ContextPrioritySchema = Type.Union([
+  Type.Literal("P0"),
+  Type.Literal("P1"),
+  Type.Literal("P2"),
+]);
+export type ContextPriority = Type.Static<typeof ContextPrioritySchema>;
+
+export const InstructionSnapshotSummarySchema = Type.Object(
+  {
+    activatedContextItemIds: Type.Array(Type.String(identifierOptions), {
+      maxItems: 256,
+      minItems: 1,
+    }),
+    contentHash: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+    precedence: Type.Integer({ maximum: 256, minimum: 0 }),
+    scopePath: Type.String({ maxLength: 4_096, minLength: 1 }),
+    selectionReason: Type.Union([Type.Literal("trusted_root"), Type.Literal("path_scope")]),
+    sourcePath: Type.String({ maxLength: 4_096, minLength: 1 }),
+  },
+  closed,
+);
+export type InstructionSnapshotSummary = Type.Static<typeof InstructionSnapshotSummarySchema>;
+
+export const ContextSelectionItemSchema = Type.Refine(
+  Type.Object(
+    {
+      contextItemId: Type.String(identifierOptions),
+      estimatedTokens: Type.Integer(safeInteger),
+      priority: ContextPrioritySchema,
+      reason: Type.Union([
+        Type.Literal("required"),
+        Type.Literal("required_overflow"),
+        Type.Literal("recent_context"),
+        Type.Literal("supporting_evidence"),
+        Type.Literal("budget_omitted"),
+      ]),
+      selected: Type.Boolean(),
+      selection: Type.Union([Type.Literal("complete"), Type.Literal("omitted")]),
+      source: shortText(),
+      scopePath: Type.String({ maxLength: 4_096, minLength: 1 }),
+    },
+    closed,
+  ),
+  (value) =>
+    value.selected === (value.selection === "complete") &&
+    (value.selected
+      ? (value.priority === "P0" && value.reason === "required") ||
+        (value.priority === "P1" && value.reason === "recent_context") ||
+        (value.priority === "P2" && value.reason === "supporting_evidence")
+      : value.reason === "budget_omitted" ||
+        (value.priority === "P0" && value.reason === "required_overflow")),
+);
+export type ContextSelectionItem = Type.Static<typeof ContextSelectionItemSchema>;
+
+export const ContextBudgetSummarySchema = Type.Refine(
+  Type.Object(
+    {
+      contextWindowTokens: Type.Integer({ maximum: Number.MAX_SAFE_INTEGER, minimum: 1 }),
+      outputReserveTokens: Type.Integer(safeInteger),
+      safetyReserveTokens: Type.Integer(safeInteger),
+      selectedInputTokens: Type.Integer(safeInteger),
+      usableInputTokens: Type.Integer(safeInteger),
+    },
+    closed,
+  ),
+  (value) =>
+    value.outputReserveTokens + value.safetyReserveTokens + value.usableInputTokens ===
+      value.contextWindowTokens && value.selectedInputTokens <= value.usableInputTokens,
+);
+export type ContextBudgetSummary = Type.Static<typeof ContextBudgetSummarySchema>;
+
+const contextSummaryFields = {
+  instructions: Type.Array(InstructionSnapshotSummarySchema, { maxItems: 256 }),
+  items: Type.Array(ContextSelectionItemSchema, { maxItems: 1_024 }),
+} as const;
+
+export const ContextAdmissionSummarySchema = Type.Union([
+  Type.Refine(
+    Type.Object(
+      {
+        blocker: Type.Null(),
+        budget: Type.Null(),
+        ...contextSummaryFields,
+        state: Type.Literal("restricted"),
+      },
+      closed,
+    ),
+    (value) => value.instructions.length === 0 && value.items.length === 0,
+  ),
+  Type.Refine(
+    Type.Object(
+      {
+        blocker: ProductErrorSchema,
+        budget: Type.Null(),
+        ...contextSummaryFields,
+        state: Type.Literal("unconfigured"),
+      },
+      closed,
+    ),
+    (value) => value.instructions.length === 0 && value.items.length === 0,
+  ),
+  Type.Object(
+    {
+      blocker: Type.Null(),
+      budget: ContextBudgetSummarySchema,
+      ...contextSummaryFields,
+      state: Type.Literal("ready"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      blocker: ProductErrorSchema,
+      budget: Type.Union([ContextBudgetSummarySchema, Type.Null()]),
+      ...contextSummaryFields,
+      state: Type.Literal("blocked"),
+    },
+    closed,
+  ),
+]);
+export type ContextAdmissionSummary = Type.Static<typeof ContextAdmissionSummarySchema>;
+
 export const WorkspaceReviewSchema = Type.Object(
   {
     protocolVersion: ProductProtocolVersionSchema,
@@ -259,6 +382,7 @@ export const WorkspaceReviewSchema = Type.Object(
     ),
     notice: Type.Union([ProductErrorSchema, Type.Null()]),
     nextActions: Type.Array(shortText(), { maxItems: 16 }),
+    context: ContextAdmissionSummarySchema,
   },
   closed,
 );
@@ -308,6 +432,7 @@ export const ProductViewSchema = Type.Object(
     nextActions: Type.Array(shortText(), { maxItems: 16 }),
     residualRisk: Type.Union([boundedText(), Type.Null()]),
     terminalOutcome: Type.Union([TerminalOutcomeSchema, Type.Null()]),
+    context: Type.Optional(ContextAdmissionSummarySchema),
   },
   closed,
 );
@@ -509,6 +634,10 @@ export const WorkspaceReviewDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: WorkspaceReviewSchema }, closed),
   DecodeFailureSchema,
 ]);
+export const ContextAdmissionSummaryDecodeResultSchema = Type.Union([
+  Type.Object({ ok: Type.Literal(true), value: ContextAdmissionSummarySchema }, closed),
+  DecodeFailureSchema,
+]);
 export const RunCatalogDecodeResultSchema = Type.Union([
   Type.Object({ ok: Type.Literal(true), value: RunCatalogSchema }, closed),
   DecodeFailureSchema,
@@ -528,6 +657,9 @@ export type ResolveWorkspaceTrustCommandDecodeResult = Type.Static<
   typeof ResolveWorkspaceTrustCommandDecodeResultSchema
 >;
 export type WorkspaceReviewDecodeResult = Type.Static<typeof WorkspaceReviewDecodeResultSchema>;
+export type ContextAdmissionSummaryDecodeResult = Type.Static<
+  typeof ContextAdmissionSummaryDecodeResultSchema
+>;
 export type RunCatalogDecodeResult = Type.Static<typeof RunCatalogDecodeResultSchema>;
 export type RunInspectionDecodeResult = Type.Static<typeof RunInspectionDecodeResultSchema>;
 export type RunIdDecodeResult = Type.Static<typeof RunIdDecodeResultSchema>;
@@ -567,12 +699,20 @@ const commandValidator = Schema.Compile(ProductCommandSchema);
 const eventValidator = Schema.Compile(ProductEventSchema);
 const viewValidator = Schema.Compile(ProductViewSchema);
 const workspaceReviewValidator = Schema.Compile(WorkspaceReviewSchema);
+const contextAdmissionSummaryValidator = Schema.Compile(ContextAdmissionSummarySchema);
 const workspaceTrustCommandValidator = Schema.Compile(ResolveWorkspaceTrustCommandSchema);
 const runCatalogValidator = Schema.Compile(RunCatalogSchema);
 const runInspectionValidator = Schema.Compile(RunInspectionSchema);
 const runIdValidator = Schema.Compile(RunIdSchema);
 
-type DecodedKind = "command" | "event" | "run_catalog" | "run_id" | "run_inspection" | "view";
+type DecodedKind =
+  | "command"
+  | "context_admission"
+  | "event"
+  | "run_catalog"
+  | "run_id"
+  | "run_inspection"
+  | "view";
 
 function invalidInputError(kind: DecodedKind, value: unknown): ProductError {
   if (
@@ -626,6 +766,10 @@ export function decodeResolveWorkspaceTrustCommand(
 
 export function decodeWorkspaceReview(value: unknown): WorkspaceReviewDecodeResult {
   return decode("view", workspaceReviewValidator, value);
+}
+
+export function decodeContextAdmissionSummary(value: unknown): ContextAdmissionSummaryDecodeResult {
+  return decode("context_admission", contextAdmissionSummaryValidator, value);
 }
 
 export function decodeRunCatalog(value: unknown): RunCatalogDecodeResult {

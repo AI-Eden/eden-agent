@@ -102,6 +102,14 @@ Application-local ripgrep and compatible host Git remain adapters; neither execu
 environment, nor raw output enters the model or kernel contract. Applicable complete `AGENTS.md` snapshots
 are admitted before governed repository content or provider network access.
 
+Slice 3 implements that admission boundary in `coding-runtime`. Realpath containment discovers only
+`AGENTS.md` from the trusted root through each activated path, reads every applicable file through a checked
+handle, and records complete content internally with a public hash/scope/precedence/activation summary.
+The runtime reserves output and estimator safety headroom, admits all P0 items or blocks, then selects P1
+and P2 deterministically with an explicit omission ledger. A final snapshot verification runs immediately
+before the provider callback. Contracts expose only the closed summary; the kernel, provider adapter, and
+renderer never own discovery or selection.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

@@ -1,5 +1,6 @@
 import type {
   AvailableRunSummary,
+  ContextAdmissionSummary,
   ProductView,
   RunCatalog,
   RunInspection,
@@ -30,8 +31,30 @@ const authority = {
   sandbox: "not-configured",
 } as const;
 
+const restrictedContext = {
+  blocker: null,
+  budget: null,
+  instructions: [],
+  items: [],
+  state: "restricted",
+} satisfies ContextAdmissionSummary;
+
+const unconfiguredContext = {
+  blocker: {
+    code: "context_profile_limits_required",
+    message: "Provider context limits are required before context admission.",
+    recoverability: "reconfigure",
+    suggestedActions: ["Configure an active provider profile with explicit limits."],
+  },
+  budget: null,
+  instructions: [],
+  items: [],
+  state: "unconfigured",
+} satisfies ContextAdmissionSummary;
+
 export const restrictedWorkspaceReview = {
   authority: { ...authority, taskStart: "blocked" },
+  context: restrictedContext,
   nextActions: ["Trust this exact workspace or exit."],
   notice: null,
   profile: { credentials: "not-required", provider: "deterministic-fake" },
@@ -42,6 +65,7 @@ export const restrictedWorkspaceReview = {
 
 export const trustedWorkspaceReview = {
   authority: { ...authority, taskStart: "allowed" },
+  context: unconfiguredContext,
   nextActions: ["Describe the deterministic fake task or restrict this workspace."],
   notice: null,
   profile: { credentials: "not-required", provider: "deterministic-fake" },
