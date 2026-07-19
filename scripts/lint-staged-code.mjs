@@ -3,7 +3,14 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 const codeFilePattern = /\.(?:[cm]?[jt]sx?)$/iu;
-const biomePath = join(process.cwd(), "node_modules", "@biomejs", "biome", "bin", "biome");
+const biomePath = join(
+  process.cwd(),
+  "node_modules",
+  "@biomejs",
+  "biome",
+  "bin",
+  process.platform === "win32" ? "biome.exe" : "biome",
+);
 
 function runBiome(command, files) {
   return spawnSync(process.execPath, [biomePath, command, ...files], { stdio: "inherit" });

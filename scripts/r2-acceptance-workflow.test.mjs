@@ -23,6 +23,10 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
     ].filter((name) => typeof scripts[name] !== "string"),
     [],
   );
+  strictEqual(
+    scripts["test:r2-native-archive"],
+    "node scripts/r2-native-tools-archive.mjs apps/eden/dist",
+  );
   match(workflow, /os: \[ubuntu-latest, windows-latest, macos-latest\]/u);
   match(workflow, /pnpm install --frozen-lockfile/u);
   match(workflow, /pnpm test:r2-process/u);

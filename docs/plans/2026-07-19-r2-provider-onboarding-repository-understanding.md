@@ -573,7 +573,7 @@ were limited to missing/old, malformed, timeout, cancel, and overflow failures. 
 proved exact env/argv, overflow/timeout/cancel/spawn recovery, and complete process-group termination.
 
 Packaging now emits exactly `eden`/`eden.exe`, `rg`/`rg.exe`, `THIRD_PARTY_NOTICES.txt`, and the closed
-`eden-assets.json`. `scripts/r2-native-tools-archive.test.mjs` copies that directory away from the checkout,
+`eden-assets.json`. `scripts/r2-native-tools-archive.mjs` copies that directory away from the checkout,
 independently verifies all three hashes and target provenance, then completes one real search and one real
 host-Git status round trip. TUI evidence distinguishes missing ripgrep from missing Git and changes a
 restored asset to ready only after explicit `g` recheck. These are local Linux/WSL rows; hosted macOS,
@@ -590,7 +590,7 @@ corepack pnpm@11.13.0 --filter @eden/cli test
 corepack pnpm@11.13.0 typecheck
 corepack pnpm@11.13.0 code:check
 corepack pnpm@11.13.0 --filter @eden/cli package:bun
-node scripts/r2-native-tools-archive.test.mjs apps/eden/dist
+node scripts/r2-native-tools-archive.mjs apps/eden/dist
 ```
 
 ### Slice 6: Real multi-step model/tool loop and durable attempt recovery
@@ -647,7 +647,7 @@ corepack pnpm@11.13.0 code:check
 corepack pnpm@11.13.0 markdown:check
 corepack pnpm@11.13.0 build
 corepack pnpm@11.13.0 --filter @eden/cli package:bun
-node scripts/r2-native-tools-archive.test.mjs
+node scripts/r2-native-tools-archive.mjs apps/eden/dist
 ```
 
 ### Slice 7: Product-quality responsive TUI integration
