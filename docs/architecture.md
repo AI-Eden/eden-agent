@@ -90,9 +90,11 @@ runtime owns the conversation, attempt ledger, retry decision, context, tools, j
 authority.
 
 Slice 2 implements the first part of this boundary: the SDK performs the fixed connection-readiness stream
-with zero SDK retries and returns only a closed success or redacted failure. The credential, readiness salt,
-and profile fingerprint remain in host runtime state; they do not cross into contracts, kernel events, or
-renderer state.
+with zero SDK retries and returns only a closed success or redacted failure. Provider-specific readiness
+request details, including DeepSeek V4 non-thinking selection and nullable reasoning deltas, remain inside
+the adapter; non-empty readiness reasoning fails closed. The credential, readiness salt, and profile
+fingerprint remain in host runtime state; they do not cross into contracts, kernel events, or renderer
+state.
 
 Repository understanding remains a semantic runtime boundary. The model can request only list, bounded
 read, search, or Git status. Runtime code supplies the trusted root and fixed native-process details.

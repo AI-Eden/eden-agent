@@ -91,10 +91,11 @@ trust, current profile readiness, compatible Git, and P0 context fit are all cur
 
 The Slice 2 readiness action accepts only a command that confirms the possible charge. Saving or inspecting
 a profile never sends a provider request. The adapter uses one fixed prompt with no repository context or
-tools, an 8-token streamed completion cap, and no SDK retry. `completion_ready` persists only as a salted
-host fingerprint and timestamp, so changing parsed profile content or the resolved credential returns the
-profile to `configured`. Closed recovery values contain fixed copy, status family, bounded request ID, and
-profile/model identity; they never contain the credential or raw provider payload.
+tools, an 8-token streamed completion cap, explicit non-thinking mode, and no SDK retry. A non-empty
+reasoning delta fails closed rather than consuming the fixed-answer budget. `completion_ready` persists only
+as a salted host fingerprint and timestamp, so changing parsed profile content or the resolved credential
+returns the profile to `configured`. Closed recovery values contain fixed copy, status family, bounded
+request ID, and profile/model identity; they never contain the credential or raw provider payload.
 
 ## Run catalog and inspection
 

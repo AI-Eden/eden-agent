@@ -65,7 +65,11 @@ describe("OpenAI-compatible readiness", () => {
           [
             `data: ${JSON.stringify({
               choices: [
-                { delta: { content: fixedReadinessAnswer }, finish_reason: null, index: 0 },
+                {
+                  delta: { content: fixedReadinessAnswer, reasoning_content: null },
+                  finish_reason: null,
+                  index: 0,
+                },
               ],
               created: 1,
               id: "chatcmpl-ready",
@@ -99,6 +103,7 @@ describe("OpenAI-compatible readiness", () => {
     assert.deepEqual(body.messages, [{ content: fixedReadinessPrompt, role: "user" }]);
     assert.equal(body.max_tokens, 8);
     assert.equal(body.stream, true);
+    assert.deepEqual(body.thinking, { type: "disabled" });
     assert.equal(body.tools, undefined);
   });
 

@@ -51,6 +51,9 @@ modes plus linked-file rejection. Windows permission behavior and all real-provi
 this evidence does not expand release support.
 
 Slice 2 locally exercised the official SDK against scripted HTTP/SSE boundaries, readiness persistence,
-explicit charge confirmation, and one TUI network-recovery path. Both named matching-surface credentials
-were absent, so real DeepSeek and Kimi rows remain `not-run`. Local fixtures are not provider-support or
-release-support evidence.
+explicit charge confirmation, and TUI auth, timeout, and network-recovery paths. The real
+`deepseek-v4-pro` fixed-content stream reached `completion_ready` on 2026-07-20 after the adapter explicitly
+disabled provider thinking. A public invalid credential reached the fixed authentication recovery, and a
+local connection-reset fixture reached the fixed network recovery without exposing either canary. Kimi is
+`not-run` because no owner-provided subscription credential is available; no Kimi support claim is made.
+This local DeepSeek row is provider matching evidence, not release-support evidence.

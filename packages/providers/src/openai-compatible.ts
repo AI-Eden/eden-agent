@@ -4,6 +4,7 @@ import OpenAI, {
   APIError,
   APIUserAbortError,
 } from "openai";
+import type { ChatCompletionCreateParamsStreaming } from "openai/resources/chat/completions";
 import Type from "typebox";
 import Schema from "typebox/schema";
 
@@ -118,6 +119,10 @@ export type OpenAICompatibleProviderOptions = {
   readonly model: string;
   readonly profileId: string;
   readonly timeoutMilliseconds?: number;
+};
+
+type OpenAICompatibleReadinessRequest = ChatCompletionCreateParamsStreaming & {
+  readonly thinking: { readonly type: "disabled" };
 };
 
 type FailureDescription = Pick<
@@ -296,15 +301,14 @@ export class OpenAICompatibleProvider {
   async checkReadiness(signal: AbortSignal): Promise<ProviderReadinessSuccess> {
     try {
       signal.throwIfAborted();
-      const request = this.client.chat.completions.create(
-        {
-          max_tokens: 8,
-          messages: [{ content: fixedReadinessPrompt, role: "user" }],
-          model: this.model,
-          stream: true,
-        },
-        { signal },
-      );
+      const body: OpenAICompatibleReadinessRequest = {
+        max_tokens: 8,
+        messages: [{ content: fixedReadinessPrompt, role: "user" }],
+        model: this.model,
+        stream: true,
+        thinking: { type: "disabled" },
+      };
+      const request = this.client.chat.completions.create(body, { signal });
       const { data: stream, request_id: rawRequestId } = await request.withResponse();
       let answer = "";
       let finished = false;
@@ -312,14 +316,24 @@ export class OpenAICompatibleProvider {
         if (chunk.choices.length !== 1) throw new Error("invalid choice count");
         const choice = chunk.choices[0];
         if (choice === undefined || choice.index !== 0) throw new Error("invalid choice index");
-        const allowedDeltaKeys = new Set(["content", "refusal", "role"]);
+        const delta = choice.delta as typeof choice.delta & {
+          readonly reasoning_content?: unknown;
+        };
+        const allowedDeltaKeys = new Set(["content", "reasoning_content", "refusal", "role"]);
         if (Object.keys(choice.delta).some((key) => !allowedDeltaKeys.has(key))) {
           throw new Error("unsupported readiness delta");
         }
-        if (choice.delta.refusal !== undefined && choice.delta.refusal !== null) {
+        if (delta.refusal !== undefined && delta.refusal !== null) {
           throw new Error("readiness refusal");
         }
-        if (typeof choice.delta.content === "string") answer += choice.delta.content;
+        if (
+          delta.reasoning_content !== undefined &&
+          delta.reasoning_content !== null &&
+          delta.reasoning_content !== ""
+        ) {
+          throw new Error("unexpected readiness reasoning");
+        }
+        if (typeof delta.content === "string") answer += delta.content;
         if (choice.finish_reason !== null) {
           if (choice.finish_reason !== "stop") throw new Error("invalid finish reason");
           finished = true;

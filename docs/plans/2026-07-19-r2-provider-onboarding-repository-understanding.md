@@ -1,6 +1,6 @@
 # R2 Provider Onboarding and Repository Understanding Plan
 
-- Status: Accepted; Build in progress; Slices 0-1 complete; Slice 2 matching surface blocked on credentials
+- Status: Accepted; Build in progress; Slices 0-2 complete
 - Date: 2026-07-19
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
@@ -400,7 +400,7 @@ state without exposing provider text or credentials.
 - **Matching surface:** real DeepSeek fixed-content check after explicit possible-charge confirmation; one
   invalid-key and one network-unavailable recovery; Kimi row when its matching-surface key is available.
 
-#### Slice 2 deterministic evidence and matching-surface stop
+#### Slice 2 deterministic and matching-surface evidence
 
 The deterministic/local implementation pins the official `openai` SDK at `6.48.0` with `maxRetries: 0` and
 SDK logging disabled. Actual SDK requests against local HTTP/SSE fixtures prove the fixed prompt, 8-token
@@ -408,16 +408,31 @@ stream cap, zero tools and repository context, exact-answer requirement, catalog
 single-request behavior, bounded request IDs, auth, billing/quota, model, rate, timeout, overload, internal,
 malformed-stream, cancellation, network, and unknown recovery categories without raw payload output.
 
+The first real DeepSeek V4 Pro attempt on 2026-07-20 correctly stopped as `protocol_incompatibility` without
+persisting readiness. Official DeepSeek V4 documentation identifies thinking as enabled by default and
+`reasoning_content` as a valid stream delta. A RED matching fixture now requires the adapter to send
+`thinking = disabled`; readiness accepts only absent, null, or empty reasoning deltas and still requires the
+exact fixed answer. This provider-specific wire detail remains inside `packages/providers` and does not
+change Eden's protocol-neutral boundary or conversation ownership.
+
 Host readiness persists only a private salt, profile-and-resolved-credential fingerprint, and timestamp.
 Focused runtime evidence proves restart recovery, `0600` state on POSIX, profile and environment credential
 invalidation, stale post-network rejection, invalid local-state recovery, and zero credential canary output.
 The TUI requires a separate possible-charge confirmation, makes no request on save, and recovers from one
 local network failure before reaching `completion_ready`; headless profile inspection remains read-only.
 
-On 2026-07-19, the matching-surface probe found both explicitly named credential references absent and the
-default host profile state unconfigured. No provider network request was made. The required DeepSeek row and
-optional Kimi subscription-key row remain `not-run`, so Slice 2 and the real-provider support claim are not
-complete. This is the plan-authorized credential stop condition.
+After that correction, the real `deepseek-v4-pro` TUI path displayed the possible-charge copy, required an
+explicit `y`, and reached `completion_ready`. A fresh headless read reconstructed that state without a
+provider call. The `0600` readiness record contained neither the credential nor model identity. A real
+DeepSeek request with a public invalid credential produced the fixed authentication recovery, while an
+actual SDK request through a local connection-reset fixture produced the fixed network recovery; neither
+frame exposed its canary. Kimi remains `not-run` because the owner has no subscription credential, so this
+slice closes without a Kimi subscription-support claim.
+
+Official matching references:
+
+- [DeepSeek models and pricing](https://api-docs.deepseek.com/quick_start/pricing)
+- [DeepSeek Chat Completions request and stream schema](https://api-docs.deepseek.com/api/create-chat-completion)
 
 Fresh deterministic Slice 2 commands:
 

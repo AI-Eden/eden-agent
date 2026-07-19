@@ -5,10 +5,10 @@
 R1 completed with owner acceptance on 2026-07-17 after its exact-SHA evidence matrix and fresh exit review
 passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014, and executable plan on
 2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19; Slice 0 closed its fixture budgets
-and unchanged-R1 baseline, and Slice 1 added host-side profile onboarding without provider traffic. Changes
-to trust, terminal states, public product contracts, or non-goals require an ADR and human approval.
-Slice 2 deterministic provider/readiness behavior is implemented locally, but its required real DeepSeek
-matching row is `not-run` because no explicitly named credential is available; Slice 2 is not complete.
+and unchanged-R1 baseline, Slice 1 added host-side profile onboarding without provider traffic, and Slice 2
+closed the explicit readiness boundary with a real DeepSeek V4 Pro matching row. Changes to trust, terminal
+states, public product contracts, or non-goals require an ADR and human approval. Kimi remains `not-run`
+without an owner-provided subscription credential, so the product makes no Kimi support claim.
 
 ## User story
 
@@ -86,7 +86,8 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   completion authority. OpenAI Responses is a later, separate R2 protocol slice.
 - `configured`, `catalog_reachable`, and `completion_ready` are distinct evidence states. Only an explicit,
   fixed-content, minimally billable streamed completion check establishes `completion_ready` for one
-  profile revision and selected model.
+  profile revision and selected model. The readiness request explicitly disables provider thinking and
+  rejects non-empty reasoning output so the eight-token cap remains a fixed-answer check.
 - SDK retries are disabled. Live text deltas are ephemeral; one complete, closed model observation becomes
   durable after protocol-complete termination. Ambiguous attempts do not silently replay, missing usage is
   `unknown`, and raw provider errors never leave the adapter boundary.

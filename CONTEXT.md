@@ -5,7 +5,7 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-1 are complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-2 are complete.
 
 ## Current truth
 
@@ -52,18 +52,18 @@ unchanged R1 package and PTY surfaces, recorded the first Linux/WSL performance 
 fixture budgets under the existing journal limits. Slice 1 adds strict host-side provider profiles, masked
 renderer-neutral CRUD, direct-file reload and recovery, headless inspection, and onboarding at the three
 frozen viewports without making a provider request.
-Slice 2 deterministic/local code is green: the pinned official SDK, closed readiness/error projections,
-salted host fingerprint, explicit possible-charge confirmation, local SSE fixtures, and TUI network recovery
-are implemented. The required real DeepSeek row has not run because the explicitly named credential and
-default host profile are absent; no provider request was made.
+Slice 2 is complete. The pinned official SDK, closed readiness/error projections, salted host fingerprint,
+explicit possible-charge confirmation, local SSE fixtures, and TUI recovery are implemented. The real
+DeepSeek V4 Pro row reached `completion_ready` after the adapter explicitly selected non-thinking mode; real
+invalid-key authentication and local network-reset recovery remained closed and redacted. Kimi is
+`not-run` because the owner has no subscription credential, so no Kimi support claim is made.
 
 ## Next implementation slice
 
-Resume Slice 2 at its real DeepSeek matching surface after the owner provides an explicitly named credential
-and configures the intended profile. Run the possible-charge-confirmed fixed-content stream check, retain one
-invalid-key row, and run Kimi only if its matching-surface key is available. Do not start Slice 3 until the
-required DeepSeek row closes. The approved later slices still exclude AnchorEdit, writes, general shell,
-Docker execution, changed-file review, checks, success, and later R2 scope.
+Implement Slice 3: scope-aware complete `AGENTS.md` snapshots and deterministic P0/P1/P2 context admission
+before any governed repository content or provider request. The approved later slices still exclude
+AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
+scope.
 
 ## Known open questions
 
@@ -71,8 +71,8 @@ Docker execution, changed-file review, checks, success, and later R2 scope.
   24; the current lanes are green, but the action-version migration remains maintenance work.
 - The first R2 decision set is publicly frozen and accepted. Slice 0 evidence is local Linux/WSL only;
   hosted and real-provider rows remain later plan work.
-- `EDEN_DEEPSEEK_KEY` and `EDEN_KIMI_KEY` were absent at the Slice 2 matching checkpoint; this is a
-  credential blocker, not evidence about either provider.
+- Kimi remains `not-run` because no subscription credential is available; this is not evidence about Kimi
+  compatibility and does not support a Kimi subscription claim.
 - Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
   in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 
