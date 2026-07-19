@@ -26,3 +26,6 @@ Explore evidence, an accepted ADR when architecture changes, and an executable p
 - [Provider access and subscription evolution](provider-access-and-subscription-evolution.md): approved
   consumer-subscription OAuth, additional subscription-plan presets, provider families, and the evidence
   required before Eden expands its provider support claims.
+- [Model-generated general shell](model-generated-general-shell.md): arbitrary model-authored command
+  execution beyond R2 semantic tools and closed command/check templates, including the policy, approval,
+  runner, isolation, and matching-surface evidence required before that authority can be exposed.
