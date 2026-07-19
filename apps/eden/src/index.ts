@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { helpText, parseArgs } from "./args.ts";
 import { runHeadless } from "./headless.ts";
+import { runProviderProfiles } from "./provider-profiles.ts";
 import { runHistory } from "./run-history.ts";
 import { runTui } from "./tui-runner.tsx";
 
@@ -41,6 +42,8 @@ if (!parsed.ok) {
     } finally {
       process.removeListener("SIGINT", abort);
     }
+  } else if (parsed.value.mode === "profile-list" || parsed.value.mode === "profile-check") {
+    process.exitCode = await runProviderProfiles(parsed.value, environment);
   } else {
     try {
       process.exitCode = await runTui({

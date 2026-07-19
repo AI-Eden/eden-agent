@@ -5,7 +5,7 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slice 0 is complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-1 are complete.
 
 ## Current truth
 
@@ -48,16 +48,18 @@ executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slice 0 is co
 ## Current execution
 
 Execute `docs/plans/2026-07-19-r2-provider-onboarding-repository-understanding.md`. Slice 0 reproduced the
-unchanged R1 package and PTY surfaces, recorded the first Linux/WSL performance baseline, closed the R2
-fixture budgets under the existing journal limits, and repaired the stale Freeze-status contract test.
+unchanged R1 package and PTY surfaces, recorded the first Linux/WSL performance baseline, and closed the R2
+fixture budgets under the existing journal limits. Slice 1 adds strict host-side provider profiles, masked
+renderer-neutral CRUD, direct-file reload and recovery, headless inspection, and onboarding at the three
+frozen viewports without making a provider request.
 
 ## Next implementation slice
 
-Implement Slice 1: host-side provider-profile CRUD and its renderer-neutral onboarding flow. The approved
-plan then continues through readiness, scoped instructions/context, bounded repository tools, the real
-multi-step provider loop, product-quality TUI integration, and final evidence. It explicitly excludes
-AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
-slices.
+Implement Slice 2: the protocol-neutral OpenAI-compatible adapter, explicit minimally billable readiness
+check, redacted readiness persistence, and precise recovery states. The approved plan then continues through
+scoped instructions/context, bounded repository tools, the real multi-step provider loop, product-quality
+TUI integration, and final evidence. It explicitly excludes AnchorEdit, writes, general shell, Docker
+execution, changed-file review, checks, success, and later R2 slices.
 
 ## Known open questions
 

@@ -44,3 +44,8 @@ copied standalone and production PTY flows passed. One warm-up and five measured
 recorded under `docs/benchmark-results/`; non-Linux performance and scroll-to-render remain `not-run`.
 Future R2 support evidence must exercise the complete archive containing `eden`, application-local `rg`,
 and notices on hosted Ubuntu, macOS, and Windows. This local baseline is not a release-support claim.
+
+Slice 1 locally exercised masked profile CRUD, direct-file reload, malformed-file recovery, and renderer
+capture at `60x20`, `80x24`, and `100x30`. Linux/WSL verified private `0700` state and `0600` configuration
+modes plus linked-file rejection. Windows permission behavior and all real-provider rows remain `not-run`;
+this evidence does not expand release support.

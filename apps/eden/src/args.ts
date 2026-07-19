@@ -2,6 +2,8 @@ import { decodeRunId, type ProductError, type RunId } from "@eden/contracts";
 
 export type CliArguments =
   | { readonly mode: "help" }
+  | { readonly mode: "profile-check" }
+  | { readonly mode: "profile-list" }
   | { readonly mode: "run-list" }
   | { readonly mode: "run-show"; readonly runId: RunId }
   | { readonly mode: "tui" }
@@ -21,6 +23,8 @@ export const helpText = `Usage:
   eden exec --json [--trust-workspace] [--approve-fake-action] "<task>"
   eden run list --json
   eden run show --json <run-id>
+  eden profile list --json
+  eden profile check --json
   eden --help
 
 The default command opens the terminal product.
@@ -43,6 +47,10 @@ function invalid(message: string): CliArgumentsResult {
 export function parseArgs(argv: readonly string[]): CliArgumentsResult {
   if (argv.length === 0) return { ok: true, value: { mode: "tui" } };
   if (argv.length === 1 && argv[0] === "--help") return { ok: true, value: { mode: "help" } };
+  if (argv.length === 3 && argv[0] === "profile" && argv[2] === "--json") {
+    if (argv[1] === "list") return { ok: true, value: { mode: "profile-list" } };
+    if (argv[1] === "check") return { ok: true, value: { mode: "profile-check" } };
+  }
   if (argv.length === 3 && argv[0] === "run" && argv[1] === "list" && argv[2] === "--json") {
     return { ok: true, value: { mode: "run-list" } };
   }

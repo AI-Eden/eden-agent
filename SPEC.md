@@ -4,9 +4,9 @@
 
 R1 completed with owner acceptance on 2026-07-17 after its exact-SHA evidence matrix and fresh exit review
 passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014, and executable plan on
-2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19 and Slice 0 closed its fixture
-budgets and unchanged-R1 baseline without adding product behavior. Changes to trust, terminal states,
-public product contracts, or non-goals require an ADR and human approval.
+2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19; Slice 0 closed its fixture budgets
+and unchanged-R1 baseline, and Slice 1 added host-side profile onboarding without provider traffic. Changes
+to trust, terminal states, public product contracts, or non-goals require an ADR and human approval.
 
 ## User story
 

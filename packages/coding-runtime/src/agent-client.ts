@@ -2,17 +2,21 @@ import { randomUUID } from "node:crypto";
 
 import {
   type AgentClient,
+  type DeleteProviderProfileCommand,
   decodeProductCommand,
   decodeResolveWorkspaceTrustCommand,
   type EventCursor,
   type ProductCommand,
   type ProductEvent,
   type ProductView,
+  type ProviderProfileCatalog,
   type ResolveWorkspaceTrustCommand,
   type RunCatalog,
   type RunId,
   RunIdSchema,
   type RunInspection,
+  type SaveProviderProfileCommand,
+  type SelectProviderProfileCommand,
   type WorkspaceReview,
 } from "@eden/contracts";
 import type { KernelEvent } from "@eden/kernel";
@@ -26,6 +30,7 @@ import {
   openRunSession,
   type RunSession,
 } from "./client-session.ts";
+import { ProviderProfileStore, ProviderProfileStoreError } from "./profiles/index.ts";
 import { projectJournal } from "./projection.ts";
 import { RunHistoryError, readRunCatalog, readRunInspection } from "./run-catalog.ts";
 import type { RuntimeClock, RuntimeIdSource } from "./runtime.ts";
@@ -43,6 +48,7 @@ export type InProcessAgentClientOptions = {
   readonly cwd: string;
   readonly idSource?: RuntimeIdSource;
   readonly modelDriver?: ModelDriver;
+  readonly profileEnvironment?: Readonly<Record<string, string | undefined>>;
   readonly runId?: RunId;
   readonly stateDirectory: string;
 };
@@ -106,6 +112,7 @@ export class InProcessAgentClient implements AgentClient {
   private readonly prefixGeneratedRunIds: boolean;
   private readonly readOnly: boolean;
   private readonly modelDriver: ModelDriver | undefined;
+  private readonly profiles: ProviderProfileStore | null;
   private readonly stateDirectory: string;
   private readonly trust: WorkspaceTrustService;
   private readonly waiters = new Set<() => void>();
@@ -118,6 +125,7 @@ export class InProcessAgentClient implements AgentClient {
     stateDirectory: string,
     trust: WorkspaceTrustService,
     session: RunSession | null,
+    profiles: ProviderProfileStore | null,
     prefixGeneratedRunIds: boolean,
     readOnly: boolean,
   ) {
@@ -127,6 +135,7 @@ export class InProcessAgentClient implements AgentClient {
     this.prefixGeneratedRunIds = prefixGeneratedRunIds;
     this.readOnly = readOnly;
     this.modelDriver = options.modelDriver;
+    this.profiles = profiles;
     this.stateDirectory = stateDirectory;
     this.trust = trust;
     this.session = session;
@@ -161,6 +170,12 @@ export class InProcessAgentClient implements AgentClient {
       stateDirectory: options.stateDirectory,
     });
     const stateDirectory = trust.stateDirectory;
+    const profiles = readOnly
+      ? null
+      : await ProviderProfileStore.open({
+          environment: options.profileEnvironment,
+          stateDirectory,
+        });
     if (readOnly && options.runId !== undefined) {
       throw clientError("read_only_client", "A read-only client cannot open an execution session.");
     }
@@ -182,6 +197,7 @@ export class InProcessAgentClient implements AgentClient {
       stateDirectory,
       trust,
       session,
+      profiles,
       prefixGeneratedRunIds,
       readOnly,
     );
@@ -189,6 +205,13 @@ export class InProcessAgentClient implements AgentClient {
 
   private ensureOpen(): void {
     if (this.closed) throw clientError("client_closed", "The agent client is closed.");
+  }
+
+  private requireProfiles(): ProviderProfileStore {
+    if (this.profiles === null) {
+      throw clientError("read_only_client", "Provider profiles are unavailable on this client.");
+    }
+    return this.profiles;
   }
 
   private requireSession(runId?: RunId): RunSession {
@@ -238,7 +261,79 @@ export class InProcessAgentClient implements AgentClient {
 
   async getWorkspaceReview(): Promise<WorkspaceReview> {
     this.ensureOpen();
-    return this.trust.refresh();
+    return this.workspaceReviewWithProfile(await this.trust.refresh());
+  }
+
+  private async workspaceReviewWithProfile(review: WorkspaceReview): Promise<WorkspaceReview> {
+    if (this.profiles === null) return review;
+    try {
+      const catalog = await this.profiles.read();
+      const active =
+        catalog.profiles.find((profile) => profile.id === catalog.activeProfileId) ?? null;
+      return {
+        ...review,
+        nextActions:
+          active === null || active.credential.presence === "missing"
+            ? [
+                "Configure an active provider profile before a real repository task.",
+                ...review.nextActions,
+              ]
+            : review.nextActions,
+        profile:
+          active === null || active.credential.presence === "missing"
+            ? { active: null, state: "unconfigured" }
+            : { active, state: "configured" },
+      };
+    } catch (error) {
+      if (!(error instanceof ProviderProfileStoreError)) throw error;
+      return {
+        ...review,
+        nextActions: [
+          "Inspect or replace the local provider configuration before a real repository task.",
+          ...review.nextActions,
+        ],
+        notice: review.notice ?? error.productError,
+        profile: { active: null, state: "unconfigured" },
+      };
+    }
+  }
+
+  private async profileOperation(
+    operation: (store: ProviderProfileStore) => Promise<ProviderProfileCatalog>,
+  ): Promise<ProviderProfileCatalog> {
+    this.ensureOpen();
+    try {
+      return await operation(this.requireProfiles());
+    } catch (error) {
+      if (error instanceof ProviderProfileStoreError) {
+        throw new AgentClientError(error.productError);
+      }
+      throw error;
+    }
+  }
+
+  async getProviderProfiles(): Promise<ProviderProfileCatalog> {
+    return this.profileOperation((store) => store.read());
+  }
+
+  async reloadProviderProfiles(): Promise<ProviderProfileCatalog> {
+    return this.getProviderProfiles();
+  }
+
+  async saveProviderProfile(command: SaveProviderProfileCommand): Promise<ProviderProfileCatalog> {
+    return this.serializeMutation(() => this.profileOperation((store) => store.save(command)));
+  }
+
+  async selectProviderProfile(
+    command: SelectProviderProfileCommand,
+  ): Promise<ProviderProfileCatalog> {
+    return this.serializeMutation(() => this.profileOperation((store) => store.select(command)));
+  }
+
+  async deleteProviderProfile(
+    command: DeleteProviderProfileCommand,
+  ): Promise<ProviderProfileCatalog> {
+    return this.serializeMutation(() => this.profileOperation((store) => store.delete(command)));
   }
 
   async getRunCatalog(options?: { readonly signal?: AbortSignal }): Promise<RunCatalog> {
@@ -297,7 +392,9 @@ export class InProcessAgentClient implements AgentClient {
     const decoded = decodeResolveWorkspaceTrustCommand(command);
     if (!decoded.ok) throw new AgentClientError(decoded.error);
     try {
-      return await this.trust.resolve(decoded.value, options?.signal);
+      return this.workspaceReviewWithProfile(
+        await this.trust.resolve(decoded.value, options?.signal),
+      );
     } catch (error) {
       if (error instanceof WorkspaceTrustError) throw new AgentClientError(error.productError);
       throw error;

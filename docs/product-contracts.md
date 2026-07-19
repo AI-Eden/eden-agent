@@ -36,6 +36,11 @@ All clients use this renderer-independent port:
 ```ts
 interface AgentClient {
   getWorkspaceReview(): Promise<WorkspaceReview>;
+  getProviderProfiles(): Promise<ProviderProfileCatalog>;
+  reloadProviderProfiles(): Promise<ProviderProfileCatalog>;
+  saveProviderProfile(command: SaveProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  selectProviderProfile(command: SelectProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  deleteProviderProfile(command: DeleteProviderProfileCommand): Promise<ProviderProfileCatalog>;
   getRunCatalog(options?: { signal?: AbortSignal }): Promise<RunCatalog>;
   inspectRun(
     runId: RunId,
@@ -56,9 +61,11 @@ interface AgentClient {
 }
 ```
 
-`WorkspaceReview` is the pre-run projection. It exposes canonical workspace identity, restricted/trusted
-state, the deterministic fake/no-credential profile, and fixed task-start, repository, process, network,
-and sandbox truth. Only task start changes from blocked to allowed when trust is granted.
+`WorkspaceReview` is the pre-run projection. During the R1 compatibility path it retains the deterministic
+fake/no-credential profile. The R2 host client replaces that profile value with the masked active profile
+or an explicit unconfigured state while retaining canonical workspace identity and exact authority truth.
+Only the R1 fake task-start capability changes from blocked to allowed when trust is granted; a later R2
+repository run also requires current readiness and repository prerequisites.
 
 The R1 implementation is in-process, replay-backed, and then live. It enforces run identity and optimistic
 revision freshness before append, exposes only product projections, and keeps `AbortSignal` cancellation
@@ -68,7 +75,10 @@ Opening a client does not create a run. Restricted `run.start` returns `workspac
 appends nothing. Once accepted, `run.started` carries the runtime-owned workspace snapshot so later trust
 changes cannot alter historical product views.
 
-The approved R2 extension adds renderer-neutral profile CRUD and readiness actions, repository/context
+The first R2 Build slice implements renderer-neutral profile CRUD. `config.toml` is authoritative, catalog
+revisions are content-derived, environment credentials expose only named presence, inline values are masked
+while entered and never appear in projections, and list/check output remains closed JSON. The remaining
+approved R2 extension adds readiness actions, repository/context
 summaries, explicit retry, and live model-stream updates. Profile projections expose credential presence
 and source identity without the value. Durable `ProductEvent` remains closed journal-derived truth; live
 deltas are a separate transient client signal and never become replay or later-context authority. A

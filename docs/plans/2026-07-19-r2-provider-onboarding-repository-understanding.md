@@ -1,6 +1,6 @@
 # R2 Provider Onboarding and Repository Understanding Plan
 
-- Status: Accepted; Build in progress; Slice 0 complete
+- Status: Accepted; Build in progress; Slices 0-1 complete
 - Date: 2026-07-19
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
@@ -358,6 +358,28 @@ inspect, update, select, and delete local profiles without emitting a secret.
   runtime/host boundaries, not kernel or renderer.
 - **Matching surface:** fresh TUI create/edit/delete/recovery at `60x20`, `80x24`, and `100x30`; direct
   `config.toml` edit followed by reload; no provider request occurs.
+
+#### Slice 1 evidence
+
+Slice 1 adds the closed profile schemas and `AgentClient` methods, one strict `smol-toml` host store,
+masked `WorkspaceReview` and headless projections, and the local onboarding surface. The TUI test exercises
+create, masked inline entry, inspect, update, select, delete, direct-file reload, malformed-file recovery,
+and secret-canary absence at `60x20`, `80x24`, and `100x30`. The runtime suite independently covers the
+64 KiB file ceiling, closed fields and versions, URL and limit validation, missing environment presence,
+linked and permissive files, stale revisions, competing-store linearization, active-profile deletion, and
+interrupted replacement. No
+provider dependency or request exists yet. POSIX permission evidence is local Linux/WSL only; Windows
+permission claims remain `not-run` for the hosted evidence slice.
+
+Fresh Slice 1 commands:
+
+```bash
+corepack pnpm@11.13.0 --filter @eden/contracts test
+corepack pnpm@11.13.0 --filter @eden/coding-runtime test
+corepack pnpm@11.13.0 --filter @eden/cli test
+corepack pnpm@11.13.0 typecheck
+corepack pnpm@11.13.0 code:check
+```
 
 ### Slice 2: Explicit connection readiness and redacted provider boundary
 

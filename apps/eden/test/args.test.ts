@@ -64,3 +64,15 @@ test("run list and show require exact JSON-only grammar", () => {
   ];
   for (const argv of invalid) strictEqual(parseArgs(argv).ok, false);
 });
+
+test("profile list and check require exact JSON-only grammar", () => {
+  deepStrictEqual(parseArgs(["profile", "list", "--json"]), {
+    ok: true,
+    value: { mode: "profile-list" },
+  });
+  deepStrictEqual(parseArgs(["profile", "check", "--json"]), {
+    ok: true,
+    value: { mode: "profile-check" },
+  });
+  strictEqual(parseArgs(["profile", "list"]).ok, false);
+});

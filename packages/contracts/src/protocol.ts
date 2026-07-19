@@ -1,6 +1,14 @@
 import Type from "typebox";
 import Schema from "typebox/schema";
 
+import type {
+  DeleteProviderProfileCommand,
+  ProviderProfileCatalog,
+  SaveProviderProfileCommand,
+  SelectProviderProfileCommand,
+} from "./provider-profiles.ts";
+import { ProviderProfileSummarySchema } from "./provider-profiles.ts";
+
 export const productProtocolVersion = 1 as const;
 export const ProductProtocolVersionSchema = Type.Literal(productProtocolVersion);
 export type ProductProtocolVersion = Type.Static<typeof ProductProtocolVersionSchema>;
@@ -213,13 +221,29 @@ export const WorkspaceReviewSchema = Type.Object(
     protocolVersion: ProductProtocolVersionSchema,
     revision: RevisionSchema,
     workspace: WorkspaceSummarySchema,
-    profile: Type.Object(
-      {
-        provider: Type.Literal("deterministic-fake"),
-        credentials: Type.Literal("not-required"),
-      },
-      closed,
-    ),
+    profile: Type.Union([
+      Type.Object(
+        {
+          provider: Type.Literal("deterministic-fake"),
+          credentials: Type.Literal("not-required"),
+        },
+        closed,
+      ),
+      Type.Refine(
+        Type.Object(
+          {
+            active: Type.Union([ProviderProfileSummarySchema, Type.Null()]),
+            state: Type.Union([Type.Literal("unconfigured"), Type.Literal("configured")]),
+          },
+          closed,
+        ),
+        (value) =>
+          (value.state === "unconfigured" && value.active === null) ||
+          (value.state === "configured" &&
+            value.active !== null &&
+            value.active.credential.presence === "present"),
+      ),
+    ]),
     authority: Type.Object(
       {
         taskStart: Type.Union([Type.Literal("blocked"), Type.Literal("allowed")]),
@@ -508,12 +532,17 @@ export type RunIdDecodeResult = Type.Static<typeof RunIdDecodeResultSchema>;
 
 export interface AgentClient {
   getWorkspaceReview(): Promise<WorkspaceReview>;
+  getProviderProfiles(): Promise<ProviderProfileCatalog>;
   getRunCatalog(options?: { readonly signal?: AbortSignal }): Promise<RunCatalog>;
   inspectRun(runId: RunId, options?: { readonly signal?: AbortSignal }): Promise<RunInspection>;
   resolveWorkspaceTrust(
     command: ResolveWorkspaceTrustCommand,
     options?: { readonly signal?: AbortSignal },
   ): Promise<WorkspaceReview>;
+  saveProviderProfile(command: SaveProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  selectProviderProfile(command: SelectProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  deleteProviderProfile(command: DeleteProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  reloadProviderProfiles(): Promise<ProviderProfileCatalog>;
   submit(
     command: ProductCommand,
     options?: { readonly signal?: AbortSignal },

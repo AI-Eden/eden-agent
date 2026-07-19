@@ -5,6 +5,8 @@ import type {
   AgentClient,
   ProductEvent,
   ProductView,
+  ProviderProfileCatalog,
+  ProviderProfileInput,
   RunCatalog,
   RunInspection,
   WorkspaceReview,
@@ -24,12 +26,34 @@ export type EdenTuiAppProps = {
   readonly onReady?: (() => void) | undefined;
   readonly onRunCatalogChange?: ((catalog: RunCatalog) => void) | undefined;
   readonly onRunInspectionChange?: ((inspection: RunInspection) => void) | undefined;
+  readonly onProviderProfilesChange?: ((catalog: ProviderProfileCatalog) => void) | undefined;
   readonly onViewChange?: ((view: ProductView) => void) | undefined;
   readonly onWorkspaceReviewChange?: ((review: WorkspaceReview | null) => void) | undefined;
 };
 
 function errorMessage(cause: unknown, fallback: string): string {
   return cause instanceof AgentClientError ? cause.productError.message : fallback;
+}
+
+function maskedProfileDraft(value: string): string {
+  const marker = "|inline:";
+  const start = value.lastIndexOf(marker);
+  if (start < 0) return value;
+  return `${value.slice(0, start + marker.length)}${"•".repeat(
+    Array.from(value.slice(start + marker.length)).length,
+  )}`;
+}
+
+function reconcileMaskedProfileDraft(previous: string, displayed: string): string {
+  const previousDisplay = maskedProfileDraft(previous);
+  if (displayed === previousDisplay) return previous;
+  if (displayed.startsWith(previousDisplay)) {
+    return `${previous}${displayed.slice(previousDisplay.length)}`;
+  }
+  if (previousDisplay.startsWith(displayed)) {
+    return Array.from(previous).slice(0, Array.from(displayed).length).join("");
+  }
+  return displayed.includes("•") ? previous : displayed;
 }
 
 export function EdenTuiApp(props: EdenTuiAppProps) {
@@ -47,6 +71,7 @@ function EdenTuiSurface({
   initialWorkspaceReview,
   onExit,
   onReady,
+  onProviderProfilesChange,
   onRunCatalogChange,
   onRunInspectionChange,
   onViewChange,
@@ -57,6 +82,9 @@ function EdenTuiSurface({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
+  const [profileCatalog, setProfileCatalog] = useState<ProviderProfileCatalog | null>(null);
+  const [profileDraft, setProfileDraft] = useState("");
+  const [profileEditorFocused, setProfileEditorFocused] = useState(false);
   const [review, setReview] = useState<WorkspaceReview | null>(initialWorkspaceReview ?? null);
   const [timeline, setTimeline] = useState<readonly ProductEvent["type"][]>([]);
   const [view, setView] = useState<ProductView | null>(null);
@@ -81,6 +109,127 @@ function EdenTuiSurface({
     setReview(null);
     onWorkspaceReviewChange?.(null);
   }, [onWorkspaceReviewChange]);
+
+  const publishProfiles = useCallback(
+    (catalog: ProviderProfileCatalog) => {
+      setProfileCatalog(catalog);
+      onProviderProfilesChange?.(catalog);
+    },
+    [onProviderProfilesChange],
+  );
+
+  const reloadProfiles = async () => {
+    try {
+      publishProfiles(await client.reloadProviderProfiles());
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, "Provider profiles could not be reloaded."));
+    }
+  };
+
+  const saveProfile = async (source: string) => {
+    if (profileCatalog === null) return;
+    const [id, baseUrl, model, billingSource, contextWindow, maxOutput, credentialSource] = source
+      .split("|")
+      .map((part) => part.trim());
+    const contextWindowTokens = Number(contextWindow);
+    const maxOutputTokens = Number(maxOutput);
+    const credential = credentialSource?.startsWith("env:")
+      ? { name: credentialSource.slice(4), source: "environment" as const }
+      : credentialSource?.startsWith("inline:")
+        ? { source: "inline" as const, value: credentialSource.slice(7) }
+        : null;
+    if (
+      id === undefined ||
+      baseUrl === undefined ||
+      model === undefined ||
+      (billingSource !== "pay_as_you_go" &&
+        billingSource !== "subscription_api_key" &&
+        billingSource !== "custom") ||
+      !Number.isSafeInteger(contextWindowTokens) ||
+      contextWindowTokens <= 0 ||
+      !Number.isSafeInteger(maxOutputTokens) ||
+      maxOutputTokens <= 0 ||
+      credential === null
+    ) {
+      setError("Profile input must contain seven valid pipe-separated fields.");
+      return;
+    }
+    const profile: ProviderProfileInput = {
+      baseUrl,
+      billingSource,
+      contextWindowTokens,
+      credential,
+      id,
+      maxOutputTokens,
+      model,
+      protocol: "openai_chat_completions",
+      reasoningDisplay: "off",
+    };
+    try {
+      publishProfiles(
+        await client.saveProviderProfile({
+          commandId: randomUUID(),
+          expectedRevision: profileCatalog.revision,
+          profile,
+          protocolVersion: 1,
+          select: true,
+          type: "provider.profile.save",
+        }),
+      );
+      setProfileDraft("");
+      setProfileEditorFocused(false);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, "The provider profile could not be saved."));
+    }
+  };
+
+  const selectNextProfile = async () => {
+    if (profileCatalog === null || profileCatalog.profiles.length < 2) return;
+    const current = profileCatalog.profiles.findIndex(
+      (profile) => profile.id === profileCatalog.activeProfileId,
+    );
+    const next = profileCatalog.profiles[(current + 1) % profileCatalog.profiles.length];
+    if (next === undefined) return;
+    try {
+      publishProfiles(
+        await client.selectProviderProfile({
+          commandId: randomUUID(),
+          expectedRevision: profileCatalog.revision,
+          profileId: next.id,
+          protocolVersion: 1,
+          type: "provider.profile.select",
+        }),
+      );
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, "The provider profile could not be selected."));
+    }
+  };
+
+  const deleteProfile = async () => {
+    if (profileCatalog === null || profileCatalog.profiles.length === 0) return;
+    const inactive = profileCatalog.profiles.find(
+      (profile) => profile.id !== profileCatalog.activeProfileId,
+    );
+    const profileId = inactive?.id ?? profileCatalog.activeProfileId;
+    if (profileId === null) return;
+    try {
+      publishProfiles(
+        await client.deleteProviderProfile({
+          commandId: randomUUID(),
+          expectedRevision: profileCatalog.revision,
+          profileId,
+          protocolVersion: 1,
+          type: "provider.profile.delete",
+        }),
+      );
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, "The provider profile could not be deleted."));
+    }
+  };
 
   const resolveTrust = async (decision: "trust" | "restrict") => {
     if (review === null || view !== null) return;
@@ -192,6 +341,15 @@ function EdenTuiSurface({
       }
       return;
     }
+    if (profileEditorFocused) {
+      if (key.name === "escape") {
+        key.preventDefault();
+        key.stopPropagation();
+        setProfileDraft("");
+        setProfileEditorFocused(false);
+      }
+      return;
+    }
     if (history.surface === "history") {
       if (key.meta || key.option) return;
       if (key.name === "b") {
@@ -210,8 +368,13 @@ function EdenTuiSurface({
       return;
     }
     if (view === null && review !== null && !key.meta && !key.option) {
+      if (composerFocused) return;
+      if (key.name === "p") setProfileEditorFocused(true);
+      if (key.name === "s") void selectNextProfile();
+      if (key.name === "x") void deleteProfile();
+      if (key.name === "l") void reloadProfiles();
+      if (["p", "s", "x", "l"].includes(key.name)) return;
       if (review.authority.taskStart === "allowed") {
-        if (composerFocused) return;
         if (key.name === "return") setComposerFocused(true);
         if (key.name === "h") history.openHistory();
         if (key.name === "r") void resolveTrust("restrict");
@@ -264,6 +427,21 @@ function EdenTuiSurface({
     publishReview,
   ]);
 
+  useEffect(() => {
+    let active = true;
+    void client
+      .getProviderProfiles()
+      .then((catalog) => {
+        if (active) publishProfiles(catalog);
+      })
+      .catch((cause) => {
+        if (active) setError(errorMessage(cause, "Provider profiles could not be loaded."));
+      });
+    return () => {
+      active = false;
+    };
+  }, [client, publishProfiles]);
+
   const followedRunId = following ? (view?.runId ?? null) : null;
   useEffect(() => {
     if (followedRunId === null) return;
@@ -295,8 +473,15 @@ function EdenTuiSurface({
       historyError={history.error}
       inspection={history.inspection}
       onDraftChange={setDraft}
+      onProfileDraftChange={(displayed) =>
+        setProfileDraft((previous) => reconcileMaskedProfileDraft(previous, displayed))
+      }
+      onProfileSave={() => saveProfile(profileDraft)}
       onStart={start}
       review={review}
+      profileCatalog={profileCatalog}
+      profileDraft={maskedProfileDraft(profileDraft)}
+      profileEditorFocused={profileEditorFocused}
       selectedIndex={history.selectedIndex}
       surface={history.surface}
       timeline={timeline}

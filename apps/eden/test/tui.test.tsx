@@ -8,6 +8,7 @@ import {
   type AgentClient,
   availableRunSummary,
   type ProductView,
+  type ProviderProfileCatalog,
   type RunCatalog,
   type RunId,
   type RunInspection,
@@ -19,6 +20,24 @@ import { testRender } from "@opentui/react/test-utils";
 import { act } from "react";
 
 import { EdenTuiApp } from "../src/tui.tsx";
+
+const emptyProviderProfiles: ProviderProfileCatalog = {
+  activeProfileId: null,
+  notice: null,
+  profiles: [],
+  protocolVersion: 1,
+  revision: 0,
+};
+
+function providerProfileMethods() {
+  return {
+    deleteProviderProfile: async () => emptyProviderProfiles,
+    getProviderProfiles: async () => emptyProviderProfiles,
+    reloadProviderProfiles: async () => emptyProviderProfiles,
+    saveProviderProfile: async () => emptyProviderProfiles,
+    selectProviderProfile: async () => emptyProviderProfiles,
+  };
+}
 
 function ids(...values: readonly string[]) {
   let cursor = 0;
@@ -128,6 +147,7 @@ function historyClient(catalog: RunCatalog) {
     readonly signal: AbortSignal | undefined;
   }>();
   const client: AgentClient = {
+    ...providerProfileMethods(),
     close: async () => undefined,
     getRunCatalog: async () => {
       await catalogRequests.take();
@@ -172,6 +192,7 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
   const reviews = queue<WorkspaceReview | null>();
   const catalogs = queue<RunCatalog>();
   const inspections = queue<RunInspection>();
+  const profiles = queue<ProviderProfileCatalog>();
   const views = queue<ProductView>();
   const renderer = await testRender(
     <EdenTuiApp
@@ -179,6 +200,7 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
       initialWorkspaceReview={initialWorkspaceReview}
       onRunCatalogChange={(catalog) => catalogs.push(catalog)}
       onRunInspectionChange={(inspection) => inspections.push(inspection)}
+      onProviderProfilesChange={(catalog) => profiles.push(catalog)}
       onViewChange={(view) => views.push(view)}
       onWorkspaceReviewChange={(review) => reviews.push(review)}
     />,
@@ -187,9 +209,10 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
   await act(async () => {
     await reviews.take();
     await catalogs.take();
+    await profiles.take();
     renderer.flush();
   });
-  return { catalogs, client, inspections, paths: fixturePaths, renderer, reviews, views };
+  return { catalogs, client, inspections, paths: fixturePaths, profiles, renderer, reviews, views };
 }
 
 async function trustWorkspace(fixture: Awaited<ReturnType<typeof setup>>) {
@@ -214,7 +237,14 @@ async function enterTask(fixture: Awaited<ReturnType<typeof setup>>) {
   const changed = fixture.views.take();
   await act(async () => {
     fixture.renderer.mockInput.pressEnter();
-    await changed;
+    await Promise.race([
+      changed,
+      delay(1_000).then(() => {
+        throw new Error(
+          `Task submission did not publish a view:\n${fixture.renderer.captureCharFrame()}`,
+        );
+      }),
+    ]);
   });
   await act(async () => fixture.renderer.flush());
   expect(fixture.renderer.captureCharFrame()).toContain("approval: pending");
@@ -243,6 +273,118 @@ test("fresh onboarding shows exact restricted authority and creates no run", asy
   } finally {
     act(() => fixture.renderer.renderer.destroy());
     await fixture.client.close();
+  }
+});
+
+test("provider onboarding creates, masks, updates, selects, deletes, and reloads profiles", async () => {
+  for (const [width, height] of [
+    [60, 20],
+    [80, 24],
+    [100, 30],
+  ] as const) {
+    const fixture = await setup(width, height);
+    const submitProfile = async (value: string) => {
+      await act(async () => fixture.renderer.mockInput.pressKey("p"));
+      await act(async () => fixture.renderer.mockInput.typeText(value));
+      if (value.includes("|inline:")) {
+        expect(fixture.renderer.captureCharFrame()).not.toContain("SECRET_CANARY_TUI");
+        expect(fixture.renderer.captureCharFrame()).toContain("inline:••••");
+      }
+      const changed = fixture.profiles.take();
+      await act(async () => {
+        fixture.renderer.mockInput.pressEnter();
+        await changed;
+      });
+      await act(async () => fixture.renderer.flush());
+    };
+    try {
+      expect(fixture.renderer.captureCharFrame()).toContain("profile: not configured");
+      await submitProfile(
+        "deepseek-v4|https://api.deepseek.com|deepseek-v4-pro|pay_as_you_go|1000000|393216|inline:SECRET_CANARY_TUI",
+      );
+      let frame = fixture.renderer.captureCharFrame();
+      expect(frame).toContain("profile: deepseek-v4");
+      await act(async () => fixture.renderer.mockInput.pressKey("p"));
+      await act(async () => fixture.renderer.flush());
+      frame = fixture.renderer.captureCharFrame();
+      expect(frame).toContain("credential present");
+      expect(frame).not.toContain("SECRET_CANARY_TUI");
+      await act(async () => fixture.renderer.mockInput.pressKey("escape"));
+
+      await submitProfile(
+        "kimi-code|https://api.moonshot.cn/v1|kimi-for-coding|subscription_api_key|262144|32768|env:EDEN_KIMI_KEY",
+      );
+      let changed = fixture.profiles.take();
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("s");
+        await changed;
+      });
+      await act(async () => fixture.renderer.flush());
+      frame = fixture.renderer.captureCharFrame();
+      expect(frame).toContain("profile: deepseek-v4");
+
+      changed = fixture.profiles.take();
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("x");
+        await changed;
+      });
+      await act(async () => fixture.renderer.flush());
+      expect(fixture.renderer.captureCharFrame()).not.toContain("kimi-code");
+
+      await submitProfile(
+        "deepseek-v4|https://api.deepseek.com|deepseek-chat|pay_as_you_go|1000000|32768|env:EDEN_DEEPSEEK_KEY",
+      );
+      changed = fixture.profiles.take();
+      let reloaded: ProviderProfileCatalog | null = null;
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("l");
+        reloaded = await changed;
+      });
+      await act(async () => fixture.renderer.flush());
+      expect((reloaded as ProviderProfileCatalog | null)?.profiles[0]?.model).toBe("deepseek-chat");
+
+      const configPath = join(fixture.paths.stateDirectory, "config.toml");
+      const validConfig = (await readFile(configPath, "utf8")).replace(
+        "deepseek-chat",
+        "direct-file-model",
+      );
+      await writeFile(configPath, validConfig);
+      changed = fixture.profiles.take();
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("l");
+        reloaded = await changed;
+      });
+      expect((reloaded as ProviderProfileCatalog | null)?.profiles[0]?.model).toBe(
+        "direct-file-model",
+      );
+
+      await writeFile(configPath, "SECRET_CANARY_TUI = [");
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("l");
+        await delay(200);
+        await fixture.renderer.flush();
+      });
+      frame = fixture.renderer.captureCharFrame();
+      expect(frame).toContain("provider configuration is invalid");
+      expect(frame).not.toContain("SECRET_CANARY_TUI");
+      await writeFile(configPath, validConfig);
+      changed = fixture.profiles.take();
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("l");
+        await changed;
+      });
+
+      changed = fixture.profiles.take();
+      await act(async () => {
+        fixture.renderer.mockInput.pressKey("x");
+        await changed;
+      });
+      await act(async () => fixture.renderer.flush());
+      expect(fixture.renderer.captureCharFrame()).toContain("profile: not configured");
+    } finally {
+      act(() => fixture.renderer.renderer.destroy());
+      await fixture.client.close();
+    }
   }
 });
 
@@ -399,6 +541,7 @@ test("a failed authority refresh hides cached trust and task entry", async () =>
   const submitted = deferred<true>();
   const submission = rejectable<ProductView>();
   const client: AgentClient = {
+    ...providerProfileMethods(),
     close: async () => undefined,
     getRunCatalog: () => {
       catalogRequested.resolve(true);
@@ -476,6 +619,7 @@ test("workspace identity change invalidates cached authority without refreshing 
   const submitted = deferred<true>();
   const submission = rejectable<ProductView>();
   const client: AgentClient = {
+    ...providerProfileMethods(),
     close: async () => undefined,
     getRunCatalog: () => {
       catalogRequested.resolve(true);
@@ -950,6 +1094,7 @@ test("history truncates maximum contract values before 60x20 controls", async ()
 test("catalog reload, back, and unmount abort their owned reads", async () => {
   const catalogSignals = queue<AbortSignal>();
   const client: AgentClient = {
+    ...providerProfileMethods(),
     close: async () => undefined,
     getRunCatalog: (options) => {
       const signal = options?.signal;

@@ -139,6 +139,13 @@ describe("deterministic product view scenarios", () => {
     assert.equal(restrictedWorkspaceReview.authority.taskStart, "blocked");
     assert.equal(trustedWorkspaceReview.authority.taskStart, "allowed");
     assert.equal(decodeWorkspaceReview(longRootReview).ok, true);
+    assert.equal(
+      decodeWorkspaceReview({
+        ...restrictedWorkspaceReview,
+        profile: { active: null, state: "unconfigured" },
+      }).ok,
+      true,
+    );
     assert.deepEqual(
       { ...restrictedWorkspaceReview.authority, taskStart: "allowed" },
       trustedWorkspaceReview.authority,
