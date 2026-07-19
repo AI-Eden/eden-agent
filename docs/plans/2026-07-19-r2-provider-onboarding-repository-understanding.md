@@ -1,6 +1,6 @@
 # R2 Provider Onboarding and Repository Understanding Plan
 
-- Status: Accepted; implementation not started
+- Status: Accepted; Build in progress; Slice 0 complete
 - Date: 2026-07-19
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
@@ -267,6 +267,57 @@ The exact provider, tool, byte, and context constants above are checked against 
 before implementation. If a fixture crosses 80% of an existing journal hard limit, lower the slice ceiling
 and record the independent calculation. Crossing the hard limit or requiring a new persistence shape is a
 stop condition, not permission to redesign silently.
+
+### Slice 0 evidence and frozen values
+
+Slice 0 ran against the unchanged R1 executable built from public commit
+`978bb78f6b67f8410ad3dbbc688dfe0622f4a987`; the plan's original R1 decision baseline
+`326e1c3ca8674b44710089cb8f6c6a64e5154716` remains its ancestor. The standalone smoke and production PTY
+fixtures passed, including the `100x30` task flow and the `60x20`/`100x30` history flow. The renderer suite
+passed 30 tests. The full suite also exposed and Slice 0 repaired a stale documentation assertion that
+still described R2 as unfrozen after the accepted Freeze packet.
+
+The frozen R2 implementation constants are:
+
+| Boundary | Value |
+| --- | ---: |
+| Model steps / tool calls | 4 / 4 |
+| List visited / returned | 4096 / 256 |
+| Search matches / Git-status entries | 256 / 256 |
+| Tool model content | 24 KiB |
+| Complete visible assistant output | 32 KiB |
+| Private continuity | 8 KiB |
+| Instruction file / applicable chain | 32 KiB / 128 KiB |
+| Output / estimator safety reserve | 8192 / 2048 tokens |
+| Native tool timeout | 5000 ms |
+
+`scripts/r2-contract-budgets.test.mjs` measures newline-inclusive JSON envelopes independently. The maximum
+instruction, model-observation, and tool-result fixtures encode to 33,263, 41,330, and 24,956 bytes. Each
+is below the 52,428-byte 80% record threshold. Four instruction records, four model observations, and four
+tool results total 398,196 bytes, below the 838,860-byte 80% run threshold. Deliberately oversized variants
+of all three record families exceed 65,536 bytes. Later closed schemas must stay within these ceilings; the
+fixture is a guardrail, not permission to persist arbitrary fields until the headroom is consumed.
+
+The reproducible Linux x64 WSL2 record is
+`docs/benchmark-results/2026-07-19-r2-r1-baseline-linux-x64.json`. One warm-up and five measured PTY runs
+retained zero failures. Cold input-ready startup had a 191.65 ms median and 195.19 ms p95, freezing a 244 ms
+regression threshold plus the independent 2-second absolute ceiling. Exact-workspace trust input-to-render
+had a 285.00 ms median and 285.01 ms p95, freezing a 357 ms regression threshold; it does not meet the
+independent R2 100 ms target, so Slice 7 must improve and remeasure it. Scroll-to-render and non-Linux
+surfaces are `not-run`, not inferred.
+
+Fresh Slice 0 commands:
+
+```bash
+corepack pnpm@11.13.0 --filter @eden/cli package:bun
+node scripts/smoke-standalone.mjs apps/eden/dist/eden /tmp/eden-r2-slice0-baseline/standalone.json
+node scripts/r1-production-pty.mjs apps/eden/dist/eden /tmp/eden-r2-slice0-baseline
+corepack pnpm@11.13.0 --filter @eden/cli test
+node --test scripts/r2-contract-budgets.test.mjs
+node scripts/r2-r1-baseline.mjs apps/eden/dist/eden \
+  docs/benchmark-results/2026-07-19-r2-r1-baseline-linux-x64.json \
+  978bb78f6b67f8410ad3dbbc688dfe0622f4a987
+```
 
 ## Ordered test-first implementation slices
 

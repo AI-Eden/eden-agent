@@ -70,6 +70,13 @@ The R1 fake-model effect is causally necessary and uses the same intent, receipt
 reconciliation rules as action and verification effects. Model output cannot resolve approval or terminal
 success.
 
+The approved R2 first slice extends this pattern with distinct model-step requests, attempt starts,
+terminal model observations, tool requests, terminal tool observations, explicit retry, cancellation, and
+blocked facts. Coalesced provider text is live-only until protocol-complete validation. A controlled stop
+may commit one bounded incomplete visible snapshot; an ambiguous attempt cannot silently redispatch. Tool
+arguments and results become durable only as complete closed values. Private provider continuity is
+journal-owned but excluded from ordinary product copy.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

@@ -26,6 +26,11 @@ stay visible with structured recovery text while other valid runs remain usable.
 
 Always visible: workspace, session, profile, phase, trust mode, network, model, and budget. The main surface prioritizes progress, changed files, checks, and blockers. Raw tool detail and trace diagnostics are expandable.
 
+For the R2 first slice, onboarding distinguishes unconfigured, configured, catalog-reachable, and
+completion-ready profile evidence. The conversation is the primary reading surface, while provider checks,
+context admission, model attempts, semantic tools, interruptions, errors, and recovery remain structured
+runtime blocks. Complete final answers do not collapse into progress summaries.
+
 ## Responsive terminal layout
 
 - Narrow: one primary column with explicit view switching.
@@ -33,6 +38,11 @@ Always visible: workspace, session, profile, phase, trust mode, network, model, 
 - Wide: session navigation, timeline, and review pane.
 
 Width changes must preserve current focus and action safety. Three permanent panes are not assumed.
+
+R2 navigation uses one focus graph: `Tab` and `Shift+Tab` move between focusable regions, arrows move within
+a collection, `Enter` activates, `Esc` returns or collapses, `Ctrl+P` opens the command palette, and `?`
+opens shortcut help outside text entry. Resize preserves focus identity, selection, expansion, scroll
+anchor, and action safety.
 
 R1 uses an explicit history key and selection view rather than a permanent pane. Narrow layouts preserve
 workspace identity, read-only mode, selected run, outcome, and the back/exit actions before optional

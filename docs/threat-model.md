@@ -48,6 +48,13 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
 - Keep historical inspection read-only even when its replayed view contains a pending approval or
   non-terminal phase; only a separately specified resume flow may regain execution authority.
 - Let only trusted runtime code emit verifier-backed terminal events.
+- Keep provider profiles in one versioned host-side file outside the workspace; resolve only the selected
+  credential source, reject linked or permissive state, replace atomically, and never project the secret or
+  readiness fingerprint.
+- Admit complete applicable `AGENTS.md` snapshots before governed content or provider network access; path
+  containment, sibling scope, provenance, and hard P0 budgets fail closed.
+- Keep repository tools semantic and read-only. Runtime code owns fixed native argv, scrubbed environment,
+  cancellation, output bounds, and repeated path containment; the model never selects a process or shell.
 
 ## Execution modes
 

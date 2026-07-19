@@ -1,0 +1,118 @@
+{
+  "artifact": {
+    "pathClass": "workspace-build",
+    "sizeBytes": 115005568
+  },
+  "command": "node scripts/r2-r1-baseline.mjs apps/eden/dist/eden docs/benchmark-results/2026-07-19-r2-r1-baseline-linux-x64.json <exact-sha>",
+  "environment": {
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "node": "v24.15.0",
+    "operatingSystem": "linux",
+    "release": "6.18.33.2-microsoft-standard-WSL2",
+    "terminal": "node-pty xterm-256color 100x30"
+  },
+  "fixture": {
+    "inputAction": "grant exact-workspace trust with the t key",
+    "scrollToRender": "not-run",
+    "viewport": "100x30"
+  },
+  "recordedAt": "2026-07-19T14:22:36.597Z",
+  "schemaVersion": 1,
+  "source": {
+    "sha": "978bb78f6b67f8410ad3dbbc688dfe0622f4a987"
+  },
+  "summary": {
+    "failuresRetained": 0,
+    "inputToRenderMs": {
+      "maximumMs": 285.013647,
+      "medianMs": 285.001435,
+      "minimumMs": 283.72920399999975,
+      "p95Ms": 285.013647
+    },
+    "startupMs": {
+      "maximumMs": 195.1876470000002,
+      "medianMs": 191.647692,
+      "minimumMs": 187.58386100000007,
+      "p95Ms": 195.1876470000002
+    }
+  },
+  "thresholds": {
+    "coldStandaloneStartAbsoluteMs": 2000,
+    "inputToRenderAbsoluteMs": 100,
+    "inputToRenderRegressionMs": 356.26705875,
+    "scrollToRender": "not-run",
+    "startupRegressionMs": 243.98455875000025,
+    "timerAllowanceMs": 2
+  },
+  "trialCount": 5,
+  "trials": [
+    {
+      "durationMs": 516.006223,
+      "exitCode": 130,
+      "inputToRenderMs": 284.828046,
+      "outcome": "passed",
+      "startupMs": 193.25043499999998,
+      "endedAt": "2026-07-19T14:22:34.017Z",
+      "index": 1,
+      "phase": "warmup",
+      "startedAt": "2026-07-19T14:22:33.501Z"
+    },
+    {
+      "durationMs": 515.0545079999999,
+      "exitCode": 130,
+      "inputToRenderMs": 285.001435,
+      "outcome": "passed",
+      "startupMs": 192.87714600000004,
+      "endedAt": "2026-07-19T14:22:34.536Z",
+      "index": 2,
+      "phase": "recorded",
+      "startedAt": "2026-07-19T14:22:34.021Z"
+    },
+    {
+      "durationMs": 512.612369,
+      "exitCode": 130,
+      "inputToRenderMs": 284.50186499999995,
+      "outcome": "passed",
+      "startupMs": 191.647692,
+      "endedAt": "2026-07-19T14:22:35.052Z",
+      "index": 3,
+      "phase": "recorded",
+      "startedAt": "2026-07-19T14:22:34.539Z"
+    },
+    {
+      "durationMs": 508.60756800000013,
+      "exitCode": 130,
+      "inputToRenderMs": 285.013647,
+      "outcome": "passed",
+      "startupMs": 187.58386100000007,
+      "endedAt": "2026-07-19T14:22:35.564Z",
+      "index": 4,
+      "phase": "recorded",
+      "startedAt": "2026-07-19T14:22:35.055Z"
+    },
+    {
+      "durationMs": 511.0772340000003,
+      "exitCode": 130,
+      "inputToRenderMs": 285.01086699999996,
+      "outcome": "passed",
+      "startupMs": 189.54641900000024,
+      "endedAt": "2026-07-19T14:22:36.078Z",
+      "index": 5,
+      "phase": "recorded",
+      "startedAt": "2026-07-19T14:22:35.566Z"
+    },
+    {
+      "durationMs": 514.384638,
+      "exitCode": 130,
+      "inputToRenderMs": 283.72920399999975,
+      "outcome": "passed",
+      "startupMs": 195.1876470000002,
+      "endedAt": "2026-07-19T14:22:36.595Z",
+      "index": 6,
+      "phase": "recorded",
+      "startedAt": "2026-07-19T14:22:36.080Z"
+    }
+  ],
+  "warmupCount": 1
+}

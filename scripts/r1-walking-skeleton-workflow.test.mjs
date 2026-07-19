@@ -191,7 +191,7 @@ test("R1 source documents freeze model causality and fresh start authority", asy
   match(trustStartAdr, /run\.started[^\n]*durable/u);
 });
 
-test("accepted R1 status and threat documents remain honest", async () => {
+test("accepted R1 and frozen R2 status documents remain honest", async () => {
   const [context, spec, threatModel, futureWork] = await Promise.all([
     readFile(contextUrl, "utf8"),
     readFile(specUrl, "utf8"),
@@ -201,9 +201,10 @@ test("accepted R1 status and threat documents remain honest", async () => {
 
   match(context, /R0 and R1 are complete/u);
   match(context, /owner accepted the R1 exit on 2026-07-17/iu);
-  match(context, /R2 remains an\s+unfrozen roadmap stage/u);
+  match(context, /owner approved its public decision brief, ADR 0013, ADR 0014/iu);
   match(spec, /R1 completed with owner acceptance on 2026-07-17/u);
-  match(spec, /R2 remains unfrozen/u);
+  match(spec, /owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014/iu);
+  match(spec, /The contract below is frozen/u);
   strictEqual(spec.includes("Draft for R0"), false);
   match(threatModel, /512/u);
   match(threatModel, /1 MiB/u);

@@ -36,3 +36,11 @@ prove the frozen viewport layout without depending on a lossy ANSI-to-text proje
 R1 does not claim evidence for Terminal.app, Windows Terminal, PowerShell IME, a Linux desktop-terminal
 matrix, signing, an installer, package-manager publication, or release support. Those rows remain explicit
 `not-run` values until their roadmap gate is separately approved and exercised.
+
+## R2 Build evidence
+
+Slice 0 recorded the unchanged R1 Linux x64 WSL2 executable at `978bb78f` before R2 product behavior. The
+copied standalone and production PTY flows passed. One warm-up and five measured `100x30` PTY trials are
+recorded under `docs/benchmark-results/`; non-Linux performance and scroll-to-render remain `not-run`.
+Future R2 support evidence must exercise the complete archive containing `eden`, application-local `rg`,
+and notices on hosted Ubuntu, macOS, and Windows. This local baseline is not a release-support claim.

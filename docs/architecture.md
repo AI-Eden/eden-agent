@@ -81,6 +81,20 @@ has no dependency on adapters. ADR 0011 permits the R1 runtime to compose the ex
 provider port and fake adapter from `packages/providers`; provider SDKs and provider-specific values still
 cannot enter the kernel. TUI, Bun, Docker, Tauri, and Electron also cannot leak into the kernel.
 
+## Approved R2 first-slice extension
+
+Host-side profile storage and readiness live in `coding-runtime` behind renderer-neutral ports. The
+official OpenAI SDK remains contained in `packages/providers`, where it normalizes one
+Chat-Completions-compatible model step into live-only deltas and one closed terminal observation. The
+runtime owns the conversation, attempt ledger, retry decision, context, tools, journal, and completion
+authority.
+
+Repository understanding remains a semantic runtime boundary. The model can request only list, bounded
+read, search, or Git status. Runtime code supplies the trusted root and fixed native-process details.
+Application-local ripgrep and compatible host Git remain adapters; neither executable, argv, cwd,
+environment, nor raw output enters the model or kernel contract. Applicable complete `AGENTS.md` snapshots
+are admitted before governed repository content or provider network access.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

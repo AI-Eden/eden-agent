@@ -68,6 +68,13 @@ Opening a client does not create a run. Restricted `run.start` returns `workspac
 appends nothing. Once accepted, `run.started` carries the runtime-owned workspace snapshot so later trust
 changes cannot alter historical product views.
 
+The approved R2 extension adds renderer-neutral profile CRUD and readiness actions, repository/context
+summaries, explicit retry, and live model-stream updates. Profile projections expose credential presence
+and source identity without the value. Durable `ProductEvent` remains closed journal-derived truth; live
+deltas are a separate transient client signal and never become replay or later-context authority. A
+repository run remains blocked until exact workspace trust, current profile readiness, compatible Git, and
+P0 context fit are all current.
+
 ## Run catalog and inspection
 
 The pre-release protocol v1 adds closed, non-throwing decoders for these renderer-independent values:
