@@ -1,0 +1,191 @@
+{
+  "artifact": {
+    "pathClass": "workspace-build",
+    "sha256": "26aed5638c7036b35c1b84ed136fbb95d08186fa69c2193eb9e1be1c253c5ee2",
+    "sizeBytes": 113621120
+  },
+  "command": "node scripts/r2-tui-pty.mjs apps/eden/dist/eden <output.json> <exact-sha>",
+  "environment": {
+    "architecture": "x64",
+    "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor",
+    "node": "v24.15.0",
+    "operatingSystem": "linux",
+    "release": "6.18.33.2-microsoft-standard-WSL2",
+    "terminal": "node-pty xterm-256color"
+  },
+  "failureJourney": {
+    "errorRecovery": "observed",
+    "exitCode": 130,
+    "failure": "missing compatible host Git",
+    "status": "passed",
+    "viewport": "60x20"
+  },
+  "fixture": {
+    "content": "deterministic fake runtime plus missing host Git failure",
+    "scrollToRender": "not-run"
+  },
+  "matchingSurface": [
+    {
+      "cjkBracketedPaste": "observed",
+      "commandPalette": "observed",
+      "focusPreservedAcrossResize": true,
+      "frameSha256": "bc0c60721248a01da4485678e2d1efb09be91f5e76b7e7e4249315e20f027a21",
+      "help": "observed",
+      "keyboardOnly": true,
+      "resizeSequence": [
+        "60x20",
+        "80x24",
+        "100x30",
+        "60x20"
+      ],
+      "status": "passed",
+      "terminalRestoration": "restored",
+      "viewport": "60x20"
+    },
+    {
+      "cjkBracketedPaste": "observed",
+      "commandPalette": "observed",
+      "focusPreservedAcrossResize": true,
+      "frameSha256": "ccda313dd4153447f42f42c6df8ac9bab98b4325c7a15ebdddb9f3416c857b7b",
+      "help": "observed",
+      "keyboardOnly": true,
+      "resizeSequence": [
+        "60x20",
+        "80x24",
+        "100x30",
+        "80x24"
+      ],
+      "status": "passed",
+      "terminalRestoration": "restored",
+      "viewport": "80x24"
+    },
+    {
+      "cjkBracketedPaste": "observed",
+      "commandPalette": "observed",
+      "focusPreservedAcrossResize": true,
+      "frameSha256": "a26979ae9736c370bd6c472d45ccb90f1fa625b1fa2538a284544751c038cbba",
+      "help": "observed",
+      "keyboardOnly": true,
+      "resizeSequence": [
+        "60x20",
+        "80x24",
+        "100x30",
+        "100x30"
+      ],
+      "status": "passed",
+      "terminalRestoration": "restored",
+      "viewport": "100x30"
+    }
+  ],
+  "recordedAt": "2026-07-19T22:28:06.824Z",
+  "schemaVersion": 1,
+  "source": {
+    "sha": "8c679fd064e8b01990d0ca4e8c21b9d68fcdb923"
+  },
+  "summary": {
+    "durableTrustMs": {
+      "maximumMs": 53.70926599999984,
+      "medianMs": 51.16612499999974,
+      "minimumMs": 34.9770010000002,
+      "p95Ms": 53.70926599999984
+    },
+    "failuresRetained": 0,
+    "inputToRenderMs": {
+      "maximumMs": 18.359079999999267,
+      "medianMs": 17.128045000000384,
+      "minimumMs": 14.934786000000713,
+      "p95Ms": 18.359079999999267
+    },
+    "startupMs": {
+      "maximumMs": 243.37247200000002,
+      "medianMs": 231.08923499999946,
+      "minimumMs": 225.29434299999957,
+      "p95Ms": 243.37247200000002
+    }
+  },
+  "terminalRestoration": "restored",
+  "thresholds": {
+    "coldStandaloneStartAbsoluteMs": 2000,
+    "inputToRenderAbsoluteMs": 100,
+    "inputToRenderRegressionMs": 357,
+    "scrollToRender": "not-run",
+    "startupRegressionMs": 244,
+    "timerAllowanceMs": 2
+  },
+  "trialCount": 5,
+  "trials": [
+    {
+      "endedAt": "2026-07-19T22:28:05.080Z",
+      "durableTrustMs": 49.885745999999926,
+      "exitCode": 130,
+      "index": 1,
+      "inputToRenderMs": 16.191186000000016,
+      "outcome": "passed",
+      "phase": "warmup",
+      "startedAt": "2026-07-19T22:28:04.759Z",
+      "startupMs": 228.22203799999988,
+      "totalMs": 321.1103659999999
+    },
+    {
+      "endedAt": "2026-07-19T22:28:05.414Z",
+      "durableTrustMs": 50.77940099999978,
+      "exitCode": 130,
+      "index": 2,
+      "inputToRenderMs": 17.128045000000384,
+      "outcome": "passed",
+      "phase": "recorded",
+      "startedAt": "2026-07-19T22:28:05.083Z",
+      "startupMs": 228.86975800000073,
+      "totalMs": 330.2082840000003
+    },
+    {
+      "endedAt": "2026-07-19T22:28:05.754Z",
+      "durableTrustMs": 51.758004000000255,
+      "exitCode": 130,
+      "index": 3,
+      "inputToRenderMs": 16.267163999999866,
+      "outcome": "passed",
+      "phase": "recorded",
+      "startedAt": "2026-07-19T22:28:05.417Z",
+      "startupMs": 243.37247200000002,
+      "totalMs": 337.83190000000013
+    },
+    {
+      "endedAt": "2026-07-19T22:28:06.082Z",
+      "durableTrustMs": 51.16612499999974,
+      "exitCode": 130,
+      "index": 4,
+      "inputToRenderMs": 18.12884699999995,
+      "outcome": "passed",
+      "phase": "recorded",
+      "startedAt": "2026-07-19T22:28:05.757Z",
+      "startupMs": 234.45848800000022,
+      "totalMs": 324.81336699999974
+    },
+    {
+      "endedAt": "2026-07-19T22:28:06.406Z",
+      "durableTrustMs": 53.70926599999984,
+      "exitCode": 130,
+      "index": 5,
+      "inputToRenderMs": 18.359079999999267,
+      "outcome": "passed",
+      "phase": "recorded",
+      "startedAt": "2026-07-19T22:28:06.085Z",
+      "startupMs": 225.29434299999957,
+      "totalMs": 321.2570139999998
+    },
+    {
+      "endedAt": "2026-07-19T22:28:06.719Z",
+      "durableTrustMs": 34.9770010000002,
+      "exitCode": 130,
+      "index": 6,
+      "inputToRenderMs": 14.934786000000713,
+      "outcome": "passed",
+      "phase": "recorded",
+      "startedAt": "2026-07-19T22:28:06.409Z",
+      "startupMs": 231.08923499999946,
+      "totalMs": 309.96508600000016
+    }
+  ],
+  "warmupCount": 1
+}

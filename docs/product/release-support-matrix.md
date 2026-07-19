@@ -88,3 +88,11 @@ attempt exposed the explicit retry path and led to a renderer-lifecycle fix; det
 prove the completed recovery branch. The matching host required disabled TLS certificate verification for
 its proxy, so this row does not prove production TLS verification. Kimi and hosted provider matching remain
 `not-run`; this local evidence does not expand release support.
+
+Slice 7 locally exercised the complete keyboard focus graph, palette/help, disabled and awaiting actions,
+narrow conversation/context/recovery switching, the medium contextual drawer, and the wide navigation and
+review composition. The exact-SHA Linux x64 WSL2 PTY record passed `60x20`, `80x24`, and `100x30`, rapid
+resize, CJK bracketed paste, missing-Git recovery, terminal restoration, and parent-shell return. Its
+startup p95 was 243.37 ms against the frozen 244 ms threshold, but earlier exact-artifact samples retained
+host-scheduling outliers up to 278.67 ms. Scroll-to-render, Linux desktop terminals, macOS, Windows, and
+IME-specific matching remain `not-run`; this local record does not expand release support.

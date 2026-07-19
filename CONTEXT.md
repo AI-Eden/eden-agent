@@ -5,7 +5,7 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-6 are complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-7 are complete.
 
 ## Current truth
 
@@ -80,11 +80,18 @@ and replay without provider or tool dispatch. Live deltas remain ephemeral; only
 observations and bounded context are durable. A model answer reaches `completed` review, never verifier-
 owned `succeeded`. The authorized local DeepSeek V4 Pro matching run completed one pinned-ripgrep tool round
 trip and returned a sourced answer; Kimi remains `not-run`.
+Slice 7 completes the conversation-centered responsive TUI integration. One focus graph owns keyboard
+navigation, command palette/help, disabled and awaiting actions, and focus reconciliation across narrow,
+medium, and wide layouts. The full answer remains primary; context, tool, attempt, interruption, approval,
+and recovery evidence stay structured. Real Linux x64 WSL2 PTY evidence at exact public commit `8c679fd`
+passed `60x20`, `80x24`, and `100x30`, rapid resize, CJK bracketed paste, missing-Git recovery, terminal
+restoration, and the frozen latency gates. Earlier samples exposed cold-start scheduling variance, so the
+passing record is not a cross-platform or variance-free performance claim.
 
 ## Next implementation slice
 
-Implement Slice 7: product-quality responsive TUI integration, deterministic focus, help/palette behavior,
-and real PTY evidence through the same product/runtime contract. The approved later slices still exclude
+Implement Slice 8: exact-SHA packaged acceptance, hosted and authorized real-provider matching, complete
+secret scans, and one evidence-backed single-agent review. The approved scope still excludes
 AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
 scope.
 

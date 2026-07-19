@@ -669,6 +669,30 @@ and recoverable through the selected conversation-centered `4B+` architecture.
 - **Matching surface:** keyboard-only primary and failure journeys at `60x20`, `80x24`, and `100x30`, rapid
   resize, CJK/wide content, long answer, long tool evidence, and terminal-mode restoration.
 
+#### Slice 7 evidence
+
+Public commit `8c679fd064e8b01990d0ca4e8c21b9d68fcdb923` replaces scattered TUI navigation with one
+focus graph and shared design tokens. The conversation remains primary and complete while narrow mode
+switches explicitly among conversation, context, and recovery; medium mode adds a contextual drawer and
+wide mode adds navigation and review. Authority changes show an immediate awaiting state before the
+durable trust record commits. Provider adapters and non-selected CLI modes load only when their surface
+needs them, and the production Bun archive is minified without changing the runtime contract.
+
+Focused renderer tests cover focus reconciliation, disabled actions, palette/help, text-entry shortcut
+isolation, complete answers, folded tool evidence, interruption, long history, and all three layouts. The
+real Linux x64 WSL2 PTY record is
+`docs/benchmark-results/2026-07-20-r2-tui-linux-x64.json`: keyboard-only primary journeys passed at
+`60x20`, `80x24`, and `100x30`; rapid resize preserved focus; CJK bracketed paste, the missing-Git failure
+journey, terminal-mode restoration, and parent-shell recovery were observed. One warm-up and five measured
+trials retained zero failures. Event timestamps use the same PTY `onData` boundary as the Slice 0 baseline.
+Cold startup measured 231.09 ms median and 243.37 ms p95 against the frozen 244 ms threshold. Trust input
+acknowledgement measured 17.13 ms median and 18.36 ms p95 against the independent 100 ms target; durable
+trusted rendering measured 51.17 ms median and 53.71 ms p95 against the frozen 357 ms threshold.
+
+Earlier exact-artifact samples retained host-scheduling outliers up to 278.67 ms and failed the threshold;
+the passing record therefore supports only the captured run and is not a claim of variance-free startup.
+Scroll-to-render and non-Linux PTY/performance rows remain `not-run` for Slice 8.
+
 ### Slice 8: Packaged real-provider acceptance and single-agent review
 
 **Outcome:** the exact final SHA and complete archive pass automated, hosted, real-provider, terminal, and

@@ -133,6 +133,13 @@ four tool calls, a single automatic retry for proven `not_started`, and explicit
 Provider-private continuity is bounded and adapter-only. Live deltas reach clients through a transient
 subscription but never become replay authority; a complete answer enters `completed` review, not success.
 
+Slice 7 keeps presentation authority inside `apps/eden`. One deterministic focus graph maps keyboard input
+to product commands and reconciles focus across responsive layouts; shared tokens own semantic status,
+density, borders, and disabled/awaiting presentation. The runner installs its OpenTUI key handler before
+publishing input readiness, initializes renderer and client work concurrently, and restores the terminal
+before closing the client. Provider implementations and non-selected CLI modes are deferred until needed;
+the existing `AgentClient`, contract, kernel, persistence, and authority boundaries remain unchanged.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.
