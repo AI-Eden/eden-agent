@@ -25,6 +25,11 @@ const billingSourceSchema = Type.Union([
   Type.Literal("custom"),
 ]);
 const reasoningDisplaySchema = Type.Literal("off");
+const readinessStateSchema = Type.Union([
+  Type.Literal("unverified"),
+  Type.Literal("catalog_reachable"),
+  Type.Literal("completion_ready"),
+]);
 const baseUrlSchema = Type.Refine(Type.String({ maxLength: 2_048, minLength: 1 }), (value) => {
   try {
     const url = new URL(value);
@@ -81,7 +86,7 @@ export const ProviderProfileSummarySchema = Type.Object(
   {
     ...ProviderProfileInputSchema.properties,
     credential: ProviderCredentialSummarySchema,
-    readiness: Type.Literal("unverified"),
+    readiness: readinessStateSchema,
   },
   closed,
 );
@@ -116,6 +121,95 @@ export const ProviderProfileCheckSchema = Type.Refine(
       value.profile.credential.presence === "present"),
 );
 export type ProviderProfileCheck = Type.Static<typeof ProviderProfileCheckSchema>;
+
+export const ProviderConnectionFailureSchema = Type.Object(
+  {
+    checkedAt: Type.String({ format: "date-time", maxLength: 128 }),
+    code: Type.Union([
+      Type.Literal("invalid_configuration"),
+      Type.Literal("authentication"),
+      Type.Literal("billing_quota"),
+      Type.Literal("unavailable_model"),
+      Type.Literal("rate_limit"),
+      Type.Literal("network"),
+      Type.Literal("timeout"),
+      Type.Literal("overload"),
+      Type.Literal("provider_internal"),
+      Type.Literal("protocol_incompatibility"),
+      Type.Literal("cancellation"),
+      Type.Literal("unknown"),
+    ]),
+    message: Type.String({ maxLength: 512, minLength: 1 }),
+    model: Type.String({ maxLength: 256, minLength: 1 }),
+    profileId: ProfileIdSchema,
+    recoverability: Type.Union([
+      Type.Literal("retry"),
+      Type.Literal("reconfigure"),
+      Type.Literal("ask-user"),
+      Type.Literal("fatal"),
+    ]),
+    requestId: Type.Union([Type.String({ maxLength: 128, minLength: 1 }), Type.Null()]),
+    statusFamily: Type.Union([Type.Literal("4xx"), Type.Literal("5xx"), Type.Null()]),
+    suggestedActions: Type.Array(Type.String({ maxLength: 512, minLength: 1 }), {
+      maxItems: 4,
+    }),
+  },
+  closed,
+);
+export type ProviderConnectionFailure = Type.Static<typeof ProviderConnectionFailureSchema>;
+
+export const ProviderReadinessSchema = Type.Refine(
+  Type.Object(
+    {
+      checkedAt: Type.Union([Type.String({ format: "date-time", maxLength: 128 }), Type.Null()]),
+      error: Type.Union([ProviderConnectionFailureSchema, Type.Null()]),
+      possibleChargeConfirmationRequired: Type.Boolean(),
+      profile: Type.Union([ProviderProfileSummarySchema, Type.Null()]),
+      protocolVersion: Type.Literal(1),
+      revision: revisionSchema,
+      state: Type.Union([
+        Type.Literal("unconfigured"),
+        Type.Literal("configured"),
+        Type.Literal("catalog_reachable"),
+        Type.Literal("completion_ready"),
+      ]),
+    },
+    closed,
+  ),
+  (value) => {
+    if (value.state === "unconfigured") {
+      return (
+        value.profile === null &&
+        value.checkedAt === null &&
+        value.error === null &&
+        value.possibleChargeConfirmationRequired === false
+      );
+    }
+    if (value.profile === null || value.profile.credential.presence !== "present") return false;
+    if (value.state === "completion_ready") {
+      return (
+        value.profile.readiness === "completion_ready" &&
+        value.checkedAt !== null &&
+        value.error === null &&
+        value.possibleChargeConfirmationRequired === false
+      );
+    }
+    if (value.state === "catalog_reachable") {
+      return (
+        value.profile.readiness === "catalog_reachable" &&
+        value.checkedAt !== null &&
+        value.possibleChargeConfirmationRequired === true
+      );
+    }
+    return (
+      value.profile.readiness === "unverified" &&
+      value.possibleChargeConfirmationRequired === true &&
+      ((value.checkedAt === null && value.error === null) ||
+        (value.checkedAt !== null && value.error !== null))
+    );
+  },
+);
+export type ProviderReadiness = Type.Static<typeof ProviderReadinessSchema>;
 
 const profileCommandEnvelope = {
   commandId: commandIdSchema,
@@ -154,6 +248,17 @@ export const DeleteProviderProfileCommandSchema = Type.Object(
 );
 export type DeleteProviderProfileCommand = Type.Static<typeof DeleteProviderProfileCommandSchema>;
 
+export const ProviderReadinessCommandSchema = Type.Object(
+  {
+    ...profileCommandEnvelope,
+    possibleChargeConfirmed: Type.Literal(true),
+    profileId: ProfileIdSchema,
+    type: Type.Literal("provider.readiness.check"),
+  },
+  closed,
+);
+export type ProviderReadinessCommand = Type.Static<typeof ProviderReadinessCommandSchema>;
+
 type ProfileDecodeResult<T> =
   | { readonly ok: true; readonly value: T }
   | {
@@ -188,6 +293,8 @@ const checkValidator = Schema.Compile(ProviderProfileCheckSchema);
 const saveValidator = Schema.Compile(SaveProviderProfileCommandSchema);
 const selectValidator = Schema.Compile(SelectProviderProfileCommandSchema);
 const deleteValidator = Schema.Compile(DeleteProviderProfileCommandSchema);
+const readinessProjectionValidator = Schema.Compile(ProviderReadinessSchema);
+const readinessCommandValidator = Schema.Compile(ProviderReadinessCommandSchema);
 
 export function decodeProviderProfileCatalog(
   value: unknown,
@@ -217,4 +324,14 @@ export function decodeDeleteProviderProfileCommand(
   value: unknown,
 ): ProfileDecodeResult<DeleteProviderProfileCommand> {
   return decode(deleteValidator, value);
+}
+
+export function decodeProviderReadiness(value: unknown): ProfileDecodeResult<ProviderReadiness> {
+  return decode(readinessProjectionValidator, value);
+}
+
+export function decodeProviderReadinessCommand(
+  value: unknown,
+): ProfileDecodeResult<ProviderReadinessCommand> {
+  return decode(readinessCommandValidator, value);
 }

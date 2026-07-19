@@ -7,6 +7,8 @@ passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014
 2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19; Slice 0 closed its fixture budgets
 and unchanged-R1 baseline, and Slice 1 added host-side profile onboarding without provider traffic. Changes
 to trust, terminal states, public product contracts, or non-goals require an ADR and human approval.
+Slice 2 deterministic provider/readiness behavior is implemented locally, but its required real DeepSeek
+matching row is `not-run` because no explicitly named credential is available; Slice 2 is not complete.
 
 ## User story
 

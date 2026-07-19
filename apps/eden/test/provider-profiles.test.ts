@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { InProcessAgentClient } from "@eden/coding-runtime";
+import { decodeProviderProfileCatalog, decodeProviderReadiness } from "@eden/contracts";
 
 import { runProviderProfiles } from "../src/provider-profiles.ts";
 
@@ -57,6 +58,11 @@ test("headless profile list and check emit closed masked JSON", async () => {
     expect(stderr).toBe("");
     expect(stdout).not.toContain("SECRET_CANARY_HEADLESS");
     expect(JSON.parse(stdout).protocolVersion).toBe(1);
+    expect(
+      (mode === "profile-list" ? decodeProviderProfileCatalog : decodeProviderReadiness)(
+        JSON.parse(stdout),
+      ).ok,
+    ).toBe(true);
   }
 
   await writeFile(join(stateDirectory, "config.toml"), "SECRET_CANARY_HEADLESS = [", {
@@ -86,17 +92,20 @@ test("headless profile inspection of missing state creates no inode", async () =
   const stateDirectory = join(root, "missing-state");
   const workspace = join(root, "workspace");
   await mkdir(workspace);
-  let stdout = "";
-  expect(
-    await runProviderProfiles(
-      { mode: "profile-list" },
-      {
-        cwd: workspace,
-        io: { stderr: () => undefined, stdout: (value) => (stdout += value) },
-        stateDirectory,
-      },
-    ),
-  ).toBe(0);
-  expect(JSON.parse(stdout).profiles).toEqual([]);
+  for (const mode of ["profile-list", "profile-check"] as const) {
+    let stdout = "";
+    expect(
+      await runProviderProfiles(
+        { mode },
+        {
+          cwd: workspace,
+          io: { stderr: () => undefined, stdout: (value) => (stdout += value) },
+          stateDirectory,
+        },
+      ),
+    ).toBe(0);
+    if (mode === "profile-list") expect(JSON.parse(stdout).profiles).toEqual([]);
+    else expect(JSON.parse(stdout).state).toBe("unconfigured");
+  }
   await expect(lstat(stateDirectory)).rejects.toMatchObject({ code: "ENOENT" });
 });

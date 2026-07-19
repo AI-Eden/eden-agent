@@ -1,6 +1,6 @@
 # R2 Provider Onboarding and Repository Understanding Plan
 
-- Status: Accepted; Build in progress; Slices 0-1 complete
+- Status: Accepted; Build in progress; Slices 0-1 complete; Slice 2 matching surface blocked on credentials
 - Date: 2026-07-19
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
@@ -399,6 +399,36 @@ state without exposing provider text or credentials.
   action, and recovery UI. The fixed prompt has no workspace content or tools.
 - **Matching surface:** real DeepSeek fixed-content check after explicit possible-charge confirmation; one
   invalid-key and one network-unavailable recovery; Kimi row when its matching-surface key is available.
+
+#### Slice 2 deterministic evidence and matching-surface stop
+
+The deterministic/local implementation pins the official `openai` SDK at `6.48.0` with `maxRetries: 0` and
+SDK logging disabled. Actual SDK requests against local HTTP/SSE fixtures prove the fixed prompt, 8-token
+stream cap, zero tools and repository context, exact-answer requirement, catalog/completion distinction,
+single-request behavior, bounded request IDs, auth, billing/quota, model, rate, timeout, overload, internal,
+malformed-stream, cancellation, network, and unknown recovery categories without raw payload output.
+
+Host readiness persists only a private salt, profile-and-resolved-credential fingerprint, and timestamp.
+Focused runtime evidence proves restart recovery, `0600` state on POSIX, profile and environment credential
+invalidation, stale post-network rejection, invalid local-state recovery, and zero credential canary output.
+The TUI requires a separate possible-charge confirmation, makes no request on save, and recovers from one
+local network failure before reaching `completion_ready`; headless profile inspection remains read-only.
+
+On 2026-07-19, the matching-surface probe found both explicitly named credential references absent and the
+default host profile state unconfigured. No provider network request was made. The required DeepSeek row and
+optional Kimi subscription-key row remain `not-run`, so Slice 2 and the real-provider support claim are not
+complete. This is the plan-authorized credential stop condition.
+
+Fresh deterministic Slice 2 commands:
+
+```bash
+corepack pnpm@11.13.0 --filter @eden/contracts test
+corepack pnpm@11.13.0 --filter @eden/providers test
+corepack pnpm@11.13.0 --filter @eden/coding-runtime test
+corepack pnpm@11.13.0 --filter @eden/cli test
+corepack pnpm@11.13.0 typecheck
+corepack pnpm@11.13.0 code:check
+```
 
 ### Slice 3: Scoped instructions and invariant-first context admission
 

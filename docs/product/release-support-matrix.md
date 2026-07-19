@@ -49,3 +49,8 @@ Slice 1 locally exercised masked profile CRUD, direct-file reload, malformed-fil
 capture at `60x20`, `80x24`, and `100x30`. Linux/WSL verified private `0700` state and `0600` configuration
 modes plus linked-file rejection. Windows permission behavior and all real-provider rows remain `not-run`;
 this evidence does not expand release support.
+
+Slice 2 locally exercised the official SDK against scripted HTTP/SSE boundaries, readiness persistence,
+explicit charge confirmation, and one TUI network-recovery path. Both named matching-surface credentials
+were absent, so real DeepSeek and Kimi rows remain `not-run`. Local fixtures are not provider-support or
+release-support evidence.

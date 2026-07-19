@@ -7,6 +7,7 @@ import type {
   ProductView,
   ProviderProfileCatalog,
   ProviderProfileInput,
+  ProviderReadiness,
   RunCatalog,
   RunInspection,
   WorkspaceReview,
@@ -27,6 +28,7 @@ export type EdenTuiAppProps = {
   readonly onRunCatalogChange?: ((catalog: RunCatalog) => void) | undefined;
   readonly onRunInspectionChange?: ((inspection: RunInspection) => void) | undefined;
   readonly onProviderProfilesChange?: ((catalog: ProviderProfileCatalog) => void) | undefined;
+  readonly onProviderReadinessChange?: ((readiness: ProviderReadiness) => void) | undefined;
   readonly onViewChange?: ((view: ProductView) => void) | undefined;
   readonly onWorkspaceReviewChange?: ((review: WorkspaceReview | null) => void) | undefined;
 };
@@ -72,6 +74,7 @@ function EdenTuiSurface({
   onExit,
   onReady,
   onProviderProfilesChange,
+  onProviderReadinessChange,
   onRunCatalogChange,
   onRunInspectionChange,
   onViewChange,
@@ -85,6 +88,8 @@ function EdenTuiSurface({
   const [profileCatalog, setProfileCatalog] = useState<ProviderProfileCatalog | null>(null);
   const [profileDraft, setProfileDraft] = useState("");
   const [profileEditorFocused, setProfileEditorFocused] = useState(false);
+  const [providerReadiness, setProviderReadiness] = useState<ProviderReadiness | null>(null);
+  const [readinessConfirmationFocused, setReadinessConfirmationFocused] = useState(false);
   const [review, setReview] = useState<WorkspaceReview | null>(initialWorkspaceReview ?? null);
   const [timeline, setTimeline] = useState<readonly ProductEvent["type"][]>([]);
   const [view, setView] = useState<ProductView | null>(null);
@@ -118,12 +123,46 @@ function EdenTuiSurface({
     [onProviderProfilesChange],
   );
 
+  const publishReadiness = useCallback(
+    (readiness: ProviderReadiness) => {
+      setProviderReadiness(readiness);
+      onProviderReadinessChange?.(readiness);
+    },
+    [onProviderReadinessChange],
+  );
+
   const reloadProfiles = async () => {
     try {
       publishProfiles(await client.reloadProviderProfiles());
+      publishReadiness(await client.getProviderReadiness());
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, "Provider profiles could not be reloaded."));
+    }
+  };
+
+  const checkProviderReadiness = async () => {
+    if (profileCatalog?.activeProfileId === null || profileCatalog?.activeProfileId === undefined) {
+      setError("Configure an active provider profile before checking the connection.");
+      setReadinessConfirmationFocused(false);
+      return;
+    }
+    try {
+      const readiness = await client.checkProviderReadiness({
+        commandId: randomUUID(),
+        expectedRevision: profileCatalog.revision,
+        possibleChargeConfirmed: true,
+        profileId: profileCatalog.activeProfileId,
+        protocolVersion: 1,
+        type: "provider.readiness.check",
+      });
+      publishReadiness(readiness);
+      publishProfiles(await client.reloadProviderProfiles());
+      setError(readiness.error?.message ?? null);
+    } catch (cause) {
+      setError(errorMessage(cause, "The provider readiness check could not complete."));
+    } finally {
+      setReadinessConfirmationFocused(false);
     }
   };
 
@@ -177,6 +216,7 @@ function EdenTuiSurface({
           type: "provider.profile.save",
         }),
       );
+      publishReadiness(await client.getProviderReadiness());
       setProfileDraft("");
       setProfileEditorFocused(false);
       setError(null);
@@ -202,6 +242,7 @@ function EdenTuiSurface({
           type: "provider.profile.select",
         }),
       );
+      publishReadiness(await client.getProviderReadiness());
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, "The provider profile could not be selected."));
@@ -225,6 +266,7 @@ function EdenTuiSurface({
           type: "provider.profile.delete",
         }),
       );
+      publishReadiness(await client.getProviderReadiness());
       setError(null);
     } catch (cause) {
       setError(errorMessage(cause, "The provider profile could not be deleted."));
@@ -341,6 +383,15 @@ function EdenTuiSurface({
       }
       return;
     }
+    if (readinessConfirmationFocused) {
+      key.preventDefault();
+      key.stopPropagation();
+      if (key.name === "y") void checkProviderReadiness();
+      if (key.name === "n" || key.name === "escape") {
+        setReadinessConfirmationFocused(false);
+      }
+      return;
+    }
     if (profileEditorFocused) {
       if (key.name === "escape") {
         key.preventDefault();
@@ -370,10 +421,17 @@ function EdenTuiSurface({
     if (view === null && review !== null && !key.meta && !key.option) {
       if (composerFocused) return;
       if (key.name === "p") setProfileEditorFocused(true);
+      if (key.name === "c") {
+        if (providerReadiness === null || providerReadiness.state === "unconfigured") {
+          setError("Configure an active provider profile before checking the connection.");
+        } else {
+          setReadinessConfirmationFocused(true);
+        }
+      }
       if (key.name === "s") void selectNextProfile();
       if (key.name === "x") void deleteProfile();
       if (key.name === "l") void reloadProfiles();
-      if (["p", "s", "x", "l"].includes(key.name)) return;
+      if (["p", "c", "s", "x", "l"].includes(key.name)) return;
       if (review.authority.taskStart === "allowed") {
         if (key.name === "return") setComposerFocused(true);
         if (key.name === "h") history.openHistory();
@@ -442,6 +500,21 @@ function EdenTuiSurface({
     };
   }, [client, publishProfiles]);
 
+  useEffect(() => {
+    let active = true;
+    void client
+      .getProviderReadiness()
+      .then((readiness) => {
+        if (active) publishReadiness(readiness);
+      })
+      .catch((cause) => {
+        if (active) setError(errorMessage(cause, "Provider readiness could not be loaded."));
+      });
+    return () => {
+      active = false;
+    };
+  }, [client, publishReadiness]);
+
   const followedRunId = following ? (view?.runId ?? null) : null;
   useEffect(() => {
     if (followedRunId === null) return;
@@ -482,6 +555,8 @@ function EdenTuiSurface({
       profileCatalog={profileCatalog}
       profileDraft={maskedProfileDraft(profileDraft)}
       profileEditorFocused={profileEditorFocused}
+      providerReadiness={providerReadiness}
+      readinessConfirmationFocused={readinessConfirmationFocused}
       selectedIndex={history.selectedIndex}
       surface={history.surface}
       timeline={timeline}

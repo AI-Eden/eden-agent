@@ -84,10 +84,15 @@ cannot enter the kernel. TUI, Bun, Docker, Tauri, and Electron also cannot leak 
 ## Approved R2 first-slice extension
 
 Host-side profile storage and readiness live in `coding-runtime` behind renderer-neutral ports. The
-official OpenAI SDK remains contained in `packages/providers`, where it normalizes one
+official OpenAI SDK is contained in `packages/providers`, where it normalizes one
 Chat-Completions-compatible model step into live-only deltas and one closed terminal observation. The
 runtime owns the conversation, attempt ledger, retry decision, context, tools, journal, and completion
 authority.
+
+Slice 2 implements the first part of this boundary: the SDK performs the fixed connection-readiness stream
+with zero SDK retries and returns only a closed success or redacted failure. The credential, readiness salt,
+and profile fingerprint remain in host runtime state; they do not cross into contracts, kernel events, or
+renderer state.
 
 Repository understanding remains a semantic runtime boundary. The model can request only list, bounded
 read, search, or Git status. Runtime code supplies the trusted root and fixed native-process details.

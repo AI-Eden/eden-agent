@@ -22,21 +22,12 @@ export async function runProviderProfiles(
     stateDirectory: environment.stateDirectory,
   });
   try {
-    const catalog = await client.getProviderProfiles();
     if (arguments_.mode === "profile-list") {
+      const catalog = await client.getProviderProfiles();
       environment.io.stdout(`${JSON.stringify(catalog)}\n`);
       return 0;
     }
-    const profile = catalog.profiles.find((value) => value.id === catalog.activeProfileId) ?? null;
-    const configured = profile !== null && profile.credential.presence === "present";
-    environment.io.stdout(
-      `${JSON.stringify({
-        profile: configured ? profile : null,
-        protocolVersion: 1,
-        revision: catalog.revision,
-        state: configured ? "configured" : "unconfigured",
-      })}\n`,
-    );
+    environment.io.stdout(`${JSON.stringify(await client.getProviderReadiness())}\n`);
     return 0;
   } catch (error) {
     const productError =

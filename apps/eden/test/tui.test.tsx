@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+import { once } from "node:events";
 import { mkdir, mkdtemp, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,6 +11,7 @@ import {
   availableRunSummary,
   type ProductView,
   type ProviderProfileCatalog,
+  type ProviderReadiness,
   type RunCatalog,
   type RunId,
   type RunInspection,
@@ -29,10 +32,22 @@ const emptyProviderProfiles: ProviderProfileCatalog = {
   revision: 0,
 };
 
+const emptyProviderReadiness: ProviderReadiness = {
+  checkedAt: null,
+  error: null,
+  possibleChargeConfirmationRequired: false,
+  profile: null,
+  protocolVersion: 1,
+  revision: 0,
+  state: "unconfigured",
+};
+
 function providerProfileMethods() {
   return {
+    checkProviderReadiness: async () => emptyProviderReadiness,
     deleteProviderProfile: async () => emptyProviderProfiles,
     getProviderProfiles: async () => emptyProviderProfiles,
+    getProviderReadiness: async () => emptyProviderReadiness,
     reloadProviderProfiles: async () => emptyProviderProfiles,
     saveProviderProfile: async () => emptyProviderProfiles,
     selectProviderProfile: async () => emptyProviderProfiles,
@@ -193,6 +208,7 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
   const catalogs = queue<RunCatalog>();
   const inspections = queue<RunInspection>();
   const profiles = queue<ProviderProfileCatalog>();
+  const readiness = queue<ProviderReadiness>();
   const views = queue<ProductView>();
   const renderer = await testRender(
     <EdenTuiApp
@@ -201,6 +217,7 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
       onRunCatalogChange={(catalog) => catalogs.push(catalog)}
       onRunInspectionChange={(inspection) => inspections.push(inspection)}
       onProviderProfilesChange={(catalog) => profiles.push(catalog)}
+      onProviderReadinessChange={(value) => readiness.push(value)}
       onViewChange={(view) => views.push(view)}
       onWorkspaceReviewChange={(review) => reviews.push(review)}
     />,
@@ -210,9 +227,20 @@ async function setup(width = 100, height = 30, paths?: Awaited<ReturnType<typeof
     await reviews.take();
     await catalogs.take();
     await profiles.take();
+    await readiness.take();
     renderer.flush();
   });
-  return { catalogs, client, inspections, paths: fixturePaths, profiles, renderer, reviews, views };
+  return {
+    catalogs,
+    client,
+    inspections,
+    paths: fixturePaths,
+    profiles,
+    readiness,
+    renderer,
+    reviews,
+    views,
+  };
 }
 
 async function trustWorkspace(fixture: Awaited<ReturnType<typeof setup>>) {
@@ -291,9 +319,10 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
         expect(fixture.renderer.captureCharFrame()).toContain("inline:••••");
       }
       const changed = fixture.profiles.take();
+      const readinessChanged = fixture.readiness.take();
       await act(async () => {
         fixture.renderer.mockInput.pressEnter();
-        await changed;
+        await Promise.all([changed, readinessChanged]);
       });
       await act(async () => fixture.renderer.flush());
     };
@@ -305,7 +334,10 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
       let frame = fixture.renderer.captureCharFrame();
       expect(frame).toContain("profile: deepseek-v4");
       await act(async () => fixture.renderer.mockInput.pressKey("p"));
-      await act(async () => fixture.renderer.flush());
+      await act(async () => {
+        await delay(20);
+        await fixture.renderer.flush();
+      });
       frame = fixture.renderer.captureCharFrame();
       expect(frame).toContain("credential present");
       expect(frame).not.toContain("SECRET_CANARY_TUI");
@@ -315,18 +347,20 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
         "kimi-code|https://api.moonshot.cn/v1|kimi-for-coding|subscription_api_key|262144|32768|env:EDEN_KIMI_KEY",
       );
       let changed = fixture.profiles.take();
+      let readinessUpdate = fixture.readiness.take();
       await act(async () => {
         fixture.renderer.mockInput.pressKey("s");
-        await changed;
+        await Promise.all([changed, readinessUpdate]);
       });
       await act(async () => fixture.renderer.flush());
       frame = fixture.renderer.captureCharFrame();
       expect(frame).toContain("profile: deepseek-v4");
 
       changed = fixture.profiles.take();
+      readinessUpdate = fixture.readiness.take();
       await act(async () => {
         fixture.renderer.mockInput.pressKey("x");
-        await changed;
+        await Promise.all([changed, readinessUpdate]);
       });
       await act(async () => fixture.renderer.flush());
       expect(fixture.renderer.captureCharFrame()).not.toContain("kimi-code");
@@ -335,10 +369,11 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
         "deepseek-v4|https://api.deepseek.com|deepseek-chat|pay_as_you_go|1000000|32768|env:EDEN_DEEPSEEK_KEY",
       );
       changed = fixture.profiles.take();
+      readinessUpdate = fixture.readiness.take();
       let reloaded: ProviderProfileCatalog | null = null;
       await act(async () => {
         fixture.renderer.mockInput.pressKey("l");
-        reloaded = await changed;
+        [reloaded] = await Promise.all([changed, readinessUpdate]);
       });
       await act(async () => fixture.renderer.flush());
       expect((reloaded as ProviderProfileCatalog | null)?.profiles[0]?.model).toBe("deepseek-chat");
@@ -350,9 +385,10 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
       );
       await writeFile(configPath, validConfig);
       changed = fixture.profiles.take();
+      readinessUpdate = fixture.readiness.take();
       await act(async () => {
         fixture.renderer.mockInput.pressKey("l");
-        reloaded = await changed;
+        [reloaded] = await Promise.all([changed, readinessUpdate]);
       });
       expect((reloaded as ProviderProfileCatalog | null)?.profiles[0]?.model).toBe(
         "direct-file-model",
@@ -369,15 +405,17 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
       expect(frame).not.toContain("SECRET_CANARY_TUI");
       await writeFile(configPath, validConfig);
       changed = fixture.profiles.take();
+      readinessUpdate = fixture.readiness.take();
       await act(async () => {
         fixture.renderer.mockInput.pressKey("l");
-        await changed;
+        await Promise.all([changed, readinessUpdate]);
       });
 
       changed = fixture.profiles.take();
+      readinessUpdate = fixture.readiness.take();
       await act(async () => {
         fixture.renderer.mockInput.pressKey("x");
-        await changed;
+        await Promise.all([changed, readinessUpdate]);
       });
       await act(async () => fixture.renderer.flush());
       expect(fixture.renderer.captureCharFrame()).toContain("profile: not configured");
@@ -385,6 +423,97 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
       act(() => fixture.renderer.renderer.destroy());
       await fixture.client.close();
     }
+  }
+});
+
+test("provider readiness requires charge confirmation and recovers from a network failure", async () => {
+  let requests = 0;
+  const server = createServer((request, response) => {
+    requests += 1;
+    if (requests === 1) {
+      response.destroy();
+      return;
+    }
+    request.resume();
+    request.on("end", () => {
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        "x-request-id": "request-tui-ready",
+      });
+      response.end(
+        [
+          `data: ${JSON.stringify({
+            choices: [{ delta: { content: "EDEN_READY_V1" }, finish_reason: null, index: 0 }],
+            created: 1,
+            id: "chatcmpl-tui-ready",
+            model: "fixture-model",
+            object: "chat.completion.chunk",
+          })}\n\n`,
+          `data: ${JSON.stringify({
+            choices: [{ delta: {}, finish_reason: "stop", index: 0 }],
+            created: 1,
+            id: "chatcmpl-tui-ready",
+            model: "fixture-model",
+            object: "chat.completion.chunk",
+          })}\n\n`,
+          "data: [DONE]\n\n",
+        ].join(""),
+      );
+    });
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("Missing fixture address.");
+  const fixture = await setup(60, 20);
+  try {
+    await act(async () => fixture.renderer.mockInput.pressKey("p"));
+    await act(async () =>
+      fixture.renderer.mockInput.typeText(
+        `fixture|http://127.0.0.1:${address.port}/v1|fixture-model|custom|32768|1024|inline:SECRET_CANARY_TUI_READINESS`,
+      ),
+    );
+    let profileChanged = fixture.profiles.take();
+    let readinessChanged = fixture.readiness.take();
+    await act(async () => {
+      fixture.renderer.mockInput.pressEnter();
+      await Promise.all([profileChanged, readinessChanged]);
+    });
+    expect(requests).toBe(0);
+
+    await act(async () => fixture.renderer.mockInput.pressKey("c"));
+    await act(async () => fixture.renderer.flush());
+    let frame = fixture.renderer.captureCharFrame();
+    expect(frame).toContain("incur a small charge");
+    expect(frame).toContain("confirm: y");
+    expect(requests).toBe(0);
+
+    readinessChanged = fixture.readiness.take();
+    profileChanged = fixture.profiles.take();
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("y");
+      await Promise.all([readinessChanged, profileChanged]);
+    });
+    await act(async () => fixture.renderer.flush());
+    frame = fixture.renderer.captureCharFrame();
+    expect(frame).toContain("provider could not be reached");
+    expect(frame).not.toContain("SECRET_CANARY_TUI_READINESS");
+
+    await act(async () => fixture.renderer.mockInput.pressKey("c"));
+    readinessChanged = fixture.readiness.take();
+    profileChanged = fixture.profiles.take();
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("y");
+      await Promise.all([readinessChanged, profileChanged]);
+    });
+    await act(async () => fixture.renderer.flush());
+    expect(fixture.renderer.captureCharFrame()).toContain("completion_ready");
+    expect(requests).toBe(2);
+  } finally {
+    act(() => fixture.renderer.renderer.destroy());
+    await fixture.client.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
 

@@ -10,6 +10,8 @@ import {
   type ProductEvent,
   type ProductView,
   type ProviderProfileCatalog,
+  type ProviderReadiness,
+  type ProviderReadinessCommand,
   type ResolveWorkspaceTrustCommand,
   type RunCatalog,
   type RunId,
@@ -31,6 +33,11 @@ import {
   type RunSession,
 } from "./client-session.ts";
 import { ProviderProfileStore, ProviderProfileStoreError } from "./profiles/index.ts";
+import {
+  ProviderReadinessError,
+  ProviderReadinessService,
+  type ProviderReadinessServiceOptions,
+} from "./profiles/readiness.ts";
 import { projectJournal } from "./projection.ts";
 import { RunHistoryError, readRunCatalog, readRunInspection } from "./run-catalog.ts";
 import type { RuntimeClock, RuntimeIdSource } from "./runtime.ts";
@@ -49,6 +56,7 @@ export type InProcessAgentClientOptions = {
   readonly idSource?: RuntimeIdSource;
   readonly modelDriver?: ModelDriver;
   readonly profileEnvironment?: Readonly<Record<string, string | undefined>>;
+  readonly createReadinessProvider?: ProviderReadinessServiceOptions["createProvider"];
   readonly runId?: RunId;
   readonly stateDirectory: string;
 };
@@ -113,6 +121,7 @@ export class InProcessAgentClient implements AgentClient {
   private readonly readOnly: boolean;
   private readonly modelDriver: ModelDriver | undefined;
   private readonly profiles: ProviderProfileStore | null;
+  private readonly readiness: ProviderReadinessService | null;
   private readonly stateDirectory: string;
   private readonly trust: WorkspaceTrustService;
   private readonly waiters = new Set<() => void>();
@@ -126,6 +135,7 @@ export class InProcessAgentClient implements AgentClient {
     trust: WorkspaceTrustService,
     session: RunSession | null,
     profiles: ProviderProfileStore | null,
+    readiness: ProviderReadinessService | null,
     prefixGeneratedRunIds: boolean,
     readOnly: boolean,
   ) {
@@ -136,6 +146,7 @@ export class InProcessAgentClient implements AgentClient {
     this.readOnly = readOnly;
     this.modelDriver = options.modelDriver;
     this.profiles = profiles;
+    this.readiness = readiness;
     this.stateDirectory = stateDirectory;
     this.trust = trust;
     this.session = session;
@@ -176,6 +187,15 @@ export class InProcessAgentClient implements AgentClient {
           environment: options.profileEnvironment,
           stateDirectory,
         });
+    const readiness =
+      profiles === null
+        ? null
+        : new ProviderReadinessService({
+            clock,
+            createProvider: options.createReadinessProvider,
+            profiles,
+            stateDirectory,
+          });
     if (readOnly && options.runId !== undefined) {
       throw clientError("read_only_client", "A read-only client cannot open an execution session.");
     }
@@ -198,6 +218,7 @@ export class InProcessAgentClient implements AgentClient {
       trust,
       session,
       profiles,
+      readiness,
       prefixGeneratedRunIds,
       readOnly,
     );
@@ -212,6 +233,13 @@ export class InProcessAgentClient implements AgentClient {
       throw clientError("read_only_client", "Provider profiles are unavailable on this client.");
     }
     return this.profiles;
+  }
+
+  private requireReadiness(): ProviderReadinessService {
+    if (this.readiness === null) {
+      throw clientError("read_only_client", "Provider readiness is unavailable on this client.");
+    }
+    return this.readiness;
   }
 
   private requireSession(runId?: RunId): RunSession {
@@ -267,7 +295,7 @@ export class InProcessAgentClient implements AgentClient {
   private async workspaceReviewWithProfile(review: WorkspaceReview): Promise<WorkspaceReview> {
     if (this.profiles === null) return review;
     try {
-      const catalog = await this.profiles.read();
+      const catalog = await this.requireReadiness().decorateCatalog(await this.profiles.read());
       const active =
         catalog.profiles.find((profile) => profile.id === catalog.activeProfileId) ?? null;
       return {
@@ -278,7 +306,12 @@ export class InProcessAgentClient implements AgentClient {
                 "Configure an active provider profile before a real repository task.",
                 ...review.nextActions,
               ]
-            : review.nextActions,
+            : active.readiness !== "completion_ready"
+              ? [
+                  "Run the explicit provider readiness check before a real repository task.",
+                  ...review.nextActions,
+                ]
+              : review.nextActions,
         profile:
           active === null || active.credential.presence === "missing"
             ? { active: null, state: "unconfigured" }
@@ -303,7 +336,7 @@ export class InProcessAgentClient implements AgentClient {
   ): Promise<ProviderProfileCatalog> {
     this.ensureOpen();
     try {
-      return await operation(this.requireProfiles());
+      return await this.requireReadiness().decorateCatalog(await operation(this.requireProfiles()));
     } catch (error) {
       if (error instanceof ProviderProfileStoreError) {
         throw new AgentClientError(error.productError);
@@ -318,6 +351,41 @@ export class InProcessAgentClient implements AgentClient {
 
   async reloadProviderProfiles(): Promise<ProviderProfileCatalog> {
     return this.getProviderProfiles();
+  }
+
+  async getProviderReadiness(): Promise<ProviderReadiness> {
+    this.ensureOpen();
+    try {
+      return await this.requireReadiness().read();
+    } catch (error) {
+      if (error instanceof ProviderProfileStoreError || error instanceof ProviderReadinessError) {
+        throw new AgentClientError(error.productError);
+      }
+      throw error;
+    }
+  }
+
+  async checkProviderReadiness(
+    command: ProviderReadinessCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<ProviderReadiness> {
+    return this.serializeMutation(async () => {
+      this.ensureOpen();
+      if (options?.signal?.aborted === true) {
+        throw clientError("operation_aborted", "The operation was aborted.", "retry");
+      }
+      try {
+        return await this.requireReadiness().check(
+          command,
+          options?.signal ?? new AbortController().signal,
+        );
+      } catch (error) {
+        if (error instanceof ProviderProfileStoreError || error instanceof ProviderReadinessError) {
+          throw new AgentClientError(error.productError);
+        }
+        throw error;
+      }
+    });
   }
 
   async saveProviderProfile(command: SaveProviderProfileCommand): Promise<ProviderProfileCatalog> {

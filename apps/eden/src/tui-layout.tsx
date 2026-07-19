@@ -3,6 +3,7 @@ import type {
   ProductEvent,
   ProductView,
   ProviderProfileCatalog,
+  ProviderReadiness,
   RunCatalog,
   RunInspection,
   WorkspaceReview,
@@ -28,6 +29,8 @@ export type EdenTuiLayoutProps = {
   readonly profileCatalog: ProviderProfileCatalog | null;
   readonly profileDraft: string;
   readonly profileEditorFocused: boolean;
+  readonly providerReadiness: ProviderReadiness | null;
+  readonly readinessConfirmationFocused: boolean;
   readonly selectedIndex: number;
   readonly surface: "history" | "inspection" | "workspace";
   readonly timeline: readonly ProductEvent["type"][];
@@ -55,32 +58,47 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
         <box style={{ flexDirection: "column" }}>
           <text>{fitTerminalLine(`workspace: ${displayedWorkspace.root}`, props.width - 4)}</text>
           <text>trust: {displayedWorkspace.trust}</text>
-          {props.view === null && props.surface === "workspace" && (
-            <box style={{ flexDirection: "column" }}>
-              <text>
-                task start: {props.review.authority.taskStart} · profile:{" "}
-                {props.profileCatalog?.activeProfileId ?? "not configured"}
-              </text>
-              <text>repository: read disabled · write denied</text>
-              <text>execution: fake-only · network denied · sandbox not-configured</text>
-              <text>Trust does not approve actions.</text>
-              {props.review.notice !== null && (
-                <box style={{ flexDirection: "column" }}>
-                  <text fg="#ED8796">
-                    {fitTerminalLine(`notice: ${props.review.notice.message}`, props.width - 4)}
-                  </text>
-                  <text>
-                    {fitTerminalLine(
-                      `recovery: ${props.review.notice.suggestedActions[0] ?? ""}`,
-                      props.width - 4,
-                    )}
-                  </text>
-                </box>
-              )}
-              <text>profile: p · history: h · trust: t · restrict/revoke: r · Ctrl+C exits</text>
-              <text>history runs: {props.catalog?.entries.length ?? 0}</text>
-            </box>
-          )}
+          {props.view === null &&
+            props.surface === "workspace" &&
+            !props.profileEditorFocused &&
+            !props.readinessConfirmationFocused && (
+              <box style={{ flexDirection: "column" }}>
+                <text>
+                  task start: {props.review.authority.taskStart} · profile:{" "}
+                  {props.profileCatalog?.activeProfileId ?? "not configured"} · readiness:{" "}
+                  {props.providerReadiness?.state ?? "loading"}
+                </text>
+                <text>repository: read disabled · write denied</text>
+                <text>execution: fake-only · network denied · sandbox not-configured</text>
+                <text>Trust does not approve actions.</text>
+                {props.review.notice !== null && (
+                  <box style={{ flexDirection: "column" }}>
+                    <text fg="#ED8796">
+                      {fitTerminalLine(`notice: ${props.review.notice.message}`, props.width - 4)}
+                    </text>
+                    <text>
+                      {fitTerminalLine(
+                        `recovery: ${props.review.notice.suggestedActions[0] ?? ""}`,
+                        props.width - 4,
+                      )}
+                    </text>
+                  </box>
+                )}
+                <text>profile: p · connection check: c · history: h · trust: t · revoke: r</text>
+                <text>history runs: {props.catalog?.entries.length ?? 0}</text>
+              </box>
+            )}
+          {props.view === null &&
+            props.surface === "workspace" &&
+            (props.profileEditorFocused || props.readinessConfirmationFocused) && (
+              <box style={{ flexDirection: "column" }}>
+                <text>
+                  profile: {props.profileCatalog?.activeProfileId ?? "not configured"} · readiness:{" "}
+                  {props.providerReadiness?.state ?? "loading"}
+                </text>
+                <text>authority: repository read disabled/write denied · network denied</text>
+              </box>
+            )}
         </box>
       )}
       {props.surface === "history" && (
@@ -124,7 +142,17 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
       )}
       {props.surface === "workspace" &&
         props.view === null &&
+        props.readinessConfirmationFocused && (
+          <box style={{ flexDirection: "column", marginTop: 1 }}>
+            <text>Provider connection check</text>
+            <text>One fixed streamed prompt uses network access and may incur a small charge.</text>
+            <text>confirm: y · cancel: n</text>
+          </box>
+        )}
+      {props.surface === "workspace" &&
+        props.view === null &&
         !props.profileEditorFocused &&
+        !props.readinessConfirmationFocused &&
         props.review?.authority.taskStart === "allowed" && (
           <box style={{ flexDirection: "column", marginTop: 1 }}>
             <text>Task</text>

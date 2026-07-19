@@ -1,6 +1,8 @@
 import Type from "typebox";
 import Schema from "typebox/schema";
 
+export * from "./openai-compatible.ts";
+
 const closed = { additionalProperties: false } as const;
 
 export const FakeModelRequestV1Schema = Type.Object(

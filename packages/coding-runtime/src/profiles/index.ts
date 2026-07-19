@@ -41,6 +41,12 @@ export type ProviderProfileStoreOptions = {
   readonly stateDirectory: string;
 };
 
+export type ResolvedProviderProfile = {
+  readonly catalog: ProviderProfileCatalog;
+  readonly credential: string;
+  readonly profile: ProviderProfileInput;
+};
+
 export class ProviderProfileStoreError extends Error {
   readonly name = "ProviderProfileStoreError";
   readonly productError: ProductError;
@@ -299,6 +305,19 @@ export class ProviderProfileStore {
     return this.catalog(await this.load());
   }
 
+  async resolveActive(): Promise<ResolvedProviderProfile | null> {
+    const configuration = await this.load();
+    if (configuration.activeProfileId === null) return null;
+    const profile = configuration.profiles.get(configuration.activeProfileId);
+    if (profile === undefined) return null;
+    const credential =
+      profile.credential.source === "inline"
+        ? profile.credential.value
+        : this.environment[profile.credential.name];
+    if (credential === undefined || credential.length === 0) return null;
+    return { catalog: this.catalog(configuration), credential, profile };
+  }
+
   private assertRevision(expected: number, actual: number): void {
     if (expected !== actual)
       throw storeError("stale_revision", "The provider profile revision is stale.", "retry");
@@ -443,3 +462,5 @@ export class ProviderProfileStore {
     });
   }
 }
+
+export * from "./readiness.ts";

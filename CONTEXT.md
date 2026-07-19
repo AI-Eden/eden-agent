@@ -52,14 +52,18 @@ unchanged R1 package and PTY surfaces, recorded the first Linux/WSL performance 
 fixture budgets under the existing journal limits. Slice 1 adds strict host-side provider profiles, masked
 renderer-neutral CRUD, direct-file reload and recovery, headless inspection, and onboarding at the three
 frozen viewports without making a provider request.
+Slice 2 deterministic/local code is green: the pinned official SDK, closed readiness/error projections,
+salted host fingerprint, explicit possible-charge confirmation, local SSE fixtures, and TUI network recovery
+are implemented. The required real DeepSeek row has not run because the explicitly named credential and
+default host profile are absent; no provider request was made.
 
 ## Next implementation slice
 
-Implement Slice 2: the protocol-neutral OpenAI-compatible adapter, explicit minimally billable readiness
-check, redacted readiness persistence, and precise recovery states. The approved plan then continues through
-scoped instructions/context, bounded repository tools, the real multi-step provider loop, product-quality
-TUI integration, and final evidence. It explicitly excludes AnchorEdit, writes, general shell, Docker
-execution, changed-file review, checks, success, and later R2 slices.
+Resume Slice 2 at its real DeepSeek matching surface after the owner provides an explicitly named credential
+and configures the intended profile. Run the possible-charge-confirmed fixed-content stream check, retain one
+invalid-key row, and run Kimi only if its matching-surface key is available. Do not start Slice 3 until the
+required DeepSeek row closes. The approved later slices still exclude AnchorEdit, writes, general shell,
+Docker execution, changed-file review, checks, success, and later R2 scope.
 
 ## Known open questions
 
@@ -67,6 +71,8 @@ execution, changed-file review, checks, success, and later R2 slices.
   24; the current lanes are green, but the action-version migration remains maintenance work.
 - The first R2 decision set is publicly frozen and accepted. Slice 0 evidence is local Linux/WSL only;
   hosted and real-provider rows remain later plan work.
+- `EDEN_DEEPSEEK_KEY` and `EDEN_KIMI_KEY` were absent at the Slice 2 matching checkpoint; this is a
+  credential blocker, not evidence about either provider.
 - Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
   in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 

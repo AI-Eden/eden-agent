@@ -37,10 +37,15 @@ All clients use this renderer-independent port:
 interface AgentClient {
   getWorkspaceReview(): Promise<WorkspaceReview>;
   getProviderProfiles(): Promise<ProviderProfileCatalog>;
+  getProviderReadiness(): Promise<ProviderReadiness>;
   reloadProviderProfiles(): Promise<ProviderProfileCatalog>;
   saveProviderProfile(command: SaveProviderProfileCommand): Promise<ProviderProfileCatalog>;
   selectProviderProfile(command: SelectProviderProfileCommand): Promise<ProviderProfileCatalog>;
   deleteProviderProfile(command: DeleteProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  checkProviderReadiness(
+    command: ProviderReadinessCommand,
+    options?: { signal?: AbortSignal },
+  ): Promise<ProviderReadiness>;
   getRunCatalog(options?: { signal?: AbortSignal }): Promise<RunCatalog>;
   inspectRun(
     runId: RunId,
@@ -78,12 +83,18 @@ changes cannot alter historical product views.
 The first R2 Build slice implements renderer-neutral profile CRUD. `config.toml` is authoritative, catalog
 revisions are content-derived, environment credentials expose only named presence, inline values are masked
 while entered and never appear in projections, and list/check output remains closed JSON. The remaining
-approved R2 extension adds readiness actions, repository/context
-summaries, explicit retry, and live model-stream updates. Profile projections expose credential presence
-and source identity without the value. Durable `ProductEvent` remains closed journal-derived truth; live
-deltas are a separate transient client signal and never become replay or later-context authority. A
-repository run remains blocked until exact workspace trust, current profile readiness, compatible Git, and
-P0 context fit are all current.
+approved R2 extension adds repository/context summaries, explicit retry, and live model-stream updates.
+Profile projections expose credential presence and source identity without the value. Durable
+`ProductEvent` remains closed journal-derived truth; live deltas are a separate transient client signal and
+never become replay or later-context authority. A repository run remains blocked until exact workspace
+trust, current profile readiness, compatible Git, and P0 context fit are all current.
+
+The Slice 2 readiness action accepts only a command that confirms the possible charge. Saving or inspecting
+a profile never sends a provider request. The adapter uses one fixed prompt with no repository context or
+tools, an 8-token streamed completion cap, and no SDK retry. `completion_ready` persists only as a salted
+host fingerprint and timestamp, so changing parsed profile content or the resolved credential returns the
+profile to `configured`. Closed recovery values contain fixed copy, status family, bounded request ID, and
+profile/model identity; they never contain the credential or raw provider payload.
 
 ## Run catalog and inspection
 

@@ -5,6 +5,8 @@ import {
   decodeDeleteProviderProfileCommand,
   decodeProviderProfileCatalog,
   decodeProviderProfileCheck,
+  decodeProviderReadiness,
+  decodeProviderReadinessCommand,
   decodeSaveProviderProfileCommand,
   decodeSelectProviderProfileCommand,
 } from "@eden/contracts";
@@ -128,5 +130,44 @@ describe("provider profile contracts", () => {
     for (const invalid of invalidProfiles) {
       assert.equal(decodeSaveProviderProfileCommand({ ...command, profile: invalid }).ok, false);
     }
+  });
+
+  it("decodes explicit possible-charge readiness commands and closed recovery projections", () => {
+    const command = {
+      commandId: "command-provider-ready",
+      expectedRevision: 1,
+      possibleChargeConfirmed: true,
+      profileId: profile.id,
+      protocolVersion: 1,
+      type: "provider.readiness.check",
+    } as const;
+    assert.deepEqual(decodeProviderReadinessCommand(command), { ok: true, value: command });
+    assert.equal(
+      decodeProviderReadinessCommand({ ...command, possibleChargeConfirmed: false }).ok,
+      false,
+    );
+    const summary = {
+      ...profile,
+      credential: { name: "EDEN_DEEPSEEK_KEY", presence: "present", source: "environment" },
+      readiness: "completion_ready",
+    } as const;
+    const readiness = {
+      checkedAt: "2026-07-19T12:00:00.000Z",
+      error: null,
+      possibleChargeConfirmationRequired: false,
+      profile: summary,
+      protocolVersion: 1,
+      revision: 1,
+      state: "completion_ready",
+    } as const;
+    assert.deepEqual(decodeProviderReadiness(readiness), { ok: true, value: readiness });
+    assert.equal(decodeProviderReadiness({ ...readiness, state: "configured" }).ok, false);
+    assert.equal(
+      decodeProviderReadiness({
+        ...readiness,
+        profile: { ...summary, credential: { ...summary.credential, value: "secret" } },
+      }).ok,
+      false,
+    );
   });
 });

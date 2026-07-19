@@ -4,6 +4,8 @@ import Schema from "typebox/schema";
 import type {
   DeleteProviderProfileCommand,
   ProviderProfileCatalog,
+  ProviderReadiness,
+  ProviderReadinessCommand,
   SaveProviderProfileCommand,
   SelectProviderProfileCommand,
 } from "./provider-profiles.ts";
@@ -533,6 +535,7 @@ export type RunIdDecodeResult = Type.Static<typeof RunIdDecodeResultSchema>;
 export interface AgentClient {
   getWorkspaceReview(): Promise<WorkspaceReview>;
   getProviderProfiles(): Promise<ProviderProfileCatalog>;
+  getProviderReadiness(): Promise<ProviderReadiness>;
   getRunCatalog(options?: { readonly signal?: AbortSignal }): Promise<RunCatalog>;
   inspectRun(runId: RunId, options?: { readonly signal?: AbortSignal }): Promise<RunInspection>;
   resolveWorkspaceTrust(
@@ -542,6 +545,10 @@ export interface AgentClient {
   saveProviderProfile(command: SaveProviderProfileCommand): Promise<ProviderProfileCatalog>;
   selectProviderProfile(command: SelectProviderProfileCommand): Promise<ProviderProfileCatalog>;
   deleteProviderProfile(command: DeleteProviderProfileCommand): Promise<ProviderProfileCatalog>;
+  checkProviderReadiness(
+    command: ProviderReadinessCommand,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<ProviderReadiness>;
   reloadProviderProfiles(): Promise<ProviderProfileCatalog>;
   submit(
     command: ProductCommand,
