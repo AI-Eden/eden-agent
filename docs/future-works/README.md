@@ -29,3 +29,6 @@ Explore evidence, an accepted ADR when architecture changes, and an executable p
 - [Model-generated general shell](model-generated-general-shell.md): arbitrary model-authored command
   execution beyond R2 semantic tools and closed command/check templates, including the policy, approval,
   runner, isolation, and matching-surface evidence required before that authority can be exposed.
+- [Durable streaming checkpoints](durable-streaming-checkpoints.md): optional preservation of visible
+  partial model text across hard process or host failure, including the product evidence, journal protocol,
+  and performance gates required before R2's terminal-snapshot boundary should change.
