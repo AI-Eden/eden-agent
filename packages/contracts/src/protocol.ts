@@ -822,13 +822,16 @@ export const ChangedFileSchema = Type.Object(
   },
   closed,
 );
-export const BudgetSummarySchema = Type.Object(
-  {
-    used: Type.Number({ minimum: 0 }),
-    total: Type.Number({ exclusiveMinimum: 0 }),
-    unit: Type.Union([Type.Literal("tokens"), Type.Literal("actions"), Type.Literal("minutes")]),
-  },
-  closed,
+export const BudgetSummarySchema = Type.Refine(
+  Type.Object(
+    {
+      used: Type.Number({ minimum: 0 }),
+      total: Type.Number({ exclusiveMinimum: 0 }),
+      unit: Type.Union([Type.Literal("tokens"), Type.Literal("actions"), Type.Literal("minutes")]),
+    },
+    closed,
+  ),
+  (value) => value.used <= value.total,
 );
 export const ViewApprovalSchema = Type.Object(
   {

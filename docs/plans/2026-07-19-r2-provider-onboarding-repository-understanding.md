@@ -115,6 +115,15 @@ The SDK uses `maxRetries: 0`. Every retry receives a new attempt ID under one st
 Automatic retry is allowed only for a closed retryable `not_started` outcome within the plan-derived
 attempt budget. Once any application delta is observed, retry requires an explicit product action.
 
+On 2026-07-20, real matching evidence exposed that the legacy `ProductView.budget` projection counted
+journal revisions and could report `used` above `total`. The owner approved budget amendment B: provider
+runs count every dispatched model attempt, including automatic and explicit retries, plus every accepted
+repository tool call. A started attempt is counted because it crossed the charge-risk boundary even when
+exact provider billing or usage is unavailable. The retry-inclusive ceiling is 16 actions: at most three
+attempts for each of four model steps, plus four tool calls. The product contract rejects `used > total`;
+exact token usage remains separately attributable on each model attempt. R1 fake-run semantics are
+unchanged.
+
 The normal first-slice output request cap is the smaller of the configured model maximum and the frozen R2
 output reserve. The adapter aborts and produces a visible incomplete/block if the byte envelope would exceed
 the journal record budget; it never truncates content and labels it final. Parallel tool calls, malformed
@@ -282,6 +291,7 @@ The frozen R2 implementation constants are:
 | Boundary | Value |
 | --- | ---: |
 | Model steps / tool calls | 4 / 4 |
+| Provider charge-risk actions | 16 |
 | List visited / returned | 4096 / 256 |
 | Search matches / Git-status entries | 256 / 256 |
 | Tool model content | 24 KiB |

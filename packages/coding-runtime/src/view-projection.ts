@@ -222,6 +222,17 @@ function providerProjection(state: Exclude<RunState, { readonly phase: "idle" }>
   };
 }
 
+function budget(state: Exclude<RunState, { readonly phase: "idle" }>) {
+  if ("model" in state) {
+    return {
+      total: 16,
+      unit: "actions" as const,
+      used: state.attempts.length + state.tools.length,
+    };
+  }
+  return { total: 10, unit: "actions" as const, used: state.revision };
+}
+
 export function projectView(state: RunState): ProductView {
   if (state.phase === "idle") {
     throw new ProjectionError("Idle state has no product run view.");
@@ -239,7 +250,7 @@ export function projectView(state: RunState): ProductView {
           recoveryAction: "Approve the exact fake action or deny it.",
         }
       : null,
-    budget: { total: 10, unit: "actions", used: state.revision },
+    budget: budget(state),
     changedFiles: [],
     checks: checks(terminalOutcome),
     currentAction: terminal || state.action === null ? null : actionSummary(state.action),

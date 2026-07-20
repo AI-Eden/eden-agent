@@ -192,6 +192,7 @@ describe("deterministic product view scenarios", () => {
       { ...executingProductView, stack: "Error: raw stack" },
       { ...executingProductView, protocolVersion: 2 },
       { ...executingProductView, phase: "autonomous-magic" },
+      { ...executingProductView, budget: { total: 16, unit: "actions", used: 17 } },
       {
         ...executingProductView,
         workspace: { ...executingProductView.workspace, environmentSecret: "do-not-leak" },

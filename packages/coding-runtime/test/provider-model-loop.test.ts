@@ -9,6 +9,7 @@ import type { ModelStepRequestV1 } from "@eden/providers";
 
 import { FileJournal } from "../src/journal/index.ts";
 import { type EffectHost, type ReconciliationResult, RuntimeEngine } from "../src/runtime.ts";
+import { projectView } from "../src/view-projection.ts";
 
 const workspace = {
   name: "fixture",
@@ -160,6 +161,11 @@ describe("provider model runtime loop", () => {
       answer: "README.md:1 contains the marker.",
       state: "completed",
     });
+    assert.deepEqual(projectView(fixture.runtime.state).budget, {
+      total: 16,
+      unit: "actions",
+      used: 3,
+    });
     const calls = [host.modelCalls, host.toolCalls];
     const replayed = await RuntimeEngine.open(fixture.journal, host, clock, ids(20));
     assert.equal(replayed.state.phase, "terminal");
@@ -196,10 +202,20 @@ describe("provider model runtime loop", () => {
     await drive(fixture.runtime);
     assert.equal(fixture.runtime.state.phase, "awaiting-retry");
     assert.equal(host.modelCalls, 1);
+    assert.deepEqual(projectView(fixture.runtime.state).budget, {
+      total: 16,
+      unit: "actions",
+      used: 1,
+    });
     await fixture.runtime.commit({ type: "model.retry.requested" }, "command-retry");
     await fixture.runtime.settleInFlightEffect();
     assert.equal(host.modelCalls, 2);
     assert.equal(fixture.runtime.state.phase, "terminal");
+    assert.deepEqual(projectView(fixture.runtime.state).budget, {
+      total: 16,
+      unit: "actions",
+      used: 2,
+    });
     assert.equal(JSON.stringify(fixture.runtime.state).includes("Incomplete outputFresh"), false);
   });
 
