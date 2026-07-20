@@ -108,7 +108,10 @@ desktop-terminal, and IME rows remain `not-run`.
 The single-agent diff/spec review resolved budget semantics, hosted portability, Windows native search-path
 normalization, and startup-threshold findings, with no unresolved code or contract finding. Exact platform
 hashes and residual claims are retained in
-[`docs/evidence/r2-exit-closure/review.md`](../evidence/r2-exit-closure/review.md). The prior live DeepSeek
-tool run predates the exact candidate; its temporary host credential was unavailable for final replay, so
-the required exact-candidate provider row and Slice 8 acceptance remain incomplete. Kimi and production TLS
-verification remain `not-run`; none of this evidence expands release support.
+[`docs/evidence/r2-exit-closure/review.md`](../evidence/r2-exit-closure/review.md). At public evidence head
+`abf5f01`, the reproduced copied archive retained the exact hosted hashes, presented the explicit
+possible-charge confirmation, and reached DeepSeek readiness under normal TLS verification. One retained
+matching run failed closed before tool dispatch; the final bounded run completed two exact-usage attempts,
+one pinned-ripgrep search, a sourced `completed` answer, and budget 3/16. Thirteen host evidence files plus
+the PTY transcript retained zero credential matches. Kimi remains `not-run`; this evidence closes the
+accepted provider-matching plan but does not expand release support.

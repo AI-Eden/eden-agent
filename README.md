@@ -12,14 +12,16 @@ fake task, durable JSONL replay, and current-workspace read-only run history. It
 agent: the R1 runtime uses no provider credential, does not read or change repository files, executes no
 real process, has no network authority, and does not resume historical execution.
 
-R2 Build is in progress. The current public source adds host-side provider onboarding, explicit DeepSeek
-readiness, scoped instruction/context admission, bounded list/read/search/Git-status tools, a verified
+The first accepted R2 Build plan is complete. The current public source adds host-side provider onboarding,
+explicit DeepSeek readiness, scoped instruction/context admission, bounded list/read/search/Git-status
+tools, a verified
 application-local ripgrep archive, and an Eden-owned real model/tool loop with durable attempt recovery.
 A model-produced final answer ends in review as `completed`; it cannot claim verifier-owned `succeeded`.
 The product still does not edit repository files, expose a shell, resume a historical run, or claim R2
 release support. Candidate `0c83048` passes the complete local gate and hosted Ubuntu, macOS, and Windows
-archive/process evidence; final R2 acceptance remains pending an exact-candidate DeepSeek matching rerun
-with an owner-provided host credential. The earlier live matching row is not substituted for that evidence.
+archive/process evidence. Public evidence head `abf5f01` reproduced the same archive hashes and completed
+an owner-authorized DeepSeek readiness plus pinned-ripgrep repository round trip under normal TLS. Kimi
+remains `not-run`, and this matching evidence is not a release-support claim.
 
 ## Intended product
 

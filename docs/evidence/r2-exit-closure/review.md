@@ -1,11 +1,12 @@
 # R2 Slice 8 Packaged Acceptance and Single-Agent Review
 
 - Date: 2026-07-20
+- Closed: 2026-07-21
 - Fixed point: `978bb78f6b67f8410ad3dbbc688dfe0622f4a987`
 - Reviewed code candidate: `0c83048f11df712a38960e07bfb994bac7cdcb97`
+- Exact provider-evidence head: `abf5f01c154fb1bc10c41bf5c52f92f6a73ca4a3`
 - Review scope: 102 files, 17,580 insertions, 363 deletions
-- Status: automated, packaged, hosted, terminal, and diff/spec review green; exact-candidate DeepSeek
-  matching is pending an owner-provided host credential
+- Status: complete; automated, packaged, hosted, terminal, real-provider, and diff/spec evidence green
 
 ## Local acceptance
 
@@ -57,12 +58,29 @@ Slice 6 evidence: two exact-usage streamed attempts surrounded one verified appl
 search and ended with a sourced `completed` review answer. It predates the exact Slice 8 candidate and is
 therefore not substituted for the required final-candidate matching row.
 
-The temporary host credential state was unavailable when the exact candidate reached acceptance. No
-credential was reconstructed from conversation text, written into the checkout, or included in captured
-commands. Exact-candidate DeepSeek readiness and repository matching remain pending. Kimi remains
-`not-run` because the owner has no subscription credential. The earlier DeepSeek host required disabled
-TLS certificate verification for its proxy, so even a successful prior row does not prove production TLS
-verification or release support.
+After the owner placed the credential in a private `0600` host file and renewed the request authority, the
+complete archive was reproduced from public head `abf5f01`. Its application and ripgrep hashes remained
+identical to the hosted candidate. The copied archive loaded only the named environment reference from a
+private `0700` state root and displayed the possible-charge confirmation before the owner-authorized TUI
+action. Readiness reached `completion_ready` at `2026-07-20T20:22:57.302Z` under normal TLS verification;
+the earlier proxy-only disabled-TLS limitation is not inherited by this exact-head row.
+
+The first exact-head repository run, `run-e1efa98d-15f9-4f7c-bb65-fe105def6fa4`, is retained as failure
+evidence. Its initial attempt ended `unknown` with `protocol_incompatibility`, dispatched no tool, exposed
+no provider body, and remained visibly `awaiting-retry`. Because R2 intentionally provides no cross-process
+resume, the failed headless run was not rewritten or represented as retried.
+
+The final bounded run, `run-06b22aa8-e5f1-49e7-ada0-c9428a553d01`, made the closed search arguments
+explicit. It completed two streamed model attempts with exact usage of 1,477 and 1,921 tokens around
+exactly one application-local ripgrep 15.0.0 `search_repository` call. The tool returned source paths
+including `packages/coding-runtime/src/tools/index.ts`; the final 802-character answer cited that source and
+ended in durable `completed` review, never `succeeded`. The owner-approved budget B projected 3 of 16
+actions: two dispatched attempts plus one accepted tool call.
+
+The closed readiness, state, journal, stdout, and stderr surfaces retained zero credential matches across
+13 scanned host evidence files. Matching stderr was empty. No credential value entered the checkout,
+config, journal, event, diagnostic, evidence text, or command argument. Kimi remains `not-run` because the
+owner has no subscription credential, so no Kimi or release-support claim is made.
 
 ## Single-agent diff and spec review
 
@@ -80,6 +98,6 @@ workspace credential file or credential value exists in the review diff.
 | High | Real Windows ripgrep returned native separators that violated the closed product path contract. | Normalize Windows search-result paths at the native adapter boundary and retain a platform-native regression. | resolved in `0c83048` |
 | Medium | The exact candidate initially exceeded the frozen 244 ms controlled startup threshold. | Defer rare run-inspection contracts and overlap independent TUI/runtime initialization; retain failed samples and rerun the exact artifact. | resolved in `98ea7fb`; final record passed |
 
-No unresolved Standards or Spec finding remains. The only incomplete Slice 8 row is the external
-exact-candidate DeepSeek matching evidence described above. This record does not authorize release and
-does not add writes, general shell, Docker execution, changed-file review, checks, or verifier success.
+No unresolved Standards or Spec finding remains, and every required DeepSeek Slice 8 row is closed. This
+record does not authorize release and does not add writes, general shell, Docker execution, changed-file
+review, checks, or verifier success.

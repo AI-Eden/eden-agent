@@ -742,11 +742,20 @@ hosted portability, Windows path-normalization, and startup-threshold defects; i
 Standards or Spec finding. Exact commands, platform hashes, severity-ranked repairs, and residual claims are
 recorded in [`docs/evidence/r2-exit-closure/review.md`](../evidence/r2-exit-closure/review.md).
 
-Slice 8 acceptance remains incomplete at its explicit external-credential stop condition. The earlier
-authorized real DeepSeek repository run remains supporting Slice 6 evidence but predates this exact
-candidate. Its temporary host credential is no longer available, so final-candidate readiness and matching
-were not rerun and no secret was reconstructed from conversation text. Kimi remains `not-run`; the prior
-proxy/TLS limitation and all unsupported release claims remain explicit.
+On 2026-07-21 the owner restored the credential through a private `0600` host file and renewed the minimal
+possibly billable request authority. Public evidence head `abf5f01` reproduced the exact hosted application
+and ripgrep hashes. The copied archive presented the TUI charge confirmation and reached DeepSeek
+`completion_ready` under normal TLS verification. The first exact-head matching run retained a closed
+`protocol_incompatibility`/`awaiting-retry` failure with no tool dispatch. A final bounded run with the
+complete closed search argument shape then completed two exact-usage model attempts around one verified
+application-local ripgrep call, cited `packages/coding-runtime/src/tools/index.ts`, projected budget B as
+3/16, and ended in `completed` review rather than success. Thirteen state/journal/evidence files plus the
+PTY transcript scan retained zero credential matches. Exact run identities, usage, failure evidence, and
+residual claims are recorded in the review evidence.
+
+Slice 8 and this accepted plan are complete. Kimi remains `not-run` because no subscription credential is
+available, so neither Kimi compatibility nor release support is claimed. The successful exact-head row did
+not require disabled TLS verification; the earlier proxy limitation remains historical evidence only.
 
 ## Likely files and boundaries
 
