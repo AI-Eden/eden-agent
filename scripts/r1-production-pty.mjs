@@ -103,6 +103,70 @@ if (process.argv[2] === "--self-test") {
   ) {
     throw new Error("POSIX package-manager command unexpectedly changed.");
   }
+  const createInputProbe = (handleWrite) => {
+    let transcript = "";
+    let writes = 0;
+    const listeners = new Set();
+    const publish = (value) => {
+      transcript = value;
+      for (const listener of listeners) listener(value);
+    };
+    return {
+      get writes() {
+        return writes;
+      },
+      publish,
+      session: {
+        columns: 60,
+        get transcript() {
+          return transcript;
+        },
+        rows: 20,
+        terminal: {
+          onData(listener) {
+            listeners.add(listener);
+            return { dispose: () => listeners.delete(listener) };
+          },
+          write() {
+            writes += 1;
+            handleWrite({ publish, writes });
+          },
+        },
+      },
+    };
+  };
+  const delayedProbe = createInputProbe(({ publish, writes }) => {
+    if (writes === 1) setTimeout(() => publish("Delayed target"), 150);
+  });
+  await pressAcknowledgedInputUntilScreenText(delayedProbe.session, "input", "Delayed target");
+  if (delayedProbe.writes !== 1) {
+    throw new Error("Delayed rendering repeated an already accepted PTY input.");
+  }
+  let outputPending = true;
+  const settledProbe = createInputProbe(({ publish }) =>
+    publish(outputPending ? "Premature input" : "Settled target"),
+  );
+  setTimeout(() => {
+    outputPending = false;
+    settledProbe.publish("Initial render complete");
+  }, 20);
+  await pressAcknowledgedInputUntilScreenText(settledProbe.session, "input", "Settled target", 40);
+  if (settledProbe.writes !== 1) {
+    throw new Error("Settled PTY input was not sent exactly once.");
+  }
+  const retriedProbe = createInputProbe(({ publish, writes }) => {
+    if (writes === 2) publish("Retried target");
+  });
+  await pressAcknowledgedInputUntilScreenText(
+    retriedProbe.session,
+    "input",
+    "Retried target",
+    10,
+    10,
+  );
+  if (retriedProbe.writes !== 2) {
+    throw new Error("Unacknowledged PTY input did not receive one bounded retry.");
+  }
   process.stdout.write(`${JSON.stringify({ status: "passed" })}\n`);
   process.exit(0);
 }
@@ -246,6 +310,63 @@ function waitForScreenText(session, expected) {
       resolveWait();
     });
   });
+}
+
+function waitForTerminalQuiet(session, quietMs) {
+  return new Promise((resolveWait, reject) => {
+    let quietTimer;
+    const deadline = setTimeout(() => {
+      clearTimeout(quietTimer);
+      subscription.dispose();
+      reject(new Error("Timed out waiting for a stable terminal input boundary."));
+    }, eventTimeoutMs);
+    const settle = () => {
+      clearTimeout(deadline);
+      subscription.dispose();
+      resolveWait();
+    };
+    const armQuietTimer = () => {
+      clearTimeout(quietTimer);
+      quietTimer = setTimeout(settle, quietMs);
+    };
+    const subscription = session.terminal.onData(armQuietTimer);
+    armQuietTimer();
+  });
+}
+
+function waitForTerminalActivity(session, previousTranscript, timeoutMs) {
+  if (session.transcript !== previousTranscript) return Promise.resolve(true);
+  return new Promise((resolveWait) => {
+    const timer = setTimeout(() => {
+      subscription.dispose();
+      resolveWait(false);
+    }, timeoutMs);
+    const subscription = session.terminal.onData(() => {
+      if (session.transcript === previousTranscript) return;
+      clearTimeout(timer);
+      subscription.dispose();
+      resolveWait(true);
+    });
+  });
+}
+
+// An accepted arrow must never be repeated: a delayed redraw would skip the intended history row.
+async function pressAcknowledgedInputUntilScreenText(
+  session,
+  input,
+  expected,
+  quietMs = 250,
+  activityTimeoutMs = 2_000,
+) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await waitForTerminalQuiet(session, quietMs);
+    const previousTranscript = session.transcript;
+    session.terminal.write(input);
+    if (!(await waitForTerminalActivity(session, previousTranscript, activityTimeoutMs))) continue;
+    await waitForScreenText(session, expected);
+    return;
+  }
+  throw new Error(`Input did not reach visible state ${expected}.`);
 }
 
 async function pressUntilScreenText(session, input, expected) {
@@ -543,7 +664,7 @@ const history = await runScenario({
     session.terminal.write("h");
     await waitForScreenText(session, "Current-workspace history");
     for (const entry of historyCatalog.entries.slice(1)) {
-      await pressUntilScreenText(session, "\u001B[B", historyEntryLabel(entry));
+      await pressAcknowledgedInputUntilScreenText(session, "\u001B[B", historyEntryLabel(entry));
     }
     session.terminal.write("\r");
     await waitForScreenText(session, "run_history_unavailable");
@@ -557,7 +678,7 @@ const history = await runScenario({
     );
     if (taskZeroIndex < 0) throw new Error("History task 00 is missing from the seed catalog.");
     for (let index = historyCatalog.entries.length - 2; index >= taskZeroIndex; index -= 1) {
-      await pressUntilScreenText(
+      await pressAcknowledgedInputUntilScreenText(
         session,
         "\u001B[A",
         historyEntryLabel(historyCatalog.entries[index]),
