@@ -702,10 +702,14 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     });
     await act(async () => fixture.renderer.flush());
     const terminalFrame = fixture.renderer.captureCharFrame();
+    const canonicalWorkspace = await realpath(fixture.paths.workspaceDirectory);
 
     expect(approvalFrame).toContain("trust: trusted");
     expect(approvalFrame).toContain("action: Run the deterministic fake");
-    expect(approvalFrame).toContain(`cwd: ${await realpath(fixture.paths.workspaceDirectory)}`);
+    expect(approvalFrame).toContain(`cwd: ${canonicalWorkspace.slice(0, 48)}`);
+    if (canonicalWorkspace !== fixture.paths.workspaceDirectory) {
+      expect(approvalFrame).not.toContain(`cwd: ${fixture.paths.workspaceDirectory.slice(0, 48)}`);
+    }
     expect(approvalFrame).toContain("scope: R1 demo state directory only");
     expect(terminalFrame).toContain("evidence: run-1:fake-evidence");
     expect(terminalFrame).toContain("check: passed");

@@ -1,17 +1,20 @@
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 const codeFilePattern = /\.(?:[cm]?[jt]sx?)$/iu;
-const biomePath =
-  process.platform === "win32"
-    ? join(process.cwd(), "node_modules", "@biomejs", `cli-win32-${process.arch}`, "biome.exe")
-    : join(process.cwd(), "node_modules", "@biomejs", "biome", "bin", "biome");
+const requireFromRepository = createRequire(join(process.cwd(), "package.json"));
+let biomePath;
+try {
+  biomePath = requireFromRepository.resolve("@biomejs/biome/bin/biome");
+} catch {
+  console.error("Biome could not start. Run `pnpm install` first.");
+  process.exit(1);
+}
 
 function runBiome(command, files) {
-  return process.platform === "win32"
-    ? spawnSync(biomePath, [command, ...files], { stdio: "inherit" })
-    : spawnSync(process.execPath, [biomePath, command, ...files], { stdio: "inherit" });
+  return spawnSync(process.execPath, [biomePath, command, ...files], { stdio: "inherit" });
 }
 
 const diff = spawnSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"], {

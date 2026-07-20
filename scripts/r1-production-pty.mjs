@@ -488,6 +488,15 @@ async function seedHistory(workspace, stateDirectory) {
   );
   await mkdir(corruptDirectory, { recursive: true });
   await writeFile(join(corruptDirectory, "journal.jsonl"), '{"journalVersion":\n', "utf8");
+  const updated = runBinary(["run", "list", "--json"], workspace, stateDirectory);
+  if (updated.status !== 0) throw new Error("Updated history seed catalog failed.");
+  return JSON.parse(updated.stdout.trim());
+}
+
+function historyEntryLabel(entry) {
+  return entry.availability === "unavailable"
+    ? `> ${entry.runId} · unavailable`
+    : `> ${entry.task}`;
 }
 
 const temporaryRoot = await mkdtemp(join(tmpdir(), "eden-r1-production-pty-"));
@@ -498,7 +507,7 @@ const historyWorkspace = join(temporaryRoot, "history-workspace");
 const historyState = join(temporaryRoot, "history-state");
 await mkdir(successWorkspace);
 await mkdir(historyWorkspace);
-await seedHistory(historyWorkspace, historyState);
+const historyCatalog = await seedHistory(historyWorkspace, historyState);
 
 const success = await runScenario({
   columns: 100,
@@ -507,8 +516,8 @@ const success = await runScenario({
     session.terminal.write("t");
     await waitForScreenText(session, "trust: trusted");
     await waitForScreenText(session, "Enter focuses task");
-    session.terminal.write("\r");
-    await waitForScreenText(session, "Enter submits");
+    await pressUntilScreenText(session, "\t", "focus: workspace.composer");
+    await pressUntilScreenText(session, "\r", "Enter submits");
     session.terminal.write("Complete the production PTY fake task");
     await waitForScreenText(session, "Complete the production PTY fake task");
     session.terminal.write("\r");
@@ -533,14 +542,9 @@ const history = await runScenario({
     await waitForText(session, "__EDEN_INPUT_READY__");
     session.terminal.write("h");
     await waitForScreenText(session, "Current-workspace history");
-    for (let index = 0; index < 32; index += 1) {
-      await pressUntilScreenText(
-        session,
-        "\u001B[B",
-        `> History task ${(31 - index).toString().padStart(2, "0")}`,
-      );
+    for (const entry of historyCatalog.entries.slice(1)) {
+      await pressUntilScreenText(session, "\u001B[B", historyEntryLabel(entry));
     }
-    await pressUntilScreenText(session, "\u001B[B", "> run-corrupt-pty · unavailable");
     session.terminal.write("\r");
     await waitForScreenText(session, "run_history_unavailable");
     const frames = [await captureFrame(session, "history-unavailable-60x20", false)];
@@ -548,7 +552,17 @@ const history = await runScenario({
     await waitForScreenText(session, "history runs: 34");
     session.terminal.write("h");
     await waitForScreenText(session, "Current-workspace history");
-    await pressUntilScreenText(session, "\u001B[A", "> History task 00");
+    const taskZeroIndex = historyCatalog.entries.findIndex(
+      (entry) => entry.availability === "available" && entry.task === "History task 00",
+    );
+    if (taskZeroIndex < 0) throw new Error("History task 00 is missing from the seed catalog.");
+    for (let index = historyCatalog.entries.length - 2; index >= taskZeroIndex; index -= 1) {
+      await pressUntilScreenText(
+        session,
+        "\u001B[A",
+        historyEntryLabel(historyCatalog.entries[index]),
+      );
+    }
     frames.push(await captureFrame(session, "history-window-60x20"));
     session.terminal.write("\r");
     await waitForScreenText(session, "task: History task 00");

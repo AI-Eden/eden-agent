@@ -36,6 +36,10 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
   match(workflow, /pnpm test:r2-native-archive/u);
   match(workflow, /scripts\/smoke-standalone\.mjs/u);
   match(workflow, /scripts\/r1-production-pty\.mjs/u);
+  match(
+    workflow,
+    /scripts\/smoke-standalone\.mjs "\$artifact" r2-evidence\/production-pty\/standalone\.json/u,
+  );
   match(workflow, /scripts\/r2-tui-pty\.mjs/u);
   match(workflow, /\$\{\{ github\.sha \}\}/u);
   match(workflow, /apps\/eden\/dist\/rg\*/u);

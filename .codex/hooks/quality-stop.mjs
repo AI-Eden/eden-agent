@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -31,15 +32,13 @@ function changedFiles(root) {
 }
 
 function runBiome(root, command, files) {
-  const biomePath =
-    process.platform === "win32"
-      ? join(root, "node_modules", "@biomejs", `cli-win32-${process.arch}`, "biome.exe")
-      : join(root, "node_modules", "@biomejs", "biome", "bin", "biome");
-  const invocation =
-    process.platform === "win32"
-      ? { arguments: [command, ...files], command: biomePath }
-      : { arguments: [biomePath, command, ...files], command: process.execPath };
-  const result = spawnSync(invocation.command, invocation.arguments, {
+  let biomePath;
+  try {
+    biomePath = createRequire(join(root, "package.json")).resolve("@biomejs/biome/bin/biome");
+  } catch {
+    return false;
+  }
+  const result = spawnSync(process.execPath, [biomePath, command, ...files], {
     cwd: root,
     encoding: "utf8",
   });

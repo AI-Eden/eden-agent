@@ -155,7 +155,8 @@ test("production PTY emits the frozen manifest and rejects missing required rows
   match(productionPty, /Required evidence row did not pass/u);
   match(productionPty, /terminatePtyProcessGroup/u);
   match(productionPty, /shouldUseBundledConpty/u);
-  match(productionPty, /waitForScreenText\(session, "Enter submits"\)/u);
+  match(productionPty, /pressUntilScreenText\(session, "\\t", "focus: workspace\.composer"\)/u);
+  match(productionPty, /pressUntilScreenText\(session, "\\r", "Enter submits"\)/u);
   match(productionPty, /waitForScreenText\(session, "Complete the production PTY fake task"\)/u);
   match(productionPty, /process\.exit\(0\)/u);
   strictEqual(productionPty.includes("taskkill.exe"), false);

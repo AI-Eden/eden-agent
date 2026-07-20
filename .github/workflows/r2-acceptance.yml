@@ -69,7 +69,7 @@ jobs:
           else
             artifact=apps/eden/dist/eden
           fi
-          node scripts/smoke-standalone.mjs "$artifact" r2-evidence/standalone.json
+          node scripts/smoke-standalone.mjs "$artifact" r2-evidence/production-pty/standalone.json
           node scripts/r1-production-pty.mjs "$artifact" r2-evidence/production-pty
       - name: Linux R2 responsive PTY evidence
         if: runner.os == 'Linux'
