@@ -27,7 +27,7 @@ function summarize(values) {
   };
 }
 
-function validateEvidence(evidence) {
+function validateEvidence(evidence, enforceControlledRegression = true) {
   if (evidence.warmupCount !== warmupCount || evidence.trialCount !== trialCount) {
     throw new Error("R2 PTY evidence must retain one warm-up and five measured trials.");
   }
@@ -37,12 +37,12 @@ function validateEvidence(evidence) {
   if (evidence.summary.startupMs.p95Ms > 2_000) {
     throw new Error("R2 PTY cold startup exceeded the absolute 2 second ceiling.");
   }
-  if (evidence.summary.startupMs.p95Ms > startupRegressionMs) {
+  if (enforceControlledRegression && evidence.summary.startupMs.p95Ms > startupRegressionMs) {
     throw new Error(
       `R2 PTY cold startup ${evidence.summary.startupMs.p95Ms.toFixed(2)} ms exceeded the frozen ${startupRegressionMs} ms regression threshold.`,
     );
   }
-  if (evidence.summary.inputToRenderMs.p95Ms > inputRegressionMs) {
+  if (enforceControlledRegression && evidence.summary.inputToRenderMs.p95Ms > inputRegressionMs) {
     throw new Error(
       `R2 PTY trust input ${evidence.summary.inputToRenderMs.p95Ms.toFixed(2)} ms exceeded the frozen ${inputRegressionMs} ms regression threshold.`,
     );
@@ -52,7 +52,7 @@ function validateEvidence(evidence) {
       `R2 PTY trust input ${evidence.summary.inputToRenderMs.p95Ms.toFixed(2)} ms exceeded the independent 100 ms ceiling.`,
     );
   }
-  if (evidence.summary.durableTrustMs.p95Ms > inputRegressionMs) {
+  if (enforceControlledRegression && evidence.summary.durableTrustMs.p95Ms > inputRegressionMs) {
     throw new Error(
       `R2 PTY durable trust ${evidence.summary.durableTrustMs.p95Ms.toFixed(2)} ms exceeded the frozen ${inputRegressionMs} ms regression threshold.`,
     );
@@ -122,6 +122,25 @@ if (process.argv[2] === "--self-test") {
     }
     if (!rejected) throw new Error("R2 PTY evidence self-test accepted invalid evidence.");
   }
+  validateEvidence(
+    {
+      failureJourney: { status: "passed" },
+      matchingSurface: ["60x20", "80x24", "100x30"].map((viewport) => ({
+        status: "passed",
+        viewport,
+      })),
+      summary: {
+        durableTrustMs: { ...timing, p95Ms: 500 },
+        failuresRetained: 0,
+        inputToRenderMs: timing,
+        startupMs: { ...timing, p95Ms: 500 },
+      },
+      terminalRestoration: "restored",
+      trialCount,
+      warmupCount,
+    },
+    false,
+  );
   await new Promise((resolveWrite, rejectWrite) => {
     process.stdout.write(`${JSON.stringify({ status: "passed" })}\n`, (error) => {
       if (error === null || error === undefined) resolveWrite();
@@ -134,8 +153,12 @@ if (process.argv[2] === "--self-test") {
 const executable = resolve(process.argv[2] ?? "");
 const outputPath = resolve(process.argv[3] ?? "");
 const sourceSha = process.argv[4];
+const evidenceMode = process.argv[5] ?? "--controlled";
 if (sourceSha === undefined || !/^[0-9a-f]{40}$/u.test(sourceSha)) {
   throw new Error("R2 PTY evidence requires one exact source SHA.");
+}
+if (evidenceMode !== "--controlled" && evidenceMode !== "--functional-only") {
+  throw new Error("R2 PTY evidence mode must be --controlled or --functional-only.");
 }
 if (platform() !== "linux") {
   throw new Error(
@@ -582,7 +605,8 @@ const evidence = {
       .digest("hex"),
     sizeBytes: executableMetadata.size,
   },
-  command: "node scripts/r2-tui-pty.mjs apps/eden/dist/eden <output.json> <exact-sha>",
+  command:
+    "node scripts/r2-tui-pty.mjs apps/eden/dist/eden <output.json> <exact-sha> [--controlled|--functional-only]",
   environment: {
     architecture: process.arch,
     cpu: cpus()[0]?.model ?? "unknown",
@@ -594,6 +618,8 @@ const evidence = {
   failureJourney,
   fixture: {
     content: "deterministic fake runtime plus missing host Git failure",
+    controlledStartupComparison:
+      evidenceMode === "--controlled" ? "enforced" : "not-run-cross-machine",
     scrollToRender: "not-run",
   },
   matchingSurface,
@@ -618,7 +644,7 @@ const evidence = {
 };
 await mkdir(dirname(outputPath), { recursive: true });
 try {
-  validateEvidence(evidence);
+  validateEvidence(evidence, evidenceMode === "--controlled");
 } catch (error) {
   await writeFile(
     outputPath,

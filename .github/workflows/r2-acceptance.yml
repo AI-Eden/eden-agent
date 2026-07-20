@@ -73,7 +73,7 @@ jobs:
           node scripts/r1-production-pty.mjs "$artifact" r2-evidence/production-pty
       - name: Linux R2 responsive PTY evidence
         if: runner.os == 'Linux'
-        run: node scripts/r2-tui-pty.mjs apps/eden/dist/eden r2-evidence/r2-tui.json ${{ github.sha }}
+        run: node scripts/r2-tui-pty.mjs apps/eden/dist/eden r2-evidence/r2-tui.json ${{ github.sha }} --functional-only
       - uses: actions/upload-artifact@v4
         with:
           name: r2-acceptance-${{ runner.os }}-${{ runner.arch }}

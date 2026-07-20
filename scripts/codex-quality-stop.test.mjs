@@ -44,10 +44,16 @@ function createFixture() {
 }
 
 function runHook(scriptPath, directory, sessionId) {
+  const temporaryDirectory = join(directory, "temporary");
   return spawnSync(process.execPath, [scriptPath], {
     cwd: directory,
     encoding: "utf8",
-    env: { ...process.env, TMPDIR: join(directory, "temporary") },
+    env: {
+      ...process.env,
+      TEMP: temporaryDirectory,
+      TMP: temporaryDirectory,
+      TMPDIR: temporaryDirectory,
+    },
     input: JSON.stringify({ cwd: directory, session_id: sessionId }),
   });
 }
@@ -68,6 +74,7 @@ test("formats only TypeScript files changed after the Codex session starts", () 
 
     strictEqual(stopped.status, 0, stopped.stderr);
     strictEqual(JSON.parse(stopped.stdout).continue, true);
+    strictEqual(JSON.parse(stopped.stdout).systemMessage, undefined, stopped.stderr);
     strictEqual(readFileSync(existingPath, "utf8"), 'const existing={value:"user-dirty"}\n');
     strictEqual(readFileSync(addedPath, "utf8"), 'const added = { value: "agent-change" };\n');
   } finally {
