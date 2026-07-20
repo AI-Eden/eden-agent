@@ -5,7 +5,9 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
 decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-7 are complete.
+executable plan on 2026-07-19. R2 Build started on 2026-07-19. Slices 0-7 are complete; Slice 8 code,
+automated, packaged, hosted, terminal, and single-agent review evidence is green, while the exact-candidate
+DeepSeek row is stopped on a missing owner-provided host credential.
 
 ## Current truth
 
@@ -88,10 +90,16 @@ passed `60x20`, `80x24`, and `100x30`, rapid resize, CJK bracketed paste, missin
 restoration, and the frozen latency gates. Earlier samples exposed cold-start scheduling variance, so the
 passing record is not a cross-platform or variance-free performance claim.
 
+- Slice 8 candidate `0c83048` passes the full local gate and hosted Ubuntu/macOS/Windows R1 plus R2
+  matrices. Complete archives passed native ripgrep/Git checks, copied-archive smoke, production PTY, and
+  artifact upload. Linux functional PTY and controlled timing are green. The single-agent diff/spec review
+  has no unresolved code or contract finding.
+
 ## Next implementation slice
 
-Implement Slice 8: exact-SHA packaged acceptance, hosted and authorized real-provider matching, complete
-secret scans, and one evidence-backed single-agent review. The approved scope still excludes
+Resume only the remaining Slice 8 external row: load an owner-provided DeepSeek credential from private
+host state, then rerun exact-candidate readiness and repository matching without exposing or persisting the
+secret. Do not substitute the earlier Slice 6 run for this row. The approved scope still excludes
 AnchorEdit, writes, general shell, Docker execution, changed-file review, checks, success, and later R2
 scope.
 
@@ -103,9 +111,11 @@ scope.
   hosted and real-provider rows remain later plan work.
 - Kimi remains `not-run` because no subscription credential is available; this is not evidence about Kimi
   compatibility and does not support a Kimi subscription claim.
+- The exact-candidate DeepSeek rerun is blocked because its temporary host credential state is no longer
+  available. The earlier matching evidence remains valid only for its earlier code candidate.
 - The local DeepSeek matching environment required disabled TLS certificate verification because of the
   host proxy setup. It proves the provider/product protocol path, not production TLS verification or release
-  support; Slice 8 must preserve this residual risk unless a verified environment replaces the row.
+  support; final evidence must preserve this residual risk unless a verified environment replaces the row.
 - Malicious same-user concurrent local-state substitution remains outside the R1 guarantee and is tracked
   in `docs/future-works/adversarial-local-state-filesystem-hardening.md`.
 

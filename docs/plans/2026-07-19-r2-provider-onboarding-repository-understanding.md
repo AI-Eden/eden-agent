@@ -722,6 +722,32 @@ diff-and-spec evidence without secrets or unsupported claims.
   round trip, complete answer, one connection recovery, one stream recovery, one instruction-budget block,
   missing-Git prerequisite, all three target widths, and clean terminal exit.
 
+#### Slice 8 evidence
+
+The reviewed code candidate `0c83048f11df712a38960e07bfb994bac7cdcb97` passed the complete local gate,
+the exact-candidate controlled Linux x64 WSL2 PTY record, and both hosted R1 and R2 matrices. R2 workflow
+[29746955645](https://github.com/AI-Eden/eden-agent/actions/runs/29746955645) passed frozen install, all
+workspace and named R2 tests, typecheck, build, code/Markdown checks, complete native archive verification,
+copied-archive smoke, production PTY, and artifact upload on Ubuntu, macOS, and Windows. Linux also passed
+the three-width functional PTY journey. R1 workflow
+[29746955376](https://github.com/AI-Eden/eden-agent/actions/runs/29746955376) independently protected the
+accepted R1 surface on the same three platforms.
+
+The exact-candidate Linux artifact SHA-256 is
+`b358c67c824eaf060c7e37e6ed89c50d9015d21b98c09c20f915560bc40db117`; its pinned ripgrep hash is
+`193906679498de4d939345b937fa24e0e69a03c244bd70c859f5e41232713f21`. The retained controlled record
+passes cold startup at 234.82 ms, input-to-render at 17.86 ms, and durable trust at 50.71 ms while preserving
+the earlier failed/outlier observations. The evidence-backed single-agent review found and resolved budget,
+hosted portability, Windows path-normalization, and startup-threshold defects; it has no unresolved
+Standards or Spec finding. Exact commands, platform hashes, severity-ranked repairs, and residual claims are
+recorded in [`docs/evidence/r2-exit-closure/review.md`](../evidence/r2-exit-closure/review.md).
+
+Slice 8 acceptance remains incomplete at its explicit external-credential stop condition. The earlier
+authorized real DeepSeek repository run remains supporting Slice 6 evidence but predates this exact
+candidate. Its temporary host credential is no longer available, so final-candidate readiness and matching
+were not rerun and no secret was reconstructed from conversation text. Kimi remains `not-run`; the prior
+proxy/TLS limitation and all unsupported release claims remain explicit.
+
 ## Likely files and boundaries
 
 The exact diff may narrow during RED, but work stays inside these owners:

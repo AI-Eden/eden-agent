@@ -17,7 +17,9 @@ readiness, scoped instruction/context admission, bounded list/read/search/Git-st
 application-local ripgrep archive, and an Eden-owned real model/tool loop with durable attempt recovery.
 A model-produced final answer ends in review as `completed`; it cannot claim verifier-owned `succeeded`.
 The product still does not edit repository files, expose a shell, resume a historical run, or claim R2
-release support.
+release support. Candidate `0c83048` passes the complete local gate and hosted Ubuntu, macOS, and Windows
+archive/process evidence; final R2 acceptance remains pending an exact-candidate DeepSeek matching rerun
+with an owner-provided host credential. The earlier live matching row is not substituted for that evidence.
 
 ## Intended product
 

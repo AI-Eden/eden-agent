@@ -96,3 +96,19 @@ resize, CJK bracketed paste, missing-Git recovery, terminal restoration, and par
 startup p95 was 243.37 ms against the frozen 244 ms threshold, but earlier exact-artifact samples retained
 host-scheduling outliers up to 278.67 ms. Scroll-to-render, Linux desktop terminals, macOS, Windows, and
 IME-specific matching remain `not-run`; this local record does not expand release support.
+
+Slice 8 candidate `0c83048f11df712a38960e07bfb994bac7cdcb97` passed the full local gate and
+[hosted R2 workflow 29746955645](https://github.com/AI-Eden/eden-agent/actions/runs/29746955645).
+Ubuntu x64, macOS arm64, and Windows x64 each passed frozen install, all workspace and named R2 tests,
+typecheck, build, code/Markdown checks, complete four-file archive verification, copied-archive smoke,
+production PTY, and artifact upload. The independent R1 matrix also passed at the same candidate. Linux
+passed functional responsive PTY and the controlled WSL2 performance gates; non-Linux responsive timing,
+desktop-terminal, and IME rows remain `not-run`.
+
+The single-agent diff/spec review resolved budget semantics, hosted portability, Windows native search-path
+normalization, and startup-threshold findings, with no unresolved code or contract finding. Exact platform
+hashes and residual claims are retained in
+[`docs/evidence/r2-exit-closure/review.md`](../evidence/r2-exit-closure/review.md). The prior live DeepSeek
+tool run predates the exact candidate; its temporary host credential was unavailable for final replay, so
+the required exact-candidate provider row and Slice 8 acceptance remain incomplete. Kimi and production TLS
+verification remain `not-run`; none of this evidence expands release support.
