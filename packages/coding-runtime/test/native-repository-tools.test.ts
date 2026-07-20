@@ -297,20 +297,39 @@ describe("native repository semantic tools", () => {
     const root = await mkdtemp(join(tmpdir(), "eden-native-fixed-"));
     await writeFile(join(root, "fixture.txt"), "EDEN_NATIVE_MATCH\n");
     const asset = await pinnedRipgrep();
+    const nativeMatchPath =
+      process.platform === "win32" ? "nested\\fixture.txt" : "nested/fixture.txt";
     process.env.EDEN_SECRET_NATIVE_CANARY = "must-not-cross";
     process.env.GIT_EDITOR = "must-not-cross";
     process.env.GIT_ASKPASS = "must-not-cross";
     try {
       const searchNative = new ScriptedNativeProcess([
         exited("ripgrep 15.0.0\n"),
-        exited('{"type":"summary","data":{}}\n'),
+        exited(
+          `${JSON.stringify({
+            data: {
+              line_number: 1,
+              lines: { text: "EDEN_NATIVE_MATCH\n" },
+              path: { text: nativeMatchPath },
+              submatches: [{ start: 0 }],
+            },
+            type: "match",
+          })}\n`,
+        ),
       ]);
       const search = await RepositoryToolService.open({
         nativeProcess: searchNative,
         ripgrepAsset: asset,
         workspaceRoot: root,
       });
-      assert.equal((await search.execute(searchCall())).productData.status, "succeeded");
+      const searchResult = await search.execute(searchCall());
+      assert.equal(searchResult.productData.status, "succeeded");
+      if (
+        searchResult.productData.status === "succeeded" &&
+        searchResult.productData.name === "search_repository"
+      ) {
+        assert.equal(searchResult.productData.data.matches[0]?.path, "nested/fixture.txt");
+      }
       assert.deepEqual(searchNative.requests[1]?.arguments, [
         "--json",
         "--no-config",

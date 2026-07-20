@@ -85,7 +85,7 @@ function isInside(root: string, candidate: string): boolean {
 }
 
 function portablePath(path: string): string {
-  return path.split(sep).join("/") || ".";
+  return (process.platform === "win32" ? path.replaceAll("\\", "/") : path) || ".";
 }
 
 function sha256(value: string | Uint8Array): string {
@@ -824,7 +824,10 @@ export class RepositoryToolService {
       ) {
         throw toolError("native_output_invalid", "ripgrep returned an invalid match record.");
       }
-      const path = data.path.text.startsWith("./") ? data.path.text.slice(2) : data.path.text;
+      const portableMatchPath = portablePath(data.path.text);
+      const path = portableMatchPath.startsWith("./")
+        ? portableMatchPath.slice(2)
+        : portableMatchPath;
       for (const submatch of data.submatches) {
         if (
           typeof submatch !== "object" ||
