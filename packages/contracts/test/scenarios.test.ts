@@ -117,6 +117,13 @@ describe("deterministic product view scenarios", () => {
           terminalOutcome: { evidenceRef: "evidence-mismatch", state: "succeeded" },
         },
       },
+      {
+        ...inspection,
+        view: {
+          ...inspection.view,
+          budget: { total: 16, unit: "actions", used: 17 },
+        },
+      },
       { ...inspection, providerPayload: { token: "SECRET_CANARY" } },
     ];
 

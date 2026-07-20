@@ -7,7 +7,7 @@ import { loadApplicationAssets } from "@eden/coding-runtime/application-assets";
 
 import { helpText, parseArgs } from "./args.ts";
 
-const parsed = parseArgs(process.argv.slice(2));
+const parsed = await parseArgs(process.argv.slice(2));
 
 if (!parsed.ok) {
   process.stderr.write(`${JSON.stringify(parsed.error)}\n`);

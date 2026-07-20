@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { parseArgs } from "../src/args.ts";
 
-test("headless arguments preserve separate workspace trust and action approval", () => {
+test("headless arguments preserve separate workspace trust and action approval", async () => {
   const argv = [
     "exec",
     "--json",
@@ -12,7 +12,7 @@ test("headless arguments preserve separate workspace trust and action approval",
     "Index the fake workspace",
   ];
 
-  const result = parseArgs(argv);
+  const result = await parseArgs(argv);
 
   deepStrictEqual(result, {
     ok: true,
@@ -25,10 +25,10 @@ test("headless arguments preserve separate workspace trust and action approval",
   });
 });
 
-test("unknown and empty arguments fail with stable product errors", () => {
-  const unknown = parseArgs(["exec", "--json", "--wat", "task"]);
-  const empty = parseArgs(["exec", "--json", ""]);
-  const duplicateTrust = parseArgs([
+test("unknown and empty arguments fail with stable product errors", async () => {
+  const unknown = await parseArgs(["exec", "--json", "--wat", "task"]);
+  const empty = await parseArgs(["exec", "--json", ""]);
+  const duplicateTrust = await parseArgs([
     "exec",
     "--json",
     "--trust-workspace",
@@ -43,12 +43,12 @@ test("unknown and empty arguments fail with stable product errors", () => {
   if (!empty.ok) strictEqual(empty.error.code, "invalid_arguments");
 });
 
-test("run list and show require exact JSON-only grammar", () => {
-  deepStrictEqual(parseArgs(["run", "list", "--json"]), {
+test("run list and show require exact JSON-only grammar", async () => {
+  deepStrictEqual(await parseArgs(["run", "list", "--json"]), {
     ok: true,
     value: { mode: "run-list" },
   });
-  deepStrictEqual(parseArgs(["run", "show", "--json", "run-1"]), {
+  deepStrictEqual(await parseArgs(["run", "show", "--json", "run-1"]), {
     ok: true,
     value: { mode: "run-show", runId: "run-1" },
   });
@@ -62,17 +62,17 @@ test("run list and show require exact JSON-only grammar", () => {
     ["run", "show", "--json", "run-1", "extra"],
     ["run", "show", "--json", "--json", "run-1"],
   ];
-  for (const argv of invalid) strictEqual(parseArgs(argv).ok, false);
+  for (const argv of invalid) strictEqual((await parseArgs(argv)).ok, false);
 });
 
-test("profile list and check require exact JSON-only grammar", () => {
-  deepStrictEqual(parseArgs(["profile", "list", "--json"]), {
+test("profile list and check require exact JSON-only grammar", async () => {
+  deepStrictEqual(await parseArgs(["profile", "list", "--json"]), {
     ok: true,
     value: { mode: "profile-list" },
   });
-  deepStrictEqual(parseArgs(["profile", "check", "--json"]), {
+  deepStrictEqual(await parseArgs(["profile", "check", "--json"]), {
     ok: true,
     value: { mode: "profile-check" },
   });
-  strictEqual(parseArgs(["profile", "list"]).ok, false);
+  strictEqual((await parseArgs(["profile", "list"])).ok, false);
 });

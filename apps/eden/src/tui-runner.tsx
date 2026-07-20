@@ -1,6 +1,6 @@
-import {
+import type {
   InProcessAgentClient,
-  type InProcessAgentClientOptions,
+  InProcessAgentClientOptions,
 } from "@eden/coding-runtime/agent-client";
 import type { WorkspaceReview } from "@eden/contracts";
 
@@ -34,22 +34,24 @@ export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
     }
   };
   try {
-    const clientReviewPromise = Promise.resolve(environment.repositoryTools).then(
-      async (repositoryTools) => {
-        const openedClient = await InProcessAgentClient.open({
-          cwd: environment.cwd,
-          ...(repositoryTools === undefined ? {} : { repositoryTools }),
-          realProviderRuns: "when-configured",
-          stateDirectory: environment.stateDirectory,
-        });
-        client = openedClient;
-        const result = {
-          client: openedClient,
-          review: await openedClient.getWorkspaceReview(),
-        };
-        return result;
-      },
-    );
+    const clientModulePromise = import("@eden/coding-runtime/agent-client");
+    const clientReviewPromise = Promise.all([
+      clientModulePromise,
+      Promise.resolve(environment.repositoryTools),
+    ]).then(async ([{ InProcessAgentClient }, repositoryTools]) => {
+      const openedClient = await InProcessAgentClient.open({
+        cwd: environment.cwd,
+        ...(repositoryTools === undefined ? {} : { repositoryTools }),
+        realProviderRuns: "when-configured",
+        stateDirectory: environment.stateDirectory,
+      });
+      client = openedClient;
+      const result = {
+        client: openedClient,
+        review: await openedClient.getWorkspaceReview(),
+      };
+      return result;
+    });
     const corePromise = import("@opentui/core");
     const rendererPromise = corePromise.then(({ createCliRenderer }) =>
       createCliRenderer({

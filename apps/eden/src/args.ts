@@ -1,4 +1,4 @@
-import { decodeRunId, type ProductError, type RunId } from "@eden/contracts";
+import type { ProductError, RunId } from "@eden/contracts";
 
 export type CliArguments =
   | { readonly mode: "help" }
@@ -44,7 +44,7 @@ function invalid(message: string): CliArgumentsResult {
   };
 }
 
-export function parseArgs(argv: readonly string[]): CliArgumentsResult {
+export async function parseArgs(argv: readonly string[]): Promise<CliArgumentsResult> {
   if (argv.length === 0) return { ok: true, value: { mode: "tui" } };
   if (argv.length === 1 && argv[0] === "--help") return { ok: true, value: { mode: "help" } };
   if (argv.length === 3 && argv[0] === "profile" && argv[2] === "--json") {
@@ -55,6 +55,7 @@ export function parseArgs(argv: readonly string[]): CliArgumentsResult {
     return { ok: true, value: { mode: "run-list" } };
   }
   if (argv.length === 4 && argv[0] === "run" && argv[1] === "show" && argv[2] === "--json") {
+    const { decodeRunId } = await import("@eden/contracts");
     const runId = decodeRunId(argv[3]);
     return runId.ok
       ? { ok: true, value: { mode: "run-show", runId: runId.value } }

@@ -218,6 +218,16 @@ describe("product protocol boundary", () => {
       }).ok,
       false,
     );
+    assert.equal(
+      decodeProductEvent({
+        ...validEvents[0],
+        view: {
+          ...validEvents[0].view,
+          budget: { total: 16, unit: "actions", used: 17 },
+        },
+      }).ok,
+      false,
+    );
 
     assert.equal(
       decodeProductEvent({
