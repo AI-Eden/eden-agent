@@ -90,11 +90,13 @@ passed `60x20`, `80x24`, and `100x30`, rapid resize, CJK bracketed paste, missin
 restoration, and the frozen latency gates. Earlier samples exposed cold-start scheduling variance, so the
 passing record is not a cross-platform or variance-free performance claim.
 
-- Slice 8 code candidate `0c83048` and provider-evidence head `abf5f01` pass the complete local gate and
-  hosted Ubuntu/macOS/Windows R1 plus R2 matrices. The reproduced copied archive retained the exact hosted
-  hashes, reached DeepSeek readiness under normal TLS, completed one pinned-ripgrep tool round trip, and
-  returned a sourced `completed` answer at budget 3/16. The single-agent diff/spec review has no unresolved
-  code or contract finding; the retained first matching failure remains visible evidence.
+- Slice 8 code candidate `0c83048`, provider-evidence head `abf5f01`, and final hosted-closure head `c9cf7d9`
+  pass the complete local gate and hosted Ubuntu/macOS/Windows R1 plus R2 matrices. The reproduced copied
+  archive retained the exact hosted hashes, reached DeepSeek readiness under normal TLS, completed one
+  pinned-ripgrep tool round trip, and returned a sourced `completed` answer at budget 3/16. The final closure
+  also retained and repaired two Windows history-driver timeouts without changing product bytes. The
+  single-agent diff/spec review has no unresolved code or contract finding; the retained first provider
+  failure remains visible evidence.
 
 ## Next implementation slice
 

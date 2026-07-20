@@ -5,6 +5,7 @@
 - Fixed point: `978bb78f6b67f8410ad3dbbc688dfe0622f4a987`
 - Reviewed code candidate: `0c83048f11df712a38960e07bfb994bac7cdcb97`
 - Exact provider-evidence head: `abf5f01c154fb1bc10c41bf5c52f92f6a73ca4a3`
+- Final hosted-closure head: `c9cf7d99963cb503672d90107f4ded87e8e56932`
 - Review scope: 102 files, 17,580 insertions, 363 deletions
 - Status: complete; automated, packaged, hosted, terminal, real-provider, and diff/spec evidence green
 
@@ -82,6 +83,20 @@ The closed readiness, state, journal, stdout, and stderr surfaces retained zero 
 config, journal, event, diagnostic, evidence text, or command argument. Kimi remains `not-run` because the
 owner has no subscription credential, so no Kimi or release-support claim is made.
 
+The first documentation-only closure head `0c2fea1` exposed a final hosted reliability defect without
+changing the packaged application bytes. Its Windows R1 production-PTY history driver timed out waiting for
+`History task 27`; a failed-job rerun repeated the same class at `History task 28`. Standalone smoke passed
+both times, and the R2 matrix passed all three platforms. The retained failures showed that the evidence
+driver could resend an already accepted arrow before a delayed Windows redraw, skipping the intended row.
+
+Commit `c9cf7d9` split bounded focus cycling from acknowledged single-step history navigation. Three driver
+self-tests cover delayed redraw, pre-input terminal settling, and retry only when an input produces no
+terminal activity. The full packaged production-PTY journey then passed locally with the unchanged
+application hash. Hosted R1 workflow
+[29778816952](https://github.com/AI-Eden/eden-agent/actions/runs/29778816952) and R2 workflow
+[29778816881](https://github.com/AI-Eden/eden-agent/actions/runs/29778816881) passed the exact fix on Ubuntu,
+macOS, and Windows, including production PTY and artifact upload.
+
 ## Single-agent diff and spec review
 
 The accepted plan requires one evidence-backed single-agent review. The review compared the non-empty diff
@@ -97,6 +112,7 @@ workspace credential file or credential value exists in the review diff.
 | High | Hosted acceptance initially left portability gaps in hook resolution, PTY assertions, evidence modes, and fixture isolation. | Resolve the toolchain through Node, separate functional PTY evidence from controlled WSL timing, and isolate cross-platform fixtures. | resolved in `73b2105`, `e3dba3f`, and `7b85a7a` |
 | High | Real Windows ripgrep returned native separators that violated the closed product path contract. | Normalize Windows search-result paths at the native adapter boundary and retain a platform-native regression. | resolved in `0c83048` |
 | Medium | The exact candidate initially exceeded the frozen 244 ms controlled startup threshold. | Defer rare run-inspection contracts and overlap independent TUI/runtime initialization; retain failed samples and rerun the exact artifact. | resolved in `98ea7fb`; final record passed |
+| Medium | The final documentation-only head repeated accepted Windows history arrows before delayed redraws, skipping the expected row. | Separate focus cycling from quiet-boundary, activity-acknowledged single-step navigation and retain delayed/ignored-input self-tests. | resolved in `c9cf7d9`; exact hosted R1/R2 passed |
 
 No unresolved Standards or Spec finding remains, and every required DeepSeek Slice 8 row is closed. This
 record does not authorize release and does not add writes, general shell, Docker execution, changed-file

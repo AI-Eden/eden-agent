@@ -753,6 +753,16 @@ application-local ripgrep call, cited `packages/coding-runtime/src/tools/index.t
 PTY transcript scan retained zero credential matches. Exact run identities, usage, failure evidence, and
 residual claims are recorded in the review evidence.
 
+The first documentation-only closure head `0c2fea1` then exposed a Windows R1 production-PTY harness defect:
+standalone smoke passed, but history navigation timed out at task 27 and repeated at task 28 on the targeted
+failed-job rerun. The packaged application hash was unchanged, and the R2 matrix remained green. Commit
+`c9cf7d9` repaired only the platform-specific evidence mechanics by separating bounded focus cycling from
+quiet-boundary, activity-acknowledged single-step history navigation. The full local packaged journey passed
+with the same application hash; exact-fix R1 workflow
+[29778816952](https://github.com/AI-Eden/eden-agent/actions/runs/29778816952) and R2 workflow
+[29778816881](https://github.com/AI-Eden/eden-agent/actions/runs/29778816881) passed Ubuntu, macOS, and
+Windows. The two failed observations remain retained rather than hidden by the successful rerun.
+
 Slice 8 and this accepted plan are complete. Kimi remains `not-run` because no subscription credential is
 available, so neither Kimi compatibility nor release support is claimed. The successful exact-head row did
 not require disabled TLS verification; the earlier proxy limitation remains historical evidence only.
