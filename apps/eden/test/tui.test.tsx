@@ -703,7 +703,7 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     await act(async () => fixture.renderer.flush());
     const terminalFrame = fixture.renderer.captureCharFrame();
     const canonicalWorkspace = await realpath(fixture.paths.workspaceDirectory);
-    const compactApprovalFrame = approvalFrame.replaceAll(/\s/gu, "");
+    const compactApprovalFrame = approvalFrame.replaceAll(/[\s│]/gu, "");
 
     expect(approvalFrame).toContain("trust: trusted");
     expect(approvalFrame).toContain("action: Run the deterministic fake");

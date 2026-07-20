@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +25,7 @@ function createFixture() {
     join(directory, "package.json"),
     JSON.stringify({ private: true, packageManager: "pnpm@11.7.0" }),
   );
+  writeFileSync(join(directory, ".gitignore"), "/node_modules/\n/temporary/\n");
   copyFileSync(join(repositoryRoot, "biome.json"), join(directory, "biome.json"));
   symlinkSync(
     join(repositoryRoot, "node_modules"),
@@ -37,7 +38,7 @@ function createFixture() {
   execFileSync("git", ["config", "user.name", "Test User"], { cwd: directory });
   execFileSync("git", ["config", "core.autocrlf", "false"], { cwd: directory });
   writeFileSync(join(directory, "existing.ts"), 'const existing = { value: "clean" };\n');
-  execFileSync("git", ["add", "existing.ts"], { cwd: directory });
+  execFileSync("git", ["add", ".gitignore", "existing.ts"], { cwd: directory });
   execFileSync("git", ["commit", "--quiet", "-m", "fixture"], { cwd: directory });
 
   return directory;
@@ -60,7 +61,7 @@ function runHook(scriptPath, directory, sessionId) {
 
 test("formats only TypeScript files changed after the Codex session starts", () => {
   const directory = createFixture();
-  const sessionId = "session-under-test";
+  const sessionId = `session-${basename(directory)}`;
   const existingPath = join(directory, "existing.ts");
   const addedPath = join(directory, "added.ts");
 
@@ -68,6 +69,13 @@ test("formats only TypeScript files changed after the Codex session starts", () 
     writeFileSync(existingPath, 'const existing={value:"user-dirty"}\n');
     const started = runHook(sessionStartPath, directory, sessionId);
     strictEqual(started.status, 0, started.stderr);
+    const baseline = JSON.parse(
+      readFileSync(
+        join(directory, "temporary", "eden-agent-codex-hooks", `${sessionId}.json`),
+        "utf8",
+      ),
+    );
+    strictEqual(baseline.files.includes("added.ts"), false);
 
     writeFileSync(addedPath, 'const added={value:"agent-change"}\n');
     const stopped = runHook(stopPath, directory, sessionId);
