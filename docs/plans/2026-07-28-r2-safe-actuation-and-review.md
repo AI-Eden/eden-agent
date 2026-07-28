@@ -1,7 +1,7 @@
 # R2 Safe Actuation and Review Plan
 
-- Status: Accepted; local Build implementation and Linux packaged acceptance complete; hosted closure
-  pending publication
+- Status: Accepted; Build and exact-SHA Ubuntu/macOS/Windows hosted implementation-candidate closure
+  complete
 - Date: 2026-07-28
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `1f580babc29ad8e818ac8547a52cd7d25425a358`
@@ -12,10 +12,9 @@
 - Approval coverage after acceptance: all test seams and ordered slices below, unless a stop condition is
   triggered
 
-## Local Build checkpoint
+## Build and hosted closeout
 
-Slices 0-7 and the local portion of Slice 8 are implemented and locally verified in the publication
-candidate. The
+Slices 0-8 are implemented, and the complete local gate is verified in the publication candidate. The
 focused safe-actuation gate passes 26 runtime tests and 13 TUI/focus tests. The complete workspace test,
 typecheck, code check, build, Bun package, and native archive gates also pass.
 
@@ -26,10 +25,26 @@ and non-networked; the archive, Git, filesystem, journal, production read-only i
 The run claims trusted-host policy only, isolation `none`, network `not_requested`, and non-success
 `completed` review.
 
-At authoring time this candidate has no hosted workflow evidence. Ubuntu, macOS, and Windows packaged rows
-therefore remain `not-run` until the published exact SHA passes them; the local evidence file stays
-temporary rather than being misattributed to the unchanged baseline commit. Docker, repository-code checks,
-provider network, general shell, and verifier success also remain explicitly outside the claim.
+Public implementation candidate `3c23446db471eead735a0ac971551c43ecb55759` passed R2 acceptance run
+30382567704 on Ubuntu, macOS, and Windows. Every platform passed frozen install, peer checks, full and
+focused tests, typecheck, build, code and Markdown checks, Bun packaging, native archive validation, the
+six copied-archive safe-actuation scenarios, production PTY evidence, and artifact upload. The code-bearing
+candidate `1ea58c699759c5a8216b8a7831439787e7b110d1` also passed R1 run 30381325856 and terminal
+framework run 30381325878; the later commits changed only the safe-actuation acceptance driver and its
+test.
+
+| Hosted artifact | Artifact ID | GitHub artifact digest |
+| --- | ---: | --- |
+| `r2-acceptance-Linux-X64` | 8697700721 | `sha256:978eab5e2652fd80776dceea68fc5fbaa0acb30a64b7c20925eb3a5849254e61` |
+| `r2-acceptance-macOS-ARM64` | 8697708591 | `sha256:3bfaa17d9740efb28b3ab478ed7deae1c593c1be5719e8f68458c36fced55f13` |
+| `r2-acceptance-Windows-X64` | 8697805419 | `sha256:fb90c1d4c864203f87d4dc61e952887376c93060172f3c6a2b458f1ce460782d` |
+
+The hosted matrix exposed and closed Windows file-mode and native-ripgrep fixture assumptions, one bounded
+OpenTUI stress-timeout phase assumption, Windows shell-independent pnpm invocation, and macOS PTY input
+acknowledgement. The final run kept the security boundary unchanged. Packaged crash-restart remains
+`covered-by-real-runtime-test-not-run-in-packaged-pty`; Docker and repository-code checks remain
+`not-run`. Provider network, general shell, verifier success, release support, signing, and installers also
+remain outside the claim.
 
 ## Goal and user-visible outcome
 
@@ -649,6 +664,7 @@ The owner approved the Explore recommendations, confirmed shared understanding, 
 - the focused `SPEC.md`, architecture, event, threat, product-contract, UX, and future-work updates;
 - this complete test-first plan.
 
-The owner separately authorized Build on 2026-07-28. Approval covers continuous execution through Slice 8
-and its single evidence-backed review. It does not authorize commit, push, release, credentials, network
-use, Docker, or other external publication unless separately granted.
+The owner separately authorized Build on 2026-07-28. On 2026-07-29 the owner separately authorized the
+public-first commit/push, exact-SHA hosted acceptance, and tutorial gitlink publication chain. No
+authorization or evidence was provided for release, credentials, provider network use, Docker, signing,
+installers, or broader external publication.

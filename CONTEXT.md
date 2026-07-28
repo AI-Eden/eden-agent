@@ -10,9 +10,10 @@ accepted plan are complete. This is not R2 release support.
 The next R2 safe-actuation Explore frontier became empty on 2026-07-28 after the owner approved the
 recommended branches and confirmed shared understanding. The owner then accepted the complete Freeze
 packet, ADR 0015, ADR 0016, and the test-first plan and separately authorized Build on 2026-07-28.
-The local Build implementation and Linux packaged acceptance are complete in the publication candidate.
-Hosted Ubuntu, macOS, and Windows closure remains pending publication and must not be inferred from local
-evidence.
+The accepted safe-actuation Build and its hosted implementation-candidate closure are complete. Exact
+public candidate `3c23446db471eead735a0ac971551c43ecb55759` passed the Ubuntu, macOS, and Windows R2
+matrix in run 30382567704. This closes the accepted safe-actuation packet, not all of R2 and not release
+support.
 
 ## Current truth
 
@@ -105,18 +106,28 @@ passing record is not a cross-platform or variance-free performance claim.
 
 ## Current implementation slice
 
-The accepted `docs/plans/2026-07-28-r2-safe-actuation-and-review.md` is implemented locally through the
-Linux packaged portion of Slice 8. One trusted-host, policy-contained, digest-approved, modify-only
-AnchorEdit path now reaches attributed review and the fixed `git diff --check` template. Durable approval
-consumption, dispatch ordering, base/desired/other recovery, denial narrowing, complete-or-blocked patches,
-HEAD drift, and equivalent AgentClient/TUI/headless projections are covered by focused and full tests.
+The accepted `docs/plans/2026-07-28-r2-safe-actuation-and-review.md` is implemented through its bounded
+Slice 8 closure. One trusted-host, policy-contained, digest-approved, modify-only AnchorEdit path now
+reaches attributed review and the fixed `git diff --check` template. Durable approval consumption,
+dispatch ordering, base/desired/other recovery, denial narrowing, complete-or-blocked patches, HEAD drift,
+and equivalent AgentClient/TUI/headless projections are covered by focused and full tests.
 
-The copied archive passes approval, denial/narrower reproposal, stale concurrent bytes, pre-existing dirty
-work, check failure, and narrow review in temporary real Git repositories without provider network access.
-The slice ends in non-success `completed` review. General shell, repository code execution, Docker
-execution, create/delete/rename, repair loops, and verifier-owned success remain outside this Freeze packet.
-The next closure step is publication followed by the exact-SHA Ubuntu/macOS/Windows hosted matrix; no
-hosted or release-support claim exists before that evidence.
+R2 run 30382567704 at `3c23446db471eead735a0ac971551c43ecb55759` passed frozen install, peers,
+full and focused tests, typecheck, build, code and Markdown checks, Bun packaging, native archive checks,
+copied-archive safe-actuation evidence, production PTY evidence, and artifact upload on Ubuntu, macOS, and
+Windows. The copied archive covers approval, denial/narrower reproposal, stale concurrent bytes,
+pre-existing dirty work, check failure, and narrow review in temporary real Git repositories without
+provider network access. The three artifacts are `r2-acceptance-Linux-X64` (ID 8697700721, digest
+`sha256:978eab5e2652fd80776dceea68fc5fbaa0acb30a64b7c20925eb3a5849254e61`),
+`r2-acceptance-macOS-ARM64` (ID 8697708591, digest
+`sha256:3bfaa17d9740efb28b3ab478ed7deae1c593c1be5719e8f68458c36fced55f13`), and
+`r2-acceptance-Windows-X64` (ID 8697805419, digest
+`sha256:fb90c1d4c864203f87d4dc61e952887376c93060172f3c6a2b458f1ce460782d`).
+
+The slice ends in non-success `completed` review. Packaged crash-restart remains explicitly
+`covered-by-real-runtime-test-not-run-in-packaged-pty`; Docker and repository-code checks remain
+`not-run`. General shell, repository code execution, Docker execution, create/delete/rename, repair loops,
+verifier-owned success, release support, signing, and installers remain outside this Freeze packet.
 
 ## Known open questions
 
