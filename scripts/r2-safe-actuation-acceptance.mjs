@@ -27,6 +27,64 @@ function packageManagerInvocation(
   };
 }
 
+function waitForTerminalQuiet(session, quietMs = 250) {
+  return new Promise((resolveWait, reject) => {
+    let quietTimer;
+    const deadline = setTimeout(() => {
+      clearTimeout(quietTimer);
+      subscription.dispose();
+      reject(new Error("Timed out waiting for a stable safe-actuation input boundary."));
+    }, timeoutMs);
+    const settle = () => {
+      clearTimeout(deadline);
+      subscription.dispose();
+      resolveWait();
+    };
+    const armQuietTimer = () => {
+      clearTimeout(quietTimer);
+      quietTimer = setTimeout(settle, quietMs);
+    };
+    const subscription = session.terminal.onData(armQuietTimer);
+    armQuietTimer();
+  });
+}
+
+function waitForTerminalActivity(session, previousTranscript, activityTimeoutMs = 2_000) {
+  if (session.transcript !== previousTranscript) return Promise.resolve(true);
+  return new Promise((resolveWait) => {
+    const timer = setTimeout(() => {
+      subscription.dispose();
+      resolveWait(false);
+    }, activityTimeoutMs);
+    const subscription = session.terminal.onData(() => {
+      if (session.transcript === previousTranscript) return;
+      clearTimeout(timer);
+      subscription.dispose();
+      resolveWait(true);
+    });
+  });
+}
+
+async function pressAcknowledgedInputUntil(
+  session,
+  input,
+  read,
+  predicate,
+  label,
+  quietMs = 250,
+  activityTimeoutMs = 2_000,
+) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await waitForTerminalQuiet(session, quietMs);
+    const previousTranscript = session.transcript;
+    session.terminal.write(input);
+    if (!(await waitForTerminalActivity(session, previousTranscript, activityTimeoutMs))) continue;
+    await waitFor(read, predicate, label);
+    return;
+  }
+  throw new Error(`Input did not reach ${label}.`);
+}
+
 if (process.argv[2] === "--self-test") {
   const windows = packageManagerInvocation(
     ["--filter", "@eden/cli", "exec", "bun", "--version"],
@@ -44,6 +102,40 @@ if (process.argv[2] === "--self-test") {
   const posix = packageManagerInvocation(["--version"], "linux");
   if (posix.command !== "pnpm" || posix.arguments.join("|") !== "--version") {
     throw new Error("POSIX safe-actuation acceptance unexpectedly changed.");
+  }
+  const listeners = new Set();
+  let transcript = "";
+  let writes = 0;
+  const session = {
+    get transcript() {
+      return transcript;
+    },
+    terminal: {
+      onData(listener) {
+        listeners.add(listener);
+        return { dispose: () => listeners.delete(listener) };
+      },
+      write() {
+        writes += 1;
+        if (writes !== 2) return;
+        setTimeout(() => {
+          transcript = "approval: pending";
+          for (const listener of listeners) listener(transcript);
+        }, 10);
+      },
+    },
+  };
+  await pressAcknowledgedInputUntil(
+    session,
+    "\r",
+    () => transcript,
+    (value) => value.includes("approval: pending"),
+    "self-test approval",
+    10,
+    20,
+  );
+  if (writes !== 2) {
+    throw new Error("Safe-actuation input acknowledgement duplicated or lost an accepted input.");
   }
   process.exit(0);
 }
@@ -245,6 +337,12 @@ async function runScenario(name) {
   const data = terminal.onData((chunk) => {
     transcript = `${transcript}${chunk}`.slice(-2 * 1_048_576);
   });
+  const session = {
+    get transcript() {
+      return transcript;
+    },
+    terminal,
+  };
   const exit = new Promise((resolveExit) =>
     terminal.onExit(({ exitCode }) => resolveExit(exitCode)),
   );
@@ -271,11 +369,23 @@ async function runScenario(name) {
       (value) => value.includes("focus: workspace.composer"),
       `${name} composer focus`,
     );
-    terminal.write("\r");
-    await waitFor(screen, (value) => value.includes("Enter submits"), `${name} task editor`);
-    terminal.write(`\u001B[200~Apply the bounded ${name} edit.\u001B[201~`);
-    terminal.write("\r");
-    await waitFor(screen, (value) => value.includes("approval: pending"), `${name} approval`);
+    await pressAcknowledgedInputUntil(
+      session,
+      "\r",
+      screen,
+      (value) => value.includes("Enter submits"),
+      `${name} task editor`,
+    );
+    const task = `Apply the bounded ${name} edit.`;
+    terminal.write(`\u001B[200~${task}\u001B[201~`);
+    await waitFor(screen, (value) => value.includes(task), `${name} task text`);
+    await pressAcknowledgedInputUntil(
+      session,
+      "\r",
+      screen,
+      (value) => value.includes("approval: pending"),
+      `${name} approval`,
+    );
     observeApproval();
     for (let index = 0; index < 16; index += 1) {
       const compact = compactTerminal(screen());
