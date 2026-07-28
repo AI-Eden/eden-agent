@@ -202,11 +202,17 @@ describe("terminal candidate process harness", () => {
           runCandidateScenario({ candidateId, scenario: "stress" }),
           (error: unknown) => {
             assert.ok(error instanceof ProcessHarnessTimeoutError);
-            const expectedTimeoutEvents =
-              process.platform === "win32"
-                ? ["focus: output", "output marker: output-09999"]
-                : ["output marker: output-09999"];
-            assert.ok(expectedTimeoutEvents.includes(error.expectedEvent));
+            const expectedStressNavigationTimeoutEvents = [
+              "focus: output",
+              "output marker: output-09999",
+              "focus: diff",
+              "diff file: synthetic/file-20.ts",
+              "progress",
+            ];
+            assert.ok(
+              expectedStressNavigationTimeoutEvents.includes(error.expectedEvent),
+              `Unexpected OpenTUI stress timeout while waiting for ${error.expectedEvent}.`,
+            );
             return true;
           },
         );

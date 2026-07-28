@@ -30,12 +30,13 @@ function fixture() {
   execFileSync("git", ["commit", "--quiet", "-m", "base"], { cwd: root });
   writeFileSync(join(root, "tracked.txt"), "user dirty local\nold value\n");
   chmodSync(join(root, "tracked.txt"), 0o640);
-  return { root, stateDirectory };
+  const trackedMode = statSync(join(root, "tracked.txt")).mode & 0o777;
+  return { root, stateDirectory, trackedMode };
 }
 
 describe("modify-only AnchorEdit", () => {
   it("preserves dirty user bytes and mode while replacing one unique anchor", async () => {
-    const { root, stateDirectory } = fixture();
+    const { root, stateDirectory, trackedMode } = fixture();
     try {
       const service = new AnchorEditService({
         workspaceRoot: root,
@@ -55,7 +56,7 @@ describe("modify-only AnchorEdit", () => {
 
       strictEqual(result.state, "completed");
       strictEqual(readFileSync(join(root, "tracked.txt"), "utf8"), "user dirty local\nnew value\n");
-      strictEqual(statSync(join(root, "tracked.txt")).mode & 0o777, 0o640);
+      strictEqual(statSync(join(root, "tracked.txt")).mode & 0o777, trackedMode);
       strictEqual((await service.reconcile(envelope)).state, "completed");
     } finally {
       rmSync(root, { force: true, recursive: true });

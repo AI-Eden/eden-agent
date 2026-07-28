@@ -1,7 +1,15 @@
 import { strict as assert } from "node:assert";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -13,6 +21,7 @@ import {
   type WorkspaceReview,
 } from "@eden/contracts";
 import type { ModelStepDriver, ModelStepObservationV1, ModelStepRequestV1 } from "@eden/providers";
+import { rgPath } from "@vscode/ripgrep";
 
 import { AgentClientError, InProcessAgentClient } from "../src/agent-client.ts";
 
@@ -73,10 +82,10 @@ test("AgentClient exposes exact approval and completed safe-actuation review", a
   const root = mkdtempSync(join(tmpdir(), "eden-safe-client-"));
   const workspace = join(root, "workspace");
   const stateDirectory = join(root, "state");
-  const ripgrep = join(root, "rg-fixture");
+  const ripgrep = join(root, process.platform === "win32" ? "rg.exe" : "rg");
   mkdirSync(workspace, { recursive: true });
-  writeFileSync(ripgrep, "#!/bin/sh\necho 'ripgrep 15.0.0'\n");
-  chmodSync(ripgrep, 0o700);
+  copyFileSync(rgPath, ripgrep);
+  if (process.platform !== "win32") chmodSync(ripgrep, 0o700);
   const ripgrepHash = `sha256:${createHash("sha256").update(readFileSync(ripgrep)).digest("hex")}`;
   execFileSync("git", ["init", "--quiet"], { cwd: workspace });
   execFileSync("git", ["config", "user.email", "test@example.com"], { cwd: workspace });
