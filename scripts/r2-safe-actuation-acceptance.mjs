@@ -3,13 +3,51 @@ import { createHash, randomUUID } from "node:crypto";
 import { chmod, cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, join, resolve, win32 } from "node:path";
 
 import { decodeRunCatalog, decodeRunInspection } from "../packages/contracts/src/index.ts";
 import { validateSafeActuationEvidence } from "./r2-safe-actuation-evidence.mjs";
 import { terminalScreenText } from "./terminal-screen.mjs";
 
 const timeoutMs = 20_000;
+
+function packageManagerInvocation(
+  arguments_,
+  platform = process.platform,
+  pnpmHome = process.env.PNPM_HOME,
+  nodeExecutable = process.execPath,
+) {
+  if (platform !== "win32") return { arguments: arguments_, command: "pnpm" };
+  if (pnpmHome === undefined) {
+    throw new Error("Windows safe-actuation acceptance requires PNPM_HOME.");
+  }
+  return {
+    arguments: [win32.resolve(pnpmHome, "..", "pnpm", "bin", "pnpm.cjs"), ...arguments_],
+    command: nodeExecutable,
+  };
+}
+
+if (process.argv[2] === "--self-test") {
+  const windows = packageManagerInvocation(
+    ["--filter", "@eden/cli", "exec", "bun", "--version"],
+    "win32",
+    "C:\\runner\\setup-pnpm\\node_modules\\.bin",
+    "C:\\nodejs\\node.exe",
+  );
+  if (
+    windows.command !== "C:\\nodejs\\node.exe" ||
+    windows.arguments.join("|") !==
+      "C:\\runner\\setup-pnpm\\node_modules\\pnpm\\bin\\pnpm.cjs|--filter|@eden/cli|exec|bun|--version"
+  ) {
+    throw new Error("Windows safe-actuation acceptance did not use pnpm's JavaScript entrypoint.");
+  }
+  const posix = packageManagerInvocation(["--version"], "linux");
+  if (posix.command !== "pnpm" || posix.arguments.join("|") !== "--version") {
+    throw new Error("POSIX safe-actuation acceptance unexpectedly changed.");
+  }
+  process.exit(0);
+}
+
 const source = resolve(process.argv[2] ?? "apps/eden/dist");
 const outputPath = resolve(
   process.argv[3] ?? "docs/benchmark-results/2026-07-28-r2-safe-actuation-local.json",
@@ -114,11 +152,14 @@ if (process.platform === "linux") {
   buildArguments.push("--define", 'process.env.OPENTUI_LIBC="glibc"');
 }
 buildArguments.push("--outfile", harnessExecutable);
-run(
-  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-  ["--filter", "@eden/cli", "exec", "bun", ...buildArguments],
-  { cwd: resolve(".") },
-);
+const packageManager = packageManagerInvocation([
+  "--filter",
+  "@eden/cli",
+  "exec",
+  "bun",
+  ...buildArguments,
+]);
+run(packageManager.command, packageManager.arguments, { cwd: resolve(".") });
 if (process.platform !== "win32") {
   await chmod(productionExecutable, 0o755);
   await chmod(harnessExecutable, 0o755);
