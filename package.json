@@ -19,6 +19,7 @@
     "test:r2-process": "node --test packages/coding-runtime/test/native-process.test.ts packages/coding-runtime/test/workspace-trust-process.test.ts packages/coding-runtime/test/workspace-trust-matrix-process.test.ts apps/eden/test/headless-process.test.ts",
     "test:r2-provider-fixtures": "pnpm --filter @eden/providers test && node --test packages/coding-runtime/test/provider-agent-client.test.ts packages/coding-runtime/test/provider-model-loop.test.ts packages/coding-runtime/test/provider-readiness.test.ts",
     "test:r2-secret-canaries": "node --test packages/providers/test/openai-compatible.test.ts packages/coding-runtime/test/provider-profile-store.test.ts packages/coding-runtime/test/provider-readiness.test.ts apps/eden/test/run-history.test.ts",
+    "test:r2-safe-actuation": "node --test packages/coding-runtime/test/safe-actuation-policy.test.ts packages/coding-runtime/test/anchor-edit.test.ts packages/coding-runtime/test/git-review.test.ts packages/coding-runtime/test/safe-actuation-recovery.test.ts packages/coding-runtime/test/safe-actuation-provider-loop.test.ts packages/coding-runtime/test/safe-actuation-agent-client.test.ts && pnpm --filter @eden/cli exec bun test test/tui-focus.test.ts test/tui-r2-conversation.test.tsx",
     "test:r2-tui-pty": "node scripts/r2-tui-pty.mjs apps/eden/dist/eden docs/benchmark-results/2026-07-20-r2-tui-linux-x64.json",
     "test": "node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test",
     "typecheck": "pnpm -r typecheck"

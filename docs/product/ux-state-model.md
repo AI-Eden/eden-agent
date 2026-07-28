@@ -31,6 +31,16 @@ completion-ready profile evidence. The conversation is the primary reading surfa
 context admission, model attempts, semantic tools, interruptions, errors, and recovery remain structured
 runtime blocks. Complete final answers do not collapse into progress summaries.
 
+For the safe-actuation slice, awaiting approval prioritizes the exact operation, path, base
+snapshot, digest, policy rule and reason, single-use lifetime, trusted-host/no-isolation mode, and
+approve/deny actions. Resize or focus movement cannot change the active digest. A stale proposal disables
+approval and names the required recovery.
+
+Review keeps two patches visibly separate: **Eden change** is the approved base-to-desired delta, while
+**Current repository** is the complete tracked Git patch observed against `HEAD`. Changed-file rows label
+Eden, pre-existing, or shared attribution. Baseline and current `git diff --check` evidence remain separate,
+and passing copy says the closed check passed rather than claiming verification or success.
+
 ## Responsive terminal layout
 
 - Narrow: one primary column with explicit view switching.
@@ -50,4 +60,6 @@ timeline detail.
 
 ## Recovery
 
-Every denial, error, disconnection, stale edit, and failed check exposes a next action such as retry, revise scope, reconfigure, inspect, or ask the user. A generic error toast is not a recovery design.
+Every denial, error, disconnection, stale edit, and failed check exposes a next action such as inspect,
+revise scope, reconfigure, or ask the user. Safe actuation never offers blind retry after unknown process
+dispatch. A generic error toast is not a recovery design.

@@ -3,7 +3,13 @@ import {
   decodeRepositoryToolResult,
   type ProductView,
 } from "@eden/contracts";
-import type { Action, KernelProductError, RunState, TerminalOutcome } from "@eden/kernel";
+import type {
+  Action,
+  KernelProductError,
+  RunState,
+  SafeActuationAction,
+  TerminalOutcome,
+} from "@eden/kernel";
 
 export class ProjectionError extends Error {
   readonly name = "ProjectionError";
@@ -23,7 +29,25 @@ function actionSummary(action: Action) {
   };
 }
 
+function isSafeAction(action: Action): action is SafeActuationAction {
+  return "safeActuation" in action;
+}
+
 export function approvalPresentation(action: Action) {
+  const authority = isSafeAction(action)
+    ? {
+        baseSnapshots: action.safeActuation.envelope.baseSnapshots.map((snapshot) => ({
+          ...snapshot,
+        })),
+        executionMode: "trusted_host_policy_only" as const,
+        isolation: "none" as const,
+        lifetime: "single_use_proposal_revision" as const,
+        network: "not_requested" as const,
+        policyRuleId: action.safeActuation.policy.ruleId,
+        policyRuleSetRevision: action.safeActuation.policy.ruleSetRevision,
+        proposalRevision: action.safeActuation.envelope.proposalRevision,
+      }
+    : undefined;
   return {
     actionId: action.actionId,
     approvalId: action.approvalId,
@@ -32,6 +56,7 @@ export function approvalPresentation(action: Action) {
     digest: action.digest,
     reason: action.reason,
     scope: action.scope,
+    ...(authority === undefined ? {} : { authority }),
   };
 }
 
@@ -56,15 +81,39 @@ function productOutcome(outcome: TerminalOutcome): ProductView["terminalOutcome"
 export function progress(state: Exclude<RunState, { readonly phase: "idle" }>) {
   switch (state.phase) {
     case "awaiting-approval":
-      return { completed: 1, summary: "Awaiting approval for the fake action.", total: 4 };
+      return {
+        completed: 1,
+        summary:
+          "safeActuation" in state.action
+            ? "Awaiting one exact safe-actuation approval."
+            : "Awaiting approval for the fake action.",
+        total: "safeActuation" in state.action ? 5 : 4,
+      };
     case "executing":
       if ("model" in state) {
         const summary =
           state.stage === "tool-ready" || state.stage === "tool-in-flight"
             ? "Reading bounded repository context for the model."
-            : state.stage === "model-awaiting-attempt"
-              ? "Preparing an explicit provider attempt."
-              : "Generating a repository-grounded answer.";
+            : state.stage === "action-prepare-ready" || state.stage === "action-prepare-in-flight"
+              ? "Capturing and evaluating one closed AnchorEdit proposal."
+              : state.stage === "approval-consume-ready"
+                ? "Durably consuming the exact single-use approval."
+                : state.stage === "safe-action-ready" || state.stage === "safe-action-in-flight"
+                  ? "Applying the approved AnchorEdit."
+                  : state.stage === "eden-patch-ready" ||
+                      state.stage === "eden-patch-in-flight" ||
+                      state.stage === "git-baseline-ready" ||
+                      state.stage === "git-baseline-in-flight" ||
+                      state.stage === "check-baseline-ready" ||
+                      state.stage === "check-baseline-in-flight" ||
+                      state.stage === "git-current-ready" ||
+                      state.stage === "git-current-in-flight" ||
+                      state.stage === "check-current-ready" ||
+                      state.stage === "check-current-in-flight"
+                    ? "Capturing the complete bounded change review."
+                    : state.stage === "model-awaiting-attempt"
+                      ? "Preparing an explicit provider attempt."
+                      : "Generating a repository-grounded answer.";
         return { completed: state.modelStep - 1, summary, total: 4 };
       }
       switch (state.stage) {
@@ -84,6 +133,32 @@ export function progress(state: Exclude<RunState, { readonly phase: "idle" }>) {
         case "action-ready":
         case "action-in-flight":
           return { completed: 2, summary: "Executing the deterministic fake action.", total: 4 };
+        case "approval-consume-ready":
+          return {
+            completed: 2,
+            summary: "Durably consuming the exact single-use approval.",
+            total: 5,
+          };
+        case "safe-action-ready":
+        case "safe-action-in-flight":
+          return { completed: 3, summary: "Applying the approved AnchorEdit.", total: 5 };
+        case "eden-patch-ready":
+        case "eden-patch-in-flight":
+        case "git-baseline-ready":
+        case "git-baseline-in-flight":
+        case "check-baseline-ready":
+        case "check-baseline-in-flight":
+        case "git-current-ready":
+        case "git-current-in-flight":
+        case "check-current-ready":
+        case "check-current-in-flight":
+          return { completed: 4, summary: "Preparing the complete change review.", total: 5 };
+        case "safe-reproposal-ready":
+          return {
+            completed: 1,
+            summary: "The denied action may receive one narrower proposal.",
+            total: 5,
+          };
         case "verification-ready":
         case "verification-in-flight":
           return { completed: 3, summary: "Verifying the deterministic fake result.", total: 4 };
@@ -134,6 +209,121 @@ function checks(outcome: ProductView["terminalOutcome"]): ProductView["checks"] 
         outcome === null ? "Fake verification is pending." : "Fake verification did not pass.",
     },
   ];
+}
+
+function safeChecks(state: Exclude<RunState, { readonly phase: "idle" }>): ProductView["checks"] {
+  if (state.safeReview === undefined) return [];
+  const result: ProductView["checks"][number][] = [];
+  for (const [phase, check] of [
+    ["baseline", state.safeReview.baselineCheck],
+    ["current", state.safeReview.currentCheck],
+  ] as const) {
+    if (check === null) continue;
+    result.push({
+      checkId: check.checkId,
+      name: `Git diff-check (${phase})`,
+      requirement: "required",
+      status:
+        check.status === "passed"
+          ? "passed"
+          : check.status === "failed"
+            ? "failed"
+            : "infrastructure-failed",
+      summary:
+        check.status === "passed"
+          ? "No diff-check diagnostics were observed."
+          : `${check.diagnostics.length} complete diff-check diagnostic(s) observed.`,
+    });
+  }
+  return result;
+}
+
+function safeChangedFiles(
+  state: Exclude<RunState, { readonly phase: "idle" }>,
+): ProductView["changedFiles"] {
+  if (
+    state.safeReview?.baselineGit === null ||
+    state.safeReview?.currentGit === null ||
+    state.safeReview === undefined ||
+    state.action === null ||
+    !isSafeAction(state.action) ||
+    state.action.safeActuation.envelope.operation.type !== "anchor_edit"
+  ) {
+    return [];
+  }
+  const baseline = new Set(
+    state.safeReview.baselineGit.statusEntries
+      .filter((entry) => entry.kind !== "untracked")
+      .map((entry) => entry.path),
+  );
+  const path = state.action.safeActuation.envelope.operation.path;
+  return state.safeReview.currentGit.statusEntries.flatMap((entry) => {
+    if (entry.kind === "untracked") return [];
+    const eden = entry.path === path;
+    return [
+      {
+        attribution: eden ? (baseline.has(entry.path) ? "both" : "eden") : "pre_existing",
+        path: entry.path,
+        status: entry.kind === "copied" ? "renamed" : entry.kind,
+      },
+    ];
+  });
+}
+
+function productReview(
+  state: Exclude<RunState, { readonly phase: "idle" }>,
+): ProductView["review"] {
+  if (
+    state.safeReview === undefined ||
+    state.safeReview.edenPatch === null ||
+    state.safeReview.baselineGit === null ||
+    state.safeReview.baselineCheck === null ||
+    state.safeReview.currentGit === null ||
+    state.safeReview.currentCheck === null ||
+    state.action === null ||
+    !isSafeAction(state.action) ||
+    state.action.safeActuation.approval.state !== "consumed"
+  ) {
+    return undefined;
+  }
+  const baselineDiagnosticIds = new Set(
+    state.safeReview.baselineCheck.diagnostics.map((diagnostic) => diagnostic.diagnosticId),
+  );
+  return {
+    actionDigest: state.action.digest,
+    actionId: state.action.actionId,
+    approval: {
+      approvalId: state.action.approvalId,
+      expectedRevision: state.action.safeActuation.approval.expectedRevision,
+      proposalRevision: state.action.safeActuation.approval.proposalRevision,
+      state: "consumed",
+    },
+    baselineCheck: state.safeReview.baselineCheck,
+    changedFiles: safeChangedFiles(state),
+    currentCheck: state.safeReview.currentCheck,
+    currentTrackedPatch: state.safeReview.currentGit.trackedPatch,
+    edenPatch: state.safeReview.edenPatch,
+    executionMode: "trusted_host_policy_only",
+    head: state.safeReview.currentGit.head,
+    isolation: "none",
+    network: "not_requested",
+    newlyObservedDiagnostics: state.safeReview.currentCheck.diagnostics
+      .filter((diagnostic) => !baselineDiagnosticIds.has(diagnostic.diagnosticId))
+      .map((diagnostic) => diagnostic.diagnosticId),
+    observedAt: state.safeReview.currentGit.observedAt,
+    policy: {
+      decision: "ask",
+      evaluatedAt: state.action.safeActuation.policy.evaluatedAt,
+      reason: state.action.safeActuation.policy.reason,
+      ruleId: state.action.safeActuation.policy.ruleId,
+      ruleSetRevision: state.action.safeActuation.policy.ruleSetRevision,
+    },
+    residualRisk: "Trusted-host policy only; no OS isolation or verifier success is claimed.",
+    statusHash: state.safeReview.currentGit.statusHash,
+    untrackedPaths: state.safeReview.currentGit.statusEntries
+      .filter((entry) => entry.kind === "untracked")
+      .map((entry) => entry.path),
+  };
 }
 
 function productTools(state: Exclude<RunState, { readonly phase: "idle" }>): ProductView["tools"] {
@@ -200,7 +390,7 @@ function providerProjection(state: Exclude<RunState, { readonly phase: "idle" }>
         content: state.terminalOutcome.answer,
         role: "assistant",
         status: "complete",
-        turnId: `assistant-${attempt.attemptId}`,
+        turnId: `assistant-${attempt.attemptId}-outcome`,
       });
     }
   } else if (state.phase === "awaiting-retry" && state.interruption.status === "interrupted") {
@@ -242,25 +432,38 @@ export function projectView(state: RunState): ProductView {
   const terminal = state.phase === "terminal";
   const terminalOutcome = terminal ? productOutcome(state.terminalOutcome) : null;
   const succeeded = terminalOutcome?.state === "succeeded";
+  const safeAction = state.action !== null && isSafeAction(state.action) ? state.action : null;
   const tools = productTools(state);
+  const review = productReview(state);
   return {
     approval: awaitingApproval
       ? {
           ...approvalPresentation(state.action),
-          recoveryAction: "Approve the exact fake action or deny it.",
+          recoveryAction:
+            safeAction === null
+              ? "Approve the exact fake action or deny it."
+              : "Approve this exact digest once, or deny it and request one narrower proposal.",
         }
       : null,
     budget: budget(state),
-    changedFiles: [],
-    checks: checks(terminalOutcome),
+    changedFiles: safeAction === null ? [] : safeChangedFiles(state),
+    checks: safeAction === null ? checks(terminalOutcome) : safeChecks(state),
     currentAction: terminal || state.action === null ? null : actionSummary(state.action),
     nextActions: awaitingApproval
-      ? ["Approve or deny the deterministic fake action."]
+      ? [
+          safeAction === null
+            ? "Approve or deny the deterministic fake action."
+            : "Approve or deny the exact AnchorEdit digest.",
+        ]
       : awaitingRetry
         ? ["Explicitly retry from the last committed conversation turn or cancel the run."]
         : terminal
           ? ["Review the terminal evidence."]
-          : ["Wait for the deterministic fake task to advance."],
+          : safeAction !== null &&
+              state.phase === "executing" &&
+              state.stage === "safe-reproposal-ready"
+            ? ["Submit one narrower proposal or cancel the run."]
+            : ["Wait for the current task to advance."],
     phase: awaitingApproval
       ? "awaiting-approval"
       : awaitingRetry
@@ -270,8 +473,14 @@ export function projectView(state: RunState): ProductView {
           : "executing",
     progress: progress(state),
     protocolVersion: 1,
-    residualRisk: succeeded ? "This run exercised only deterministic fake boundaries." : null,
+    residualRisk:
+      safeAction !== null
+        ? "Trusted-host policy only; no OS isolation or verifier success is claimed."
+        : succeeded
+          ? "This run exercised only deterministic fake boundaries."
+          : null,
     revision: state.revision,
+    ...(review === undefined ? {} : { review }),
     runId: state.runId,
     terminalOutcome,
     ...(tools === undefined ? {} : { tools }),

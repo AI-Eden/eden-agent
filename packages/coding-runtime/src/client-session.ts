@@ -4,9 +4,13 @@ import type { ProductCommand, ProductError, ProductView, RunId } from "@eden/con
 import type { ModelDriver } from "@eden/providers/fake";
 import type { ModelStepDriver, ModelVisibleTextListener } from "@eden/providers/model-step";
 
+import { AnchorEditService } from "./anchor-edit.ts";
 import { FakeToolHost } from "./fake-tool-host.ts";
+import { GitReviewService } from "./git-review.ts";
 import { FileJournal } from "./journal/index.ts";
+import { RunEffectHost } from "./run-effect-host.ts";
 import { type RuntimeClock, RuntimeEngine, type RuntimeIdSource } from "./runtime.ts";
+import { SafeActuationEffectHost } from "./safe-actuation-host.ts";
 import type { RepositoryToolServiceOptions } from "./tools/index.ts";
 
 export type RunSession = {
@@ -84,13 +88,33 @@ export async function openRunSession(
   );
   const engine = await RuntimeEngine.open(
     journal,
-    new FakeToolHost(
-      join(runDirectory, "receipts"),
-      cwd,
-      modelDriver,
-      repositoryToolOptions,
-      modelStepDriver,
-      onVisibleText,
+    new RunEffectHost(
+      new FakeToolHost(
+        join(runDirectory, "receipts"),
+        cwd,
+        modelDriver,
+        repositoryToolOptions,
+        modelStepDriver,
+        onVisibleText,
+      ),
+      new SafeActuationEffectHost(
+        new AnchorEditService({
+          ...(repositoryToolOptions.gitExecutable === undefined
+            ? {}
+            : { gitExecutable: repositoryToolOptions.gitExecutable }),
+          ...(repositoryToolOptions.nativeProcess === undefined
+            ? {}
+            : { nativeProcess: repositoryToolOptions.nativeProcess }),
+          stateDirectory,
+          workspaceRoot: cwd,
+        }),
+        { now: () => clock.now().toISOString() },
+        new GitReviewService({
+          ...repositoryToolOptions,
+          now: () => clock.now().toISOString(),
+          workspaceRoot: cwd,
+        }),
+      ),
     ),
     clock,
     idSource,

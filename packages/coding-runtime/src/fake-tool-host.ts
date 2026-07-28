@@ -188,6 +188,12 @@ async function observationFor(
         type: "repository.tool.completed",
       };
     }
+    case "anchor_edit.execute":
+    case "anchor_edit.prepare":
+    case "review.eden_patch.capture":
+    case "review.git_snapshot.capture":
+    case "review.git_check.capture":
+      throw new Error("AnchorEdit effects require the safe-actuation effect host.");
     case "fake.action.execute":
       return { effectId: effect.effectId, type: "fake.action.completed" };
     case "fake.verification.run":
@@ -219,6 +225,29 @@ function observationMatches(effect: KernelEffect, observation: KernelEvent): boo
         observation.effectId === effect.effectId &&
         observation.result.toolCallId === effect.toolCall.toolCallId &&
         observation.result.name === effect.toolCall.name
+      );
+    case "anchor_edit.execute":
+      return (
+        observation.type === "anchor_edit.completed" && observation.effectId === effect.effectId
+      );
+    case "anchor_edit.prepare":
+      return (
+        observation.type === "safe.action.proposed" && observation.effectId === effect.effectId
+      );
+    case "review.eden_patch.capture":
+      return (
+        observation.type === "review.eden_patch.captured" &&
+        observation.effectId === effect.effectId
+      );
+    case "review.git_snapshot.capture":
+      return (
+        observation.type === "review.git_snapshot.captured" &&
+        observation.effectId === effect.effectId
+      );
+    case "review.git_check.capture":
+      return (
+        observation.type === "review.git_check.completed" &&
+        observation.effectId === effect.effectId
       );
     case "fake.action.execute":
       return (

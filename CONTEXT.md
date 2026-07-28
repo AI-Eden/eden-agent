@@ -3,11 +3,16 @@
 ## Current stage
 
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
-after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The R2 Explore
-decision frontier is empty. The owner approved its public decision brief, ADR 0013, ADR 0014, and first
-executable plan on 2026-07-19. R2 Build started on 2026-07-19, and Slices 0-8 plus the accepted first R2
-plan are complete. This is provider/repository-understanding acceptance, not R2 release support or
-authority to begin a later slice.
+after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The owner
+approved the first R2 provider/repository-understanding Freeze packet on 2026-07-19; Slices 0-8 and that
+accepted plan are complete. This is not R2 release support.
+
+The next R2 safe-actuation Explore frontier became empty on 2026-07-28 after the owner approved the
+recommended branches and confirmed shared understanding. The owner then accepted the complete Freeze
+packet, ADR 0015, ADR 0016, and the test-first plan and separately authorized Build on 2026-07-28.
+The local Build implementation and Linux packaged acceptance are complete in the publication candidate.
+Hosted Ubuntu, macOS, and Windows closure remains pending publication and must not be inferred from local
+evidence.
 
 ## Current truth
 
@@ -98,11 +103,20 @@ passing record is not a cross-platform or variance-free performance claim.
   single-agent diff/spec review has no unresolved code or contract finding; the retained first provider
   failure remains visible evidence.
 
-## Next implementation slice
+## Current implementation slice
 
-No further implementation is authorized by this completed plan. Preserve the exact evidence and return to
-Explore plus an owner checkpoint before selecting another R2 slice or making any release claim. AnchorEdit,
-writes, general shell, Docker execution, changed-file review, checks, and verifier success remain excluded.
+The accepted `docs/plans/2026-07-28-r2-safe-actuation-and-review.md` is implemented locally through the
+Linux packaged portion of Slice 8. One trusted-host, policy-contained, digest-approved, modify-only
+AnchorEdit path now reaches attributed review and the fixed `git diff --check` template. Durable approval
+consumption, dispatch ordering, base/desired/other recovery, denial narrowing, complete-or-blocked patches,
+HEAD drift, and equivalent AgentClient/TUI/headless projections are covered by focused and full tests.
+
+The copied archive passes approval, denial/narrower reproposal, stale concurrent bytes, pre-existing dirty
+work, check failure, and narrow review in temporary real Git repositories without provider network access.
+The slice ends in non-success `completed` review. General shell, repository code execution, Docker
+execution, create/delete/rename, repair loops, and verifier-owned success remain outside this Freeze packet.
+The next closure step is publication followed by the exact-SHA Ubuntu/macOS/Windows hosted matrix; no
+hosted or release-support claim exists before that evidence.
 
 ## Known open questions
 

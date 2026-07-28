@@ -139,7 +139,10 @@ function failureIdentity(call: unknown): {
   }
   const name =
     "name" in call &&
-    (call.name === "read_file" || call.name === "search_repository" || call.name === "git_status")
+    (call.name === "anchor_edit" ||
+      call.name === "read_file" ||
+      call.name === "search_repository" ||
+      call.name === "git_status")
       ? call.name
       : "list_files";
   const toolCallId =
@@ -1093,6 +1096,11 @@ export class RepositoryToolService {
       }
       let result: RepositoryToolResult;
       switch (decoded.value.name) {
+        case "anchor_edit":
+          throw toolError(
+            "action_proposal_not_executable",
+            "AnchorEdit proposals require policy and approval before an effect exists.",
+          );
         case "list_files":
           result = await this.listFiles(decoded.value, signal);
           break;
@@ -1122,6 +1130,9 @@ export class RepositoryToolService {
 
   async execute(call: unknown, signal?: AbortSignal): Promise<ToolResult> {
     const productData = await this.executeProduct(call, signal);
+    if (productData.status === "denied") {
+      throw new Error("The repository tool adapter cannot produce an approval denial.");
+    }
     const modelContent =
       productData.status === "failed"
         ? JSON.stringify({ error: productData.error })

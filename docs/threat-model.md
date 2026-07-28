@@ -67,6 +67,24 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   policy; a directly requested linked scope still fails closed.
 - Resolve an explicitly named credential only at the adapter boundary. Never write its value to workspace
   configuration, prompts, tool environments, journals, product events, diagnostics, or evidence artifacts.
+- Canonicalize every executable action in trusted runtime code and bind policy, display, approval,
+  dispatch, receipt, and observation to the same digest. Consume a single-use approval durably before
+  dispatch and reject changed policy, workspace, snapshot, scope, lifetime, or operation facts.
+- Default safe-actuation policy to deny. Treat runtime-owned Git trackedness, diff, and diff-check shapes as
+  distinct closed actions; never turn the native-process port into model-selected executable, argv, cwd,
+  environment, or shell authority.
+- Permit AnchorEdit only for an existing tracked regular UTF-8 file with a complete base snapshot, unique
+  non-overlapping anchors, checked identity, preserved mode, same-directory replacement, and desired
+  verification. Existing dirty bytes are eligible only when they equal the approved base.
+- Keep Eden attribution separate from current repository truth. Project changed files from runtime
+  observations, show both the approved base-to-desired delta and current tracked Git patch, and never
+  silently truncate an over-budget review value.
+- Harden `git diff` and `git diff --check` against external diff drivers and text conversion, scrub
+  interactive environment behavior, and execute no repository script, hook, test runner, or shell.
+- Reconcile real effects by kind. Exact desired/base content can prove edit completion/not-started; a
+  process that durably started without terminal evidence is unknown and cannot retry automatically.
+- Describe trusted-host policy containment, approval, network mode, and Docker isolation as separate
+  controls. The presence of one must not change the product claim for another.
 
 ## Execution modes
 
@@ -78,7 +96,10 @@ If Eden Studio proceeds, the renderer holds no provider key and no shell or arbi
 
 ## Verification
 
-Security claims require negative tests: digest mismatch, symlink swap, stale edit, protected path, denied network, secret canaries, malicious repository instructions, replay after crash, and renderer-forged events.
+Security claims require negative tests: canonical-byte and digest mismatch, single-use approval replay,
+policy-revision drift, symlink or identity swap, stale or hardlinked edit, ambiguous anchor, protected path,
+external diff/textconv sentinel, post-dispatch unknown process, denied network, secret canaries, malicious
+repository instructions, replay after crash, and renderer-forged events.
 
 R1 detects static corruption, hardlinks, bounded-work violations, observed identity replacement, and
 cooperating Eden races. It does not claim resistance to malicious same-user path substitution, lock

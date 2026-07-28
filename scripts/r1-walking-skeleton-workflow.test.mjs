@@ -202,10 +202,11 @@ test("accepted R1 and frozen R2 status documents remain honest", async () => {
 
   match(context, /R0 and R1 are complete/u);
   match(context, /owner accepted the R1 exit on 2026-07-17/iu);
-  match(context, /owner approved its public decision brief, ADR 0013, ADR 0014/iu);
+  match(context, /approved the first R2 provider\/repository-understanding Freeze packet/iu);
+  match(context, /accepted the complete Freeze[\s\S]*ADR 0015, ADR 0016/iu);
   match(spec, /R1 completed with owner acceptance on 2026-07-17/u);
-  match(spec, /owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014/iu);
-  match(spec, /The contract below is frozen/u);
+  match(spec, /approved the first R2[\s\S]*provider\/repository-understanding packet/iu);
+  match(spec, /accepted the complete Freeze[\s\S]*ADR 0015, ADR 0016/iu);
   strictEqual(spec.includes("Draft for R0"), false);
   match(threatModel, /512/u);
   match(threatModel, /1 MiB/u);

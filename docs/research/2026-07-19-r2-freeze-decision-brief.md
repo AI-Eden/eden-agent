@@ -6,7 +6,8 @@
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
 - Decision source: dependency-ordered owner review completed on 2026-07-19
 - Approved: 2026-07-19
-- Implementation status: not started; the owner requested publication only in this session
+- Implementation status: complete through accepted Slices 0-8 at public commit
+  `1f580babc29ad8e818ac8547a52cd7d25425a358`
 
 ## Decision requested
 
@@ -181,12 +182,7 @@ truncate a complete final answer, or weaken replay guarantees as an implementati
 
 ## Approval and stop conditions
 
-The owner approved this brief, ADR 0013, ADR 0014, and the executable plan on 2026-07-19. The approval makes
-the first R2 slice eligible for Build, but the owner explicitly limited this session to publication. A fresh
-session must revalidate repository state and receive current execution authority before starting Build.
-
-Once Build is authorized, it proceeds continuously through the accepted RED/GREEN/REFACTOR/VERIFY slices.
-Stop only when new
-evidence changes a public contract or architecture decision, a required real-provider/vendor assumption is
-false, the current persistence budgets cannot support the accepted complete-output contract, or authority
-outside this packet is required.
+The owner approved this brief, ADR 0013, ADR 0014, and the executable plan on 2026-07-19. A later session
+separately authorized Build, and the accepted Slices 0-8 are complete. That completion does not authorize a
+later R2 slice, broaden the frozen non-goals above, establish Kimi compatibility, or make a release-support
+claim.

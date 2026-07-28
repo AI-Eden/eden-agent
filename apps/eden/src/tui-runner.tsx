@@ -7,6 +7,7 @@ import type { WorkspaceReview } from "@eden/contracts";
 export type TuiEnvironment = {
   readonly cwd: string;
   readonly onReady?: (() => void) | undefined;
+  readonly openClient?: (options: InProcessAgentClientOptions) => Promise<InProcessAgentClient>;
   readonly repositoryTools?:
     | InProcessAgentClientOptions["repositoryTools"]
     | Promise<InProcessAgentClientOptions["repositoryTools"]>;
@@ -39,7 +40,7 @@ export async function runTui(environment: TuiEnvironment): Promise<0 | 130> {
       clientModulePromise,
       Promise.resolve(environment.repositoryTools),
     ]).then(async ([{ InProcessAgentClient }, repositoryTools]) => {
-      const openedClient = await InProcessAgentClient.open({
+      const openedClient = await (environment.openClient ?? InProcessAgentClient.open)({
         cwd: environment.cwd,
         ...(repositoryTools === undefined ? {} : { repositoryTools }),
         realProviderRuns: "when-configured",

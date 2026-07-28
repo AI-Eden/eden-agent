@@ -1,3 +1,11 @@
+import type {
+  ActionEnvelopeV1,
+  ClosedCheckObservation,
+  GitStatusEntry,
+  PatchObservation,
+  PolicyDecision,
+} from "@eden/contracts";
+
 export type Action = {
   readonly actionId: string;
   readonly approvalId: string;
@@ -6,6 +14,44 @@ export type Action = {
   readonly digest: string;
   readonly reason: string;
   readonly scope: string;
+};
+
+export type SafeActuationAction = Action & {
+  readonly safeActuation: {
+    readonly approval: {
+      readonly actionDigest: string;
+      readonly expectedRevision: number;
+      readonly proposalRevision: number;
+      readonly state: "available" | "consumed";
+    };
+    readonly envelope: ActionEnvelopeV1;
+    readonly parentActionId: string | null;
+    readonly policy: PolicyDecision;
+  };
+};
+
+export type AnchorEditObservation = {
+  readonly baseSha256: string;
+  readonly byteLength: number;
+  readonly desiredSha256: string;
+  readonly path: string;
+  readonly state: "completed";
+};
+
+export type GitReviewSnapshot = {
+  readonly head: string;
+  readonly observedAt: string;
+  readonly statusEntries: readonly GitStatusEntry[];
+  readonly statusHash: string;
+  readonly trackedPatch: PatchObservation;
+};
+
+export type SafeReviewProgress = {
+  readonly baselineCheck: ClosedCheckObservation | null;
+  readonly baselineGit: GitReviewSnapshot | null;
+  readonly currentCheck: ClosedCheckObservation | null;
+  readonly currentGit: GitReviewSnapshot | null;
+  readonly edenPatch: PatchObservation | null;
 };
 
 export type RunWorkspace = {
@@ -50,6 +96,18 @@ export type RepositoryToolCall =
       readonly arguments: object;
       readonly name: "git_status";
       readonly toolCallId: string;
+    }
+  | {
+      readonly arguments: {
+        readonly path: string;
+        readonly replacements: {
+          readonly expectedOccurrences: 1;
+          readonly newText: string;
+          readonly oldText: string;
+        }[];
+      };
+      readonly name: "anchor_edit";
+      readonly toolCallId: string;
     };
 
 export type RepositoryToolResult =
@@ -67,6 +125,15 @@ export type RepositoryToolResult =
       };
       readonly name: "list_files";
       readonly status: "succeeded";
+      readonly toolCallId: string;
+    }
+  | {
+      readonly data: {
+        readonly parentActionId: string;
+        readonly reason: string;
+      };
+      readonly name: "anchor_edit";
+      readonly status: "denied";
       readonly toolCallId: string;
     }
   | {
@@ -131,7 +198,12 @@ export type RepositoryToolResult =
     }
   | {
       readonly error: KernelProductError;
-      readonly name: "git_status" | "list_files" | "read_file" | "search_repository";
+      readonly name:
+        | "anchor_edit"
+        | "git_status"
+        | "list_files"
+        | "read_file"
+        | "search_repository";
       readonly status: "failed";
       readonly toolCallId: string;
     };
@@ -242,6 +314,45 @@ export type KernelEffect =
       readonly runId: string;
       readonly toolCall: RepositoryToolCall;
     }
+  | {
+      readonly type: "anchor_edit.prepare";
+      readonly effectId: string;
+      readonly expectedRevision: number;
+      readonly parentActionId: string | null;
+      readonly proposalRevision: number;
+      readonly runId: string;
+      readonly toolCall: Extract<RepositoryToolCall, { readonly name: "anchor_edit" }>;
+      readonly workspace: RunWorkspace;
+    }
+  | {
+      readonly type: "anchor_edit.execute";
+      readonly effectId: string;
+      readonly envelope: ActionEnvelopeV1;
+      readonly runId: string;
+    }
+  | {
+      readonly type: "review.eden_patch.capture";
+      readonly actionId: string;
+      readonly effectId: string;
+      readonly envelope: ActionEnvelopeV1;
+      readonly runId: string;
+    }
+  | {
+      readonly type: "review.git_snapshot.capture";
+      readonly actionId: string;
+      readonly effectId: string;
+      readonly expectedHead: string | null;
+      readonly phase: "baseline" | "current";
+      readonly runId: string;
+    }
+  | {
+      readonly type: "review.git_check.capture";
+      readonly actionId: string;
+      readonly effectId: string;
+      readonly head: string;
+      readonly phase: "baseline" | "current";
+      readonly runId: string;
+    }
   | { readonly type: "fake.action.execute"; readonly effectId: string; readonly runId: string }
   | { readonly type: "fake.verification.run"; readonly effectId: string; readonly runId: string };
 
@@ -259,7 +370,49 @@ export type KernelEvent =
       readonly approvalId: string;
       readonly decision: "approve" | "deny";
     }
+  | {
+      readonly type: "safe.action.proposed";
+      readonly action: SafeActuationAction;
+      readonly effectId: string;
+    }
+  | {
+      readonly type: "approval.consumed";
+      readonly actionDigest: string;
+      readonly approvalId: string;
+      readonly expectedRevision: number;
+      readonly proposalRevision: number;
+    }
   | { readonly type: "effect.requested"; readonly effect: KernelEffect }
+  | {
+      readonly type: "effect.dispatch.started";
+      readonly effectId: string;
+    }
+  | {
+      readonly type: "anchor_edit.completed";
+      readonly effectId: string;
+      readonly observation: AnchorEditObservation;
+      readonly recovered: boolean;
+    }
+  | {
+      readonly type: "review.eden_patch.captured";
+      readonly actionId: string;
+      readonly effectId: string;
+      readonly patch: PatchObservation;
+    }
+  | {
+      readonly type: "review.git_snapshot.captured";
+      readonly actionId: string;
+      readonly effectId: string;
+      readonly phase: "baseline" | "current";
+      readonly snapshot: GitReviewSnapshot;
+    }
+  | {
+      readonly type: "review.git_check.completed";
+      readonly actionId: string;
+      readonly check: ClosedCheckObservation;
+      readonly effectId: string;
+      readonly phase: "baseline" | "current";
+    }
   | {
       readonly type: "fake.model.completed";
       readonly action: Action;
@@ -316,11 +469,12 @@ type ActiveRunFields = {
   readonly task: string;
   readonly terminalOutcome: null;
   readonly tool: RepositoryToolExchange | null;
+  readonly safeReview?: SafeReviewProgress;
   readonly workspace: RunWorkspace;
 };
 
 export type AwaitingApprovalRunState = ActiveRunFields & {
-  readonly action: Action;
+  readonly action: Action | SafeActuationAction;
   readonly phase: "awaiting-approval";
 };
 
@@ -342,6 +496,27 @@ export type ExecutingRunState = ActiveRunFields &
           | "verification-in-flight";
         readonly inFlightEffect: KernelEffect | null;
       }
+    | {
+        readonly action: SafeActuationAction;
+        readonly dispatchStarted: boolean;
+        readonly phase: "executing";
+        readonly stage:
+          | "approval-consume-ready"
+          | "safe-action-ready"
+          | "safe-action-in-flight"
+          | "eden-patch-ready"
+          | "eden-patch-in-flight"
+          | "git-baseline-ready"
+          | "git-baseline-in-flight"
+          | "check-baseline-ready"
+          | "check-baseline-in-flight"
+          | "git-current-ready"
+          | "git-current-in-flight"
+          | "check-current-ready"
+          | "check-current-in-flight"
+          | "safe-reproposal-ready";
+        readonly inFlightEffect: KernelEffect | null;
+      }
   );
 
 export type TerminalRunState = Omit<ActiveRunFields, "terminalOutcome"> & {
@@ -351,7 +526,7 @@ export type TerminalRunState = Omit<ActiveRunFields, "terminalOutcome"> & {
 };
 
 type ProviderActiveRunFields = {
-  readonly action: null;
+  readonly action: SafeActuationAction | null;
   readonly attempts: readonly ModelAttempt[];
   readonly conversation: readonly ModelConversationItem[];
   readonly context: readonly ModelContextItem[];
@@ -363,6 +538,7 @@ type ProviderActiveRunFields = {
   readonly task: string;
   readonly terminalOutcome: null;
   readonly tool: RepositoryToolExchange | null;
+  readonly safeReview?: SafeReviewProgress;
   readonly tools: readonly RepositoryToolExchange[];
   readonly workspace: RunWorkspace;
 };
@@ -375,7 +551,29 @@ export type ProviderExecutingRunState = ProviderActiveRunFields & {
     | "model-awaiting-attempt"
     | "model-in-flight"
     | "tool-ready"
-    | "tool-in-flight";
+    | "tool-in-flight"
+    | "action-prepare-ready"
+    | "action-prepare-in-flight"
+    | "approval-consume-ready"
+    | "safe-action-ready"
+    | "safe-action-in-flight"
+    | "eden-patch-ready"
+    | "eden-patch-in-flight"
+    | "git-baseline-ready"
+    | "git-baseline-in-flight"
+    | "check-baseline-ready"
+    | "check-baseline-in-flight"
+    | "git-current-ready"
+    | "git-current-in-flight"
+    | "check-current-ready"
+    | "check-current-in-flight";
+  readonly dispatchStarted?: boolean;
+};
+
+export type ProviderAwaitingApprovalRunState = ProviderActiveRunFields & {
+  readonly action: SafeActuationAction;
+  readonly inFlightEffect: null;
+  readonly phase: "awaiting-approval";
 };
 
 export type AwaitingRetryRunState = ProviderActiveRunFields & {
@@ -402,6 +600,7 @@ export type RunState =
   | ExecutingRunState
   | TerminalRunState
   | ProviderExecutingRunState
+  | ProviderAwaitingApprovalRunState
   | AwaitingRetryRunState
   | ProviderTerminalRunState;
 

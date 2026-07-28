@@ -17,9 +17,10 @@ startup or workspace-attach probe. Missing Git produces a visible blocked prereq
 guidance and recheck; Eden does not silently fall back or mutate system packages.
 
 R2 still delivers the `SPEC.md` commitment to policy-controlled command execution. That commitment does
-not require accepting arbitrary model-authored shell text. Closed verification and command templates can
-exercise exact approval, cancellation, receipts, trusted-host policy containment, and Docker isolation
-without granting a general-purpose shell language.
+not require accepting arbitrary model-authored shell text. The accepted first safe-actuation packet uses
+one modify-only AnchorEdit and one hardened `git diff --check` template to exercise canonical action
+digests, policy, approval, cancellation, receipts, trusted-host containment, and action-specific recovery.
+It executes no repository code. Docker remains a separate later R2 exit slice.
 
 ## Deferred product problem
 
@@ -36,8 +37,9 @@ approval as separate controls and describe their guarantees separately.
 
 ## Current guarantees and non-claims
 
-R2 guarantees only the capabilities and fixed command shapes named by its accepted plan. The runtime can
-attribute their requests, approvals, effects, receipts, cancellation, and durable outcomes.
+R2 guarantees only the capabilities and fixed command shapes named by an accepted plan. The accepted
+safe-actuation packet freezes fixed Git diff/check, not a model-authored command; the guarantee changes
+only after implementation evidence passes.
 
 R2 does not claim that:
 

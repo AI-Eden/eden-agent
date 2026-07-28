@@ -8,5 +8,11 @@
     "skipLibCheck": true,
     "types": ["bun", "node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "test/**/*.ts",
+    "test/**/*.tsx",
+    "test-fixtures/**/*.ts"
+  ]
 }

@@ -1,6 +1,14 @@
 export type { InProcessAgentClientOptions } from "./agent-client.ts";
 export { AgentClientError, InProcessAgentClient } from "./agent-client.ts";
 export {
+  AnchorEditError,
+  type AnchorEditObservation,
+  type AnchorEditReconciliation,
+  AnchorEditService,
+  type AnchorEditServiceOptions,
+  type PrepareAnchorEdit,
+} from "./anchor-edit.ts";
+export {
   type ApplicationAssets,
   loadApplicationAssets,
 } from "./application-assets.ts";
@@ -16,6 +24,13 @@ export {
   type PreparedContext,
 } from "./context/index.ts";
 export { FakeToolHost } from "./fake-tool-host.ts";
+export {
+  createEdenPatch,
+  type GitReviewCapture,
+  GitReviewError,
+  GitReviewService,
+  type GitReviewServiceOptions,
+} from "./git-review.ts";
 export type { GoalSpec } from "./goals/index.js";
 export type { JournalPort } from "./journal/index.js";
 export * from "./journal/index.ts";
@@ -26,7 +41,17 @@ export {
   NativeProcessRunner,
 } from "./native-process.ts";
 export type { PlanArtifact } from "./planning/index.js";
-export type { PolicyDecision } from "./policy/index.js";
+export {
+  canonicalActionBytes,
+  consumeSafeApproval,
+  createSafeApproval,
+  evaluateSafeActuationPolicy,
+  isNarrowerAnchorEdit,
+  type SafeApproval,
+  type SafeApprovalConsumption,
+  safeActionDigest,
+  safeActuationRuleSetRevision,
+} from "./policy/index.ts";
 export {
   ProviderProfileStore,
   ProviderProfileStoreError,
@@ -44,6 +69,10 @@ export type {
   RuntimeIdSource,
 } from "./runtime.ts";
 export { createJournalRecord, RuntimeEngine } from "./runtime.ts";
+export {
+  SafeActuationEffectHost,
+  type SafeActuationEffectHostHooks,
+} from "./safe-actuation-host.ts";
 export type { SkillDescriptor } from "./skills/index.js";
 export type { SubagentSpec } from "./subagents/index.js";
 export {

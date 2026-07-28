@@ -13,9 +13,16 @@ workspace revision. It cannot approve an action or grant another capability.
 
 ## Events
 
-The initial event families are session snapshot, phase and progress, approval presentation, change-set update, verification update, artifact publication, and terminal outcome.
+The target event families are session snapshot, phase and progress, approval presentation, change-set
+update, check or verification update, artifact publication, and terminal outcome. The implemented
+provider/repository-understanding protocol currently projects snapshots, progress, approval, tool/model
+activity, verification placeholders, and outcomes; it does not yet implement a real change-set or artifact
+event. A documented target is not evidence that its production schema exists.
 
 Approval events contain the canonical display representation and digest that execution will revalidate. Verification events separate required, optional, skipped, and infrastructure-failed checks.
+
+The accepted safe-actuation extension adds policy evaluation, single-use approval consumption,
+action-observation, change-set, and closed-check facts.
 
 ## Errors
 
@@ -141,6 +148,52 @@ blocks the run; a successful result permits exactly one fake-model continuation 
 runtime-owned approval action. Tool activity does not approve that action and cannot create terminal
 success.
 
+## Safe-actuation activity
+
+`ActionEnvelopeV1` is renderer-neutral and closed. Runtime code supplies canonical operation bytes,
+workspace and cwd, normalized scope, complete base snapshots, policy revision, environment class, network
+mode, execution mode, budgets, and proposal-revision lifetime. The model proposes only the typed operation;
+the renderer can neither supply nor recompute the digest.
+
+Policy activity exposes `allow`, `ask`, or `deny`, rule identity, rule-set revision, reason, and the
+evaluated digest. An approval presentation adds canonical display, digest, single-use lifetime, and exact
+authority truth. Approval resolution retains optimistic product revision. Durable approval consumption
+must precede effect dispatch.
+
+The first writable operation is one AnchorEdit against an existing tracked regular UTF-8 file. Its product
+summary exposes path, complete base and desired hashes and lengths, replacement count, reason, scope, and
+recovery state; it does not expose temporary paths, file descriptors, native argv, or raw diagnostics.
+
+One denial is a durable non-terminal result. A child proposal includes `narrowerThanActionId`; runtime
+accepts it only when the path/edit/capability and every execution budget are no broader. No product command
+can declare itself narrower or consume an earlier approval.
+
+Safe-actuation review contains:
+
+```ts
+type ChangeReview = {
+  head: string;
+  observedAt: string;
+  statusHash: string;
+  edenPatch: CompletePatch;
+  currentTrackedPatch: CompletePatch;
+  changedFiles: readonly ChangedFile[];
+  baselineCheck: ClosedCheckObservation;
+  currentCheck: ClosedCheckObservation;
+  newlyObservedDiagnostics: readonly string[];
+  executionMode: "trusted_host_policy_only";
+  isolation: "none";
+};
+```
+
+`CompletePatch` is complete within its declared limit or replaced by a structured blocker; it has no
+truncated state. Changed-file attribution is `eden`, `pre_existing`, or `both` and derives from runtime
+observations. Untracked paths may appear in status but their contents do not enter
+`currentTrackedPatch`.
+
+The first `ClosedCheckObservation` is only hardened `git diff --check`. A passing value is not verifier
+evidence and cannot create `succeeded`. An edit/check flow reaches non-success `completed` review.
+
 ## Run catalog and inspection
 
 The pre-release protocol v1 adds closed, non-throwing decoders for these renderer-independent values:
@@ -203,14 +256,20 @@ read-only and cannot be submitted back through the inspection path.
 
 `eden exec --json "<task>"` writes one complete `ProductEvent` JSON object per stdout line in cursor order.
 It writes no prose, ANSI sequence, kernel event, journal record, or diagnostic payload to stdout. The final
-successful line is `run.terminal` with verifier evidence. Diagnostics are structured `ProductError` values
-on stderr.
+successful line for a verifier-backed run is `run.terminal` with verifier evidence. A real provider answer
+or safe-actuation flow may instead stop at non-success `completed`, awaiting approval, denied, or
+blocked. Diagnostics are structured `ProductError` values on stderr.
 
 The deterministic fake action requires `--approve-fake-action` in non-interactive use. A fresh workspace
 also requires `--trust-workspace`; a stored exact-root decision may be reused. Workspace trust and action
 approval are separate commands and neither flag implies the other. Missing trust or approval, empty tasks,
 and unknown arguments exit with code 2; runtime failures exit with code 1; verifier-backed success exits
 with code 0.
+
+The safe-actuation slice does not generalize `--approve-fake-action`, add a broad
+`--approve-writes` flag, or add durable resume. Headless output must project the same action, policy,
+denial, review, and check facts, but only an explicit product command carrying the current approval ID,
+digest, and expected revision may resolve approval.
 
 `eden run list --json` writes exactly one `RunCatalog` JSON object and `eden run show --json <run-id>`
 writes exactly one `RunInspection` JSON object. Both write no prose or ANSI sequences. An empty catalog is

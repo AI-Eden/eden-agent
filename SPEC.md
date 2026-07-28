@@ -2,17 +2,14 @@
 
 ## Status
 
-R1 completed with owner acceptance on 2026-07-17 after its exact-SHA evidence matrix and fresh exit review
-passed. The owner approved the R2 first-slice decision brief, ADR 0013, ADR 0014, and executable plan on
-2026-07-19. The contract below is frozen. R2 Build started on 2026-07-19; Slice 0 closed its fixture budgets
-and unchanged-R1 baseline, Slice 1 added host-side profile onboarding without provider traffic, and Slice 2
-closed the explicit readiness boundary with a real DeepSeek V4 Pro matching row, and Slice 3 implemented
-scoped instruction snapshots plus deterministic context admission. Slice 4 added durable bounded
-`list_files`/`read_file` activity through one fake-model tool round trip, Slice 5 completed the closed
-search/Git-status surface, and Slice 6 connected the real multi-step provider/tool loop with durable attempt
-recovery. Changes to trust, terminal states, public product contracts, or non-goals require an ADR and human
-approval. Kimi remains `not-run` without an owner-provided subscription credential, so the product makes no
-Kimi support claim.
+R1 completed with owner acceptance on 2026-07-17. The owner approved the first R2
+provider/repository-understanding packet on 2026-07-19, and its Slices 0-8 are complete. Kimi remains
+`not-run` without an owner-provided subscription credential, so the product makes no Kimi support claim.
+
+On 2026-07-28 the owner confirmed the safe-actuation Explore decisions, accepted the complete Freeze
+packet, ADR 0015, ADR 0016, and `docs/plans/2026-07-28-r2-safe-actuation-and-review.md`, then separately
+authorized Build. Changes to trust, terminal states, public product contracts, or non-goals require an ADR
+and human approval.
 
 ## User story
 
@@ -127,6 +124,45 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   Tool activity and supported reasoning summaries may fold; final answers may not be summarized away.
 - The slice runs closed read-only tools on the trusted host and makes no sandbox or isolation claim. It does
   not add shell, writes, AnchorEdit, Docker execution, verification, or success.
+
+## R2 safe-actuation contract
+
+- The slice adds exactly one write operation: AnchorEdit v1 may modify an existing Git-tracked regular
+  UTF-8 file beneath the captured trusted root. It cannot create, delete, rename, chmod, follow a symlink,
+  accept a hardlink, or write outside the workspace.
+- An AnchorEdit proposal carries a full-file base SHA-256 and one or more unique, non-overlapping text
+  anchors. Every anchor is resolved against the same base snapshot. A changed snapshot, ambiguous anchor,
+  invalid UTF-8 value, changed file identity, or unrepresentable review blocks before replacement.
+- Existing dirty work is normal. Eden never resets, checks out, stages, or requires a clean worktree. An
+  already-dirty tracked file is eligible only when its current bytes exactly match the proposal's base
+  snapshot.
+- Every executable proposal becomes a versioned canonical action envelope before policy evaluation. Its
+  SHA-256 digest covers operation bytes, normalized relative paths and cwd, workspace identity, base
+  snapshots, scope, policy revision, environment class, network mode, isolation mode, timeout/output
+  budgets, and single-use proposal lifetime.
+- Policy returns one closed `allow`, `ask`, or `deny` decision under a versioned rule. The AnchorEdit
+  template is `ask`; the exact Git metadata, diff, and `git diff --check` templates may be `allow`. Default
+  is deny. An approval is valid only for one action digest and proposal revision and is consumed before
+  dispatch.
+- Denial is a durable non-terminal observation. One later proposal may declare the denied action as its
+  parent only when runtime validation proves that it adds no path, capability, environment, network,
+  isolation, timeout, or output authority. A second denial ends that lineage without automatic
+  reproposal.
+- Effect intent is durable before dispatch. Edit recovery is content-derived: desired snapshot means
+  completed, base snapshot means not started, and any other snapshot means stale or unknown and blocks.
+  Process/check recovery is different: after dispatch begins, a missing terminal receipt is unknown and
+  never authorizes automatic retry.
+- Review shows two separate truths: the Eden-attributed delta from the approved base to desired snapshots,
+  and the complete observed Git patch for tracked content against `HEAD` at review capture. Untracked paths
+  remain visible through status but their contents are not incorporated into the patch.
+- The first closed check is only hardened `git diff --check`, captured both before and after the edit so
+  existing and newly observed diagnostics remain distinguishable. It cannot execute repository code,
+  a shell, an external diff driver, or text-conversion command.
+- A completed edit and check enter non-success `completed` review even when the closed check passes. Only
+  later verifier work under ADR 0004 may emit `succeeded`.
+- The runner is trusted-host policy containment, not isolation. Docker remains a separate later R2 exit
+  slice with its own Freeze evidence. No native sandbox, network isolation, or general-shell claim follows
+  from this contract.
 
 ## Persistence and recovery
 

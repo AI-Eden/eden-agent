@@ -544,6 +544,38 @@ export class OpenAICompatibleProvider {
 
 const repositoryToolDefinitions: Readonly<Record<RepositoryToolCall["name"], ChatCompletionTool>> =
   {
+    anchor_edit: {
+      function: {
+        description:
+          "Propose one modify-only edit to an existing tracked UTF-8 file. Eden computes snapshots, policy, digest, approval, execution, and review.",
+        name: "anchor_edit",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            path: { type: "string" },
+            replacements: {
+              items: {
+                additionalProperties: false,
+                properties: {
+                  expectedOccurrences: { const: 1, type: "integer" },
+                  newText: { type: "string" },
+                  oldText: { minLength: 1, type: "string" },
+                },
+                required: ["expectedOccurrences", "newText", "oldText"],
+                type: "object",
+              },
+              maxItems: 16,
+              minItems: 1,
+              type: "array",
+            },
+          },
+          required: ["path", "replacements"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
     git_status: {
       function: {
         description: "Return bounded structured Git status for the trusted repository.",
@@ -618,7 +650,7 @@ function validateModelStepInput(input: ModelStepRequestV1): void {
     input.maxOutputTokens > 8_192 ||
     input.conversation.length === 0 ||
     input.conversation.length > 64 ||
-    input.enabledTools.length > 4 ||
+    input.enabledTools.length > 5 ||
     new Set(input.enabledTools).size !== input.enabledTools.length
   ) {
     throw new Error("invalid model-step input");

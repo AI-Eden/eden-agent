@@ -18,6 +18,7 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
       "test:r2-native-archive",
       "test:r2-process",
       "test:r2-provider-fixtures",
+      "test:r2-safe-actuation",
       "test:r2-secret-canaries",
       "test:r2-tui-pty",
     ].filter((name) => typeof scripts[name] !== "string"),
@@ -32,8 +33,11 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
   match(workflow, /pnpm test:r2-process/u);
   match(workflow, /pnpm test:r2-provider-fixtures/u);
   match(workflow, /pnpm test:r2-secret-canaries/u);
+  match(workflow, /pnpm test:r2-safe-actuation/u);
   match(workflow, /pnpm test:r2-budgets/u);
   match(workflow, /pnpm test:r2-native-archive/u);
+  match(workflow, /scripts\/r2-safe-actuation-acceptance\.mjs/u);
+  match(workflow, /r2-evidence\/safe-actuation\.json \$\{\{ github\.sha \}\}/u);
   match(workflow, /scripts\/smoke-standalone\.mjs/u);
   match(workflow, /scripts\/r1-production-pty\.mjs/u);
   match(

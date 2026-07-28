@@ -27,6 +27,7 @@ test("design tokens keep semantic state and narrow fallbacks deterministic", () 
 const trustedWorkspace: TuiFocusContext = {
   hasProfile: true,
   hasRepositoryReview: true,
+  hasReview: false,
   hasTools: false,
   overlay: null,
   runState: "none",
@@ -103,6 +104,10 @@ test("run and history states expose only actions that can execute", () => {
     "run.cancel",
   ]);
   expect(focusOrder({ ...trustedWorkspace, runState: "terminal" })).toEqual(["run.exit"]);
+  expect(focusOrder({ ...trustedWorkspace, hasReview: true, runState: "terminal" })).toEqual([
+    "run.review",
+    "run.exit",
+  ]);
   expect(focusOrder({ ...trustedWorkspace, surface: "history", runState: "none" })).toEqual([
     "history.list",
     "history.back",
@@ -122,6 +127,12 @@ test("run palette exposes explicit narrow conversation, context, and recovery sw
   expect(entries.map((entry) => entry.commandId)).toContain("show-context");
   expect(entries.map((entry) => entry.commandId)).toContain("show-recovery");
   expect(entries.find((entry) => entry.commandId === "show-recovery")?.enabled).toBe(true);
+  const terminalEntries = paletteEntries({
+    ...trustedWorkspace,
+    hasReview: true,
+    runState: "terminal",
+  });
+  expect(terminalEntries.find((entry) => entry.commandId === "show-recovery")?.enabled).toBe(true);
 });
 
 test("the selected OpenTUI stack delivers navigation and overlay keys to the graph owner", async () => {

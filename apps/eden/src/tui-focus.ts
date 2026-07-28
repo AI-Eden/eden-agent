@@ -17,6 +17,7 @@ export type TuiFocusId =
   | "run.cancel"
   | "run.deny"
   | "run.exit"
+  | "run.review"
   | "run.retry"
   | "run.tools"
   | "workspace.composer"
@@ -53,6 +54,7 @@ export type TuiCommandId =
 export type TuiFocusContext = {
   readonly hasProfile: boolean;
   readonly hasRepositoryReview: boolean;
+  readonly hasReview: boolean;
   readonly hasTools: boolean;
   readonly overlay: TuiOverlay;
   readonly runState: TuiRunState;
@@ -116,7 +118,9 @@ export function focusOrder(context: TuiFocusContext): readonly TuiFocusId[] {
   if (context.overlay === "readiness") return ["overlay.readiness"];
   if (context.surface === "inspection") return ["inspection.back"];
   if (context.surface === "history") return ["history.list", "history.back"];
-  if (context.runState === "terminal") return ["run.exit"];
+  if (context.runState === "terminal") {
+    return context.hasReview ? ["run.review", "run.exit"] : ["run.exit"];
+  }
   if (context.runState === "approval") return ["run.approve", "run.deny", "run.cancel"];
   if (context.runState === "retry") return ["run.retry", "run.cancel"];
   if (context.runState === "active") {
@@ -161,7 +165,27 @@ export function commandForFocus(focus: TuiFocusId | null): TuiCommandId | null {
 
 export function paletteEntries(context: TuiFocusContext): readonly TuiPaletteEntry[] {
   if (context.runState === "terminal") {
-    return [{ commandId: "exit", enabled: true, label: "Exit Eden", shortcut: "q" }];
+    return [
+      {
+        commandId: "show-conversation",
+        enabled: true,
+        label: "Show conversation",
+        shortcut: null,
+      },
+      {
+        commandId: "show-context",
+        enabled: true,
+        label: "Show context and tool evidence",
+        shortcut: null,
+      },
+      {
+        commandId: "show-recovery",
+        enabled: context.hasReview,
+        label: "Show safe-actuation review",
+        shortcut: null,
+      },
+      { commandId: "exit", enabled: true, label: "Exit Eden", shortcut: "q" },
+    ];
   }
   if (context.runState !== "none") {
     return [
@@ -179,7 +203,8 @@ export function paletteEntries(context: TuiFocusContext): readonly TuiPaletteEnt
       },
       {
         commandId: "show-recovery",
-        enabled: context.runState === "approval" || context.runState === "retry",
+        enabled:
+          context.hasReview || context.runState === "approval" || context.runState === "retry",
         label: "Show approval or recovery",
         shortcut: null,
       },

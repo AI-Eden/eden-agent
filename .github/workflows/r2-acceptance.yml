@@ -53,6 +53,7 @@ jobs:
       - run: pnpm test:r2-process
       - run: pnpm test:r2-provider-fixtures
       - run: pnpm test:r2-secret-canaries
+      - run: pnpm test:r2-safe-actuation
       - run: pnpm test:r2-budgets
       - run: pnpm typecheck
       - run: pnpm build
@@ -60,6 +61,8 @@ jobs:
       - run: pnpm markdown:check
       - run: pnpm --filter @eden/cli package:bun
       - run: pnpm test:r2-native-archive
+      - name: Packaged safe-actuation evidence
+        run: node scripts/r2-safe-actuation-acceptance.mjs apps/eden/dist r2-evidence/safe-actuation.json ${{ github.sha }}
       - name: Packaged process evidence
         shell: bash
         run: |

@@ -96,6 +96,28 @@ commit a bounded interrupted snapshot for review but contributes no partial turn
 continuity. Replay folds these records with zero provider or tool calls, while unresolved crash work becomes
 visible `unknown` and requires explicit retry.
 
+The accepted safe-actuation lifecycle adds closed facts for action proposal, policy evaluation, approval
+resolution and consumption, effect request, dispatch start, terminal action observation, reconciliation,
+change-set capture, and check capture. The proposal carries one canonical digest; every later fact
+references that digest and stable action/effect identity. A renderer or provider cannot supply an
+approval-consumed, effect, change-set, check, or terminal fact.
+
+An `ask` decision must be followed by a matching approval and durable consumption before the effect request.
+An `allow` decision may request only its exact envelope. A `deny` decision requests no effect and may admit
+one separately proposed, runtime-proven narrower child. A second denial closes the lineage.
+
+Recovery is effect-specific:
+
+- AnchorEdit compares the target with its approved complete base and desired snapshots. Desired is
+  completed, base is not started, and anything else is stale or unknown.
+- A Git process whose dispatch-start fact exists but whose terminal receipt is missing is unknown. It does
+  not become not started merely because no output was journaled.
+
+Review capture is an observation, not execution authority. The Eden-attributed delta, current tracked Git
+patch, baseline check, current check, and changed-file attribution retain their source identity, capture
+time, and content hashes. Exceeding a complete-value budget appends a visible blocker instead of a partial
+patch. A passing check may lead to non-success `completed` but cannot emit `succeeded`.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

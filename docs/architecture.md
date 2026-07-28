@@ -140,6 +140,44 @@ publishing input readiness, initializes renderer and client work concurrently, a
 before closing the client. Provider implementations and non-selected CLI modes are deferred until needed;
 the existing `AgentClient`, contract, kernel, persistence, and authority boundaries remain unchanged.
 
+## Approved R2 safe-actuation extension
+
+The accepted 2026-07-28 Freeze packet adds one end-to-end write path without moving authority into the model,
+renderer, native-process port, or fake tool host:
+
+```text
+model proposes typed AnchorEdit
+  -> runtime closes ActionEnvelopeV1 and canonical digest
+  -> versioned policy returns allow / ask / deny
+  -> AgentClient resolves one digest-bound approval when asked
+  -> kernel journals approval consumption and stable effect intent
+  -> coding-runtime executes the action-kind adapter
+  -> adapter-specific reconciliation records the observation
+  -> runtime captures Eden delta, current Git patch, and diff-check evidence
+  -> product enters non-success completed review
+```
+
+`contracts` owns the external envelope, policy, approval lifetime, change-set, check, and review shapes.
+`kernel` owns pure proposal, policy/approval facts, stable effect identity, denial lineage, and the
+completed-review transition. `coding-runtime` owns canonical encoding, policy evaluation, full-file
+snapshots, AnchorEdit, fixed Git operations, receipts, reconciliation, and projection. `apps/eden` presents
+those facts and cannot create a digest, widen a decision, or infer a changed file.
+
+The native-process port remains a mechanism. Policy selects authority before the port is called. The
+trusted-host runner exposes only exact runtime-owned Git templates with scrubbed environment and
+`shell: false`; it is not a generic command service and makes no isolation claim.
+
+AnchorEdit and process/check effects have separate receipt and recovery protocols. The edit adapter can
+derive completed or not-started from exact desired or base content. A Git process that durably started but
+lacks a terminal observation is unknown and cannot retry automatically. Pure replay dispatches neither.
+
+The first writable action targets one existing tracked UTF-8 file. Its full base and desired hashes remain
+bound to the action. Review derives Eden attribution from those snapshots and current repository truth
+from a separate hardened Git observation. No clean-worktree precondition or reset enters the architecture.
+
+The owner accepted this extension with its decision brief, ADR 0015, ADR 0016, focused contracts, and
+test-first plan. Docker stays a later independent R2 exit slice.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

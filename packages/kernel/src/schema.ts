@@ -1,3 +1,9 @@
+import {
+  ActionEnvelopeV1Schema,
+  ClosedCheckObservationSchema,
+  PatchObservationSchema,
+  PolicyDecisionSchema,
+} from "@eden/contracts";
 import Type from "typebox";
 import Schema from "typebox/schema";
 
@@ -31,6 +37,29 @@ const ActionSchema = Type.Object(
     digest: boundedText(),
     reason: boundedText(),
     scope: boundedText(),
+  },
+  closed,
+);
+const SafeActuationActionSchema = Type.Object(
+  {
+    ...ActionSchema.properties,
+    safeActuation: Type.Object(
+      {
+        approval: Type.Object(
+          {
+            actionDigest: Type.String({ pattern: "^[a-f0-9]{64}$" }),
+            expectedRevision: Type.Integer({ minimum: 0 }),
+            proposalRevision: Type.Integer({ minimum: 0 }),
+            state: Type.Union([Type.Literal("available"), Type.Literal("consumed")]),
+          },
+          closed,
+        ),
+        envelope: ActionEnvelopeV1Schema,
+        parentActionId: Type.Union([identifier(), Type.Null()]),
+        policy: PolicyDecisionSchema,
+      },
+      closed,
+    ),
   },
   closed,
 );
@@ -132,11 +161,40 @@ const GitStatusToolCallSchema = Type.Object(
   },
   closed,
 );
+const AnchorEditToolCallSchema = Type.Refine(
+  Type.Object(
+    {
+      arguments: Type.Object(
+        {
+          path: RepositoryPathSchema,
+          replacements: Type.Array(
+            Type.Object(
+              {
+                expectedOccurrences: Type.Literal(1),
+                newText: Type.String({ maxLength: 16_384 }),
+                oldText: Type.String({ maxLength: 16_384, minLength: 1 }),
+              },
+              closed,
+            ),
+            { maxItems: 16, minItems: 1 },
+          ),
+        },
+        closed,
+      ),
+      name: Type.Literal("anchor_edit"),
+      toolCallId: identifier(),
+    },
+    closed,
+  ),
+  (call) =>
+    new TextEncoder().encode(JSON.stringify(call.arguments.replacements)).byteLength <= 16_384,
+);
 const RepositoryToolCallSchema = Type.Union([
   ListFilesToolCallSchema,
   ReadFileToolCallSchema,
   SearchRepositoryToolCallSchema,
   GitStatusToolCallSchema,
+  AnchorEditToolCallSchema,
 ]);
 const ListFilesEntrySchema = Type.Union([
   Type.Object(
@@ -297,8 +355,18 @@ const RepositoryToolFailureSchema = Type.Object(
       Type.Literal("read_file"),
       Type.Literal("search_repository"),
       Type.Literal("git_status"),
+      Type.Literal("anchor_edit"),
     ]),
     status: Type.Literal("failed"),
+    toolCallId: identifier(),
+  },
+  closed,
+);
+const AnchorEditDeniedResultSchema = Type.Object(
+  {
+    data: Type.Object({ parentActionId: identifier(), reason: boundedText() }, closed),
+    name: Type.Literal("anchor_edit"),
+    status: Type.Literal("denied"),
     toolCallId: identifier(),
   },
   closed,
@@ -308,6 +376,7 @@ const RepositoryToolResultSchema = Type.Union([
   ReadFileToolSuccessSchema,
   SearchRepositoryToolSuccessSchema,
   GitStatusToolSuccessSchema,
+  AnchorEditDeniedResultSchema,
   RepositoryToolFailureSchema,
 ]);
 
@@ -412,6 +481,70 @@ const RepositoryToolEffectSchema = Type.Object(
   },
   closed,
 );
+const AnchorEditEffectSchema = Type.Object(
+  {
+    effectId: identifier(),
+    envelope: ActionEnvelopeV1Schema,
+    runId: identifier(),
+    type: Type.Literal("anchor_edit.execute"),
+  },
+  closed,
+);
+const EdenPatchCaptureEffectSchema = Type.Object(
+  {
+    actionId: identifier(),
+    effectId: identifier(),
+    envelope: ActionEnvelopeV1Schema,
+    runId: identifier(),
+    type: Type.Literal("review.eden_patch.capture"),
+  },
+  closed,
+);
+const GitSnapshotCaptureEffectSchema = Type.Object(
+  {
+    actionId: identifier(),
+    effectId: identifier(),
+    expectedHead: Type.Union([Type.String({ pattern: "^[a-f0-9]{40,64}$" }), Type.Null()]),
+    phase: Type.Union([Type.Literal("baseline"), Type.Literal("current")]),
+    runId: identifier(),
+    type: Type.Literal("review.git_snapshot.capture"),
+  },
+  closed,
+);
+const GitCheckCaptureEffectSchema = Type.Object(
+  {
+    actionId: identifier(),
+    effectId: identifier(),
+    head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }),
+    phase: Type.Union([Type.Literal("baseline"), Type.Literal("current")]),
+    runId: identifier(),
+    type: Type.Literal("review.git_check.capture"),
+  },
+  closed,
+);
+const GitReviewSnapshotSchema = Type.Object(
+  {
+    head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }),
+    observedAt: Type.String({ format: "date-time" }),
+    statusEntries: Type.Array(GitStatusEntrySchema, { maxItems: 256 }),
+    statusHash: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+    trackedPatch: PatchObservationSchema,
+  },
+  closed,
+);
+const AnchorEditPrepareEffectSchema = Type.Object(
+  {
+    effectId: identifier(),
+    expectedRevision: Type.Integer({ minimum: 0 }),
+    parentActionId: Type.Union([identifier(), Type.Null()]),
+    proposalRevision: Type.Integer({ minimum: 0 }),
+    runId: identifier(),
+    toolCall: AnchorEditToolCallSchema,
+    type: Type.Literal("anchor_edit.prepare"),
+    workspace: RunWorkspaceSchema,
+  },
+  closed,
+);
 const ProviderModelEffectSchema = Type.Object(
   {
     effectId: identifier(),
@@ -432,6 +565,11 @@ export const KernelEffectSchema = Type.Union([
   FakeModelEffectSchema,
   ProviderModelEffectSchema,
   RepositoryToolEffectSchema,
+  AnchorEditPrepareEffectSchema,
+  AnchorEditEffectSchema,
+  EdenPatchCaptureEffectSchema,
+  GitSnapshotCaptureEffectSchema,
+  GitCheckCaptureEffectSchema,
   FakeActionEffectSchema,
   FakeVerificationEffectSchema,
 ]);
@@ -447,6 +585,43 @@ export const KernelEventSchema = Type.Union([
         (value) => new TextEncoder().encode(value.content).byteLength <= 32_768,
       ),
       type: Type.Literal("model.context.committed"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      actionId: identifier(),
+      effectId: identifier(),
+      patch: PatchObservationSchema,
+      type: Type.Literal("review.eden_patch.captured"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      actionId: identifier(),
+      effectId: identifier(),
+      phase: Type.Union([Type.Literal("baseline"), Type.Literal("current")]),
+      snapshot: GitReviewSnapshotSchema,
+      type: Type.Literal("review.git_snapshot.captured"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      actionId: identifier(),
+      check: ClosedCheckObservationSchema,
+      effectId: identifier(),
+      phase: Type.Union([Type.Literal("baseline"), Type.Literal("current")]),
+      type: Type.Literal("review.git_check.completed"),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      action: SafeActuationActionSchema,
+      effectId: identifier(),
+      type: Type.Literal("safe.action.proposed"),
     },
     closed,
   ),
@@ -515,7 +690,36 @@ export const KernelEventSchema = Type.Union([
     },
     closed,
   ),
+  Type.Object(
+    {
+      actionDigest: Type.String({ pattern: "^[a-f0-9]{64}$" }),
+      approvalId: identifier(),
+      expectedRevision: Type.Integer({ minimum: 0 }),
+      proposalRevision: Type.Integer({ minimum: 0 }),
+      type: Type.Literal("approval.consumed"),
+    },
+    closed,
+  ),
   Type.Object({ effect: KernelEffectSchema, type: Type.Literal("effect.requested") }, closed),
+  Type.Object({ effectId: identifier(), type: Type.Literal("effect.dispatch.started") }, closed),
+  Type.Object(
+    {
+      effectId: identifier(),
+      observation: Type.Object(
+        {
+          baseSha256: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+          byteLength: Type.Integer({ maximum: 1_048_576, minimum: 0 }),
+          desiredSha256: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+          path: Type.String({ maxLength: 4_096, minLength: 1 }),
+          state: Type.Literal("completed"),
+        },
+        closed,
+      ),
+      recovered: Type.Boolean(),
+      type: Type.Literal("anchor_edit.completed"),
+    },
+    closed,
+  ),
   Type.Object({ effectId: identifier(), type: Type.Literal("fake.action.completed") }, closed),
   Type.Object(
     {

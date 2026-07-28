@@ -94,6 +94,7 @@ const utf8Text = (maxBytes: number) =>
     (value) => new TextEncoder().encode(value).byteLength <= maxBytes,
   );
 const toolName = Type.Union([
+  Type.Literal("anchor_edit"),
   Type.Literal("list_files"),
   Type.Literal("read_file"),
   Type.Literal("search_repository"),
@@ -131,7 +132,7 @@ export const ModelStepRequestV1Schema = Type.Object(
   {
     attemptId: identifier(),
     conversation: Type.Array(conversationItem, { maxItems: 272, minItems: 1 }),
-    enabledTools: Type.Array(toolName, { maxItems: 4 }),
+    enabledTools: Type.Array(toolName, { maxItems: 5 }),
     maxOutputTokens: Type.Integer({ maximum: 8_192, minimum: 1 }),
     version: Type.Literal(1),
   },

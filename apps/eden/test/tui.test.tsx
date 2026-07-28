@@ -694,6 +694,19 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     await trustWorkspace(fixture);
     await enterTask(fixture);
     const approvalFrame = fixture.renderer.captureCharFrame();
+    let approvalJourney = "";
+    for (let index = 0; index < 8; index += 1) {
+      await act(async () => {
+        fixture.renderer.mockInput.pressArrow("down");
+        await fixture.renderer.flush();
+      });
+      approvalJourney = `${approvalJourney}\n${fixture.renderer.captureCharFrame()}`;
+    }
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("END");
+      await fixture.renderer.flush();
+    });
+    const approvalTail = fixture.renderer.captureCharFrame();
 
     const changed = fixture.views.take();
     await act(async () => {
@@ -703,17 +716,15 @@ test("the real client drives trust, task entry, separate approval, and verifier 
     await act(async () => fixture.renderer.flush());
     const terminalFrame = fixture.renderer.captureCharFrame();
     const canonicalWorkspace = await realpath(fixture.paths.workspaceDirectory);
-    const compactApprovalFrame = approvalFrame.replaceAll(/[\s│]/gu, "");
+    const compactApprovalJourney = approvalJourney.replaceAll(/[\s│]/gu, "");
 
     expect(approvalFrame).toContain("trust: trusted");
     expect(approvalFrame).toContain("action: Run the deterministic fake");
-    expect(compactApprovalFrame).toContain(`cwd:${canonicalWorkspace.slice(0, 48)}`);
+    expect(compactApprovalJourney).toContain(`cwd:${canonicalWorkspace}`);
     if (canonicalWorkspace !== fixture.paths.workspaceDirectory) {
-      expect(compactApprovalFrame).not.toContain(
-        `cwd:${fixture.paths.workspaceDirectory.slice(0, 48)}`,
-      );
+      expect(compactApprovalJourney).not.toContain(`cwd:${fixture.paths.workspaceDirectory}`);
     }
-    expect(approvalFrame).toContain("scope: R1 demo state directory only");
+    expect(approvalTail).toContain("scope: R1 demo state directory only");
     expect(terminalFrame).toContain("evidence: run-1:fake-evidence");
     expect(terminalFrame).toContain("check: passed");
     expect(terminalFrame).toContain("phase: review");
@@ -1411,6 +1422,11 @@ test("the command palette switches narrow run panes without changing approval au
     });
     frame = fixture.renderer.captureCharFrame();
     expect(frame).toContain("view: recovery");
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("END");
+      await fixture.renderer.flush();
+    });
+    frame = fixture.renderer.captureCharFrame();
     expect(frame).toContain("approve: a");
   } finally {
     act(() => fixture.renderer.renderer.destroy());

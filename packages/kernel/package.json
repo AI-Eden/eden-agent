@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@eden/contracts": "workspace:*",
     "typebox": "1.3.6"
   }
 }

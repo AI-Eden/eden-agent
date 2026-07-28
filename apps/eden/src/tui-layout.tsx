@@ -118,6 +118,103 @@ function ToolCard({
   );
 }
 
+function ReviewPatch({
+  label,
+  patch,
+}: {
+  readonly label: string;
+  readonly patch: NonNullable<ProductView["review"]>["edenPatch"];
+}) {
+  return (
+    <box style={{ flexDirection: "column", width: "100%" }}>
+      <text>{label}</text>
+      {patch.state === "complete" ? (
+        <>
+          <text>
+            {patch.byteLength} bytes · {patch.contentHash}
+          </text>
+          <text>{safeTerminalBlock(patch.content)}</text>
+        </>
+      ) : (
+        <text fg={tuiDesignTokens.color.danger}>blocked: {patch.error.message}</text>
+      )}
+    </box>
+  );
+}
+
+function SafeActuationReview({
+  focused,
+  height,
+  review,
+}: {
+  readonly focused: boolean;
+  readonly height: number;
+  readonly review: NonNullable<ProductView["review"]>;
+}) {
+  const newlyObserved = new Set(review.newlyObservedDiagnostics);
+  return (
+    <scrollbox
+      focused={focused}
+      scrollY
+      style={{
+        border: tuiDesignTokens.border.card,
+        flexDirection: "column",
+        height,
+        padding: tuiDesignTokens.spacing.panel,
+        width: "100%",
+      }}
+    >
+      <text>SAFE ACTUATION REVIEW · arrows scroll · Tab exits review</text>
+      <text>digest: {review.actionDigest}</text>
+      <text>
+        policy: {review.policy.ruleId} · {review.policy.ruleSetRevision} · {review.policy.decision}
+      </text>
+      <text>
+        approval: {review.approval.state} · one use · proposal revision{" "}
+        {review.approval.proposalRevision}
+      </text>
+      <text>
+        execution: trusted host · isolation {review.isolation} · network {review.network}
+      </text>
+      <text>
+        HEAD {review.head} · observed {review.observedAt}
+      </text>
+      <text>status hash: {review.statusHash}</text>
+      <text>CHANGED FILES</text>
+      {review.changedFiles.map((file) => (
+        <text key={`${file.path}:${file.status}`}>
+          {file.attribution === "pre_existing" ? "pre-existing" : file.attribution} · {file.status}{" "}
+          · {file.path}
+        </text>
+      ))}
+      {review.untrackedPaths.map((path) => (
+        <text key={path}>untracked · {path}</text>
+      ))}
+      <text>
+        baseline git diff-check: {review.baselineCheck.status} · {review.baselineCheck.contentHash}
+      </text>
+      {review.baselineCheck.diagnostics.map((diagnostic) => (
+        <text key={`baseline:${diagnostic.diagnosticId}`}>
+          baseline · {diagnostic.path}:{diagnostic.line} · {diagnostic.message}
+        </text>
+      ))}
+      <text>
+        current git diff-check: {review.currentCheck.status} · {review.currentCheck.contentHash}
+      </text>
+      {review.currentCheck.diagnostics.map((diagnostic) => (
+        <text key={`current:${diagnostic.diagnosticId}`}>
+          {newlyObserved.has(diagnostic.diagnosticId) ? "new" : "pre-existing"} · {diagnostic.path}:
+          {diagnostic.line} · {diagnostic.message}
+        </text>
+      ))}
+      <ReviewPatch label="EDEN CHANGE" patch={review.edenPatch} />
+      <ReviewPatch label="CURRENT REPOSITORY" patch={review.currentTrackedPatch} />
+      <text>RESIDUAL RISK</text>
+      <text>{review.residualRisk}</text>
+    </scrollbox>
+  );
+}
+
 export type EdenTuiLayoutProps = {
   readonly authorityPending: "restrict" | "trust" | null;
   readonly catalog: RunCatalog | null;
@@ -630,10 +727,13 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                 <box style={{ flexDirection: "column", width: "100%" }}>
                   <text>APPROVAL + RECOVERY</text>
                   {props.view.approval !== null && (
-                    <box
+                    <scrollbox
+                      focused={props.focusId === "run.approve" || props.focusId === "run.deny"}
+                      scrollY
                       style={{
                         border: density.border,
                         flexDirection: "column",
+                        height: Math.max(8, props.height - 22),
                         padding: density.padding,
                         width: "100%",
                       }}
@@ -641,28 +741,36 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                       <text fg={tuiDesignTokens.color.awaiting}>
                         approval: pending · workspace trust is separate
                       </text>
-                      <text>
-                        {fitTerminalLine(
-                          `action: ${props.view.approval.canonicalDisplay}`,
-                          props.width - 4,
-                        )}
-                      </text>
-                      <text>
-                        {fitTerminalLine(`cwd: ${props.view.approval.cwd}`, props.width - 4)}
-                      </text>
-                      {!props.compact && (
-                        <text>
-                          {fitTerminalLine(
-                            `reason: ${props.view.approval.reason}`,
-                            props.width - 4,
-                          )}
-                        </text>
+                      <text>action: {props.view.approval.canonicalDisplay}</text>
+                      <text>cwd: {props.view.approval.cwd}</text>
+                      <text>reason: {props.view.approval.reason}</text>
+                      <text>scope: {props.view.approval.scope}</text>
+                      <text>digest: {props.view.approval.digest}</text>
+                      {props.view.approval.authority !== undefined && (
+                        <>
+                          <text>
+                            policy: {props.view.approval.authority.policyRuleId} ·{" "}
+                            {props.view.approval.authority.policyRuleSetRevision}
+                          </text>
+                          <text>
+                            authority: one use at proposal revision{" "}
+                            {props.view.approval.authority.proposalRevision}
+                          </text>
+                          <text>
+                            execution: trusted host · isolation{" "}
+                            {props.view.approval.authority.isolation} · network{" "}
+                            {props.view.approval.authority.network}
+                          </text>
+                          {props.view.approval.authority.baseSnapshots.map((snapshot) => (
+                            <text key={snapshot.path}>
+                              base: {snapshot.path} · {snapshot.byteLength} bytes ·{" "}
+                              {snapshot.sha256}
+                            </text>
+                          ))}
+                        </>
                       )}
-                      <text>
-                        {fitTerminalLine(`scope: ${props.view.approval.scope}`, props.width - 4)}
-                      </text>
                       <text>approve: a · deny: d</text>
-                    </box>
+                    </scrollbox>
                   )}
                   {props.view.phase === "awaiting-retry" && (
                     <box
@@ -684,9 +792,19 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                       <text>retry from last committed turn: u · cancel: Ctrl+C</text>
                     </box>
                   )}
-                  {props.view.approval === null && props.view.phase !== "awaiting-retry" && (
-                    <text fg={tuiDesignTokens.color.muted}>No approval or recovery is active.</text>
-                  )}
+                  {props.view.approval === null &&
+                    props.view.phase !== "awaiting-retry" &&
+                    (props.view.review === undefined ? (
+                      <text fg={tuiDesignTokens.color.muted}>
+                        No approval or recovery is active.
+                      </text>
+                    ) : (
+                      <SafeActuationReview
+                        focused={props.focusId === "run.review"}
+                        height={Math.max(12, props.height - 24)}
+                        review={props.view.review}
+                      />
+                    ))}
                 </box>
               )}
             </box>

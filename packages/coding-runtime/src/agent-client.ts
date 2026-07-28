@@ -905,7 +905,7 @@ export class InProcessAgentClient implements AgentClient {
                   },
                   {
                     content:
-                      "Enabled tools: list_files, read_file, search_repository, git_status. Tool arguments are closed and repository-relative.",
+                      "Enabled tools: list_files, read_file, search_repository, git_status, and one modify-only anchor_edit proposal. Eden alone computes policy, digest, approval, execution, and review.",
                     contextItemId: "repository-tools-v1",
                     order: 2,
                     priority: "P0",
@@ -1036,7 +1036,7 @@ export class InProcessAgentClient implements AgentClient {
             decoded.value.commandId,
           );
           this.notify();
-          if (decoded.value.decision === "approve") await this.driveEffects(options?.signal);
+          await this.driveEffects(options?.signal);
           break;
         case "run.cancel":
           await session.engine.commit({ type: "run.cancelled" }, decoded.value.commandId);

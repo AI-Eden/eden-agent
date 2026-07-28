@@ -124,14 +124,25 @@ export async function runHeadless(
     }
     if (!options.approveFakeAction) {
       writeEvents(await takeThroughApproval(client.subscribe(runId)), environment);
+      const safeApproval = awaiting.approval?.authority !== undefined;
       writeError(
-        {
-          code: "approval_required",
-          message:
-            "Headless execution requires --approve-fake-action for the displayed fake action.",
-          recoverability: "ask-user",
-          suggestedActions: ["Review the action and rerun with --approve-fake-action."],
-        },
+        safeApproval
+          ? {
+              code: "safe_actuation_approval_required",
+              message:
+                "Headless execution cannot approve a safe-actuation proposal in this release.",
+              recoverability: "ask-user",
+              suggestedActions: [
+                "Review and resolve the exact safe-actuation approval in the interactive TUI.",
+              ],
+            }
+          : {
+              code: "approval_required",
+              message:
+                "Headless execution requires --approve-fake-action for the displayed fake action.",
+              recoverability: "ask-user",
+              suggestedActions: ["Review the action and rerun with --approve-fake-action."],
+            },
         environment,
       );
       return 2;

@@ -150,12 +150,60 @@ export class RuntimeEngine {
   }
 
   async requestNextEffect(): Promise<KernelEffect | null> {
+    if (
+      this.currentState.phase === "executing" &&
+      this.currentState.stage === "approval-consume-ready" &&
+      this.currentState.action !== null &&
+      "safeActuation" in this.currentState.action
+    ) {
+      const approval = this.currentState.action.safeActuation.approval;
+      await this.commit(
+        {
+          actionDigest: approval.actionDigest,
+          approvalId: this.currentState.action.approvalId,
+          expectedRevision: approval.expectedRevision,
+          proposalRevision: approval.proposalRevision,
+          type: "approval.consumed",
+        },
+        this.lastEventId,
+      );
+    }
     const effect = decide(this.currentState)[0];
     if (effect === undefined) {
       return null;
     }
     await this.commit({ effect, type: "effect.requested" }, this.lastEventId);
     return effect;
+  }
+
+  async markDispatchStarted(): Promise<void> {
+    if (
+      this.currentState.phase !== "executing" ||
+      !(
+        (this.currentState.stage === "safe-action-in-flight" &&
+          this.currentState.inFlightEffect?.type === "anchor_edit.execute") ||
+        (this.currentState.stage === "action-prepare-in-flight" &&
+          this.currentState.inFlightEffect?.type === "anchor_edit.prepare") ||
+        (this.currentState.stage === "eden-patch-in-flight" &&
+          this.currentState.inFlightEffect?.type === "review.eden_patch.capture") ||
+        ((this.currentState.stage === "git-baseline-in-flight" ||
+          this.currentState.stage === "git-current-in-flight") &&
+          this.currentState.inFlightEffect?.type === "review.git_snapshot.capture") ||
+        ((this.currentState.stage === "check-baseline-in-flight" ||
+          this.currentState.stage === "check-current-in-flight") &&
+          this.currentState.inFlightEffect?.type === "review.git_check.capture")
+      )
+    ) {
+      throw new Error("No safe-actuation effect is ready for dispatch.");
+    }
+    if (this.currentState.dispatchStarted) return;
+    await this.commit(
+      {
+        effectId: this.currentState.inFlightEffect.effectId,
+        type: "effect.dispatch.started",
+      },
+      this.lastEventId,
+    );
   }
 
   async settleInFlightEffect(signal?: AbortSignal): Promise<void> {
@@ -173,6 +221,38 @@ export class RuntimeEngine {
         await this.commit(reconciled.observation, effect.effectId);
         return;
       case "not-started": {
+        if (
+          (effect.type === "anchor_edit.prepare" ||
+            effect.type === "review.git_snapshot.capture" ||
+            effect.type === "review.git_check.capture") &&
+          this.currentState.phase === "executing" &&
+          "dispatchStarted" in this.currentState &&
+          this.currentState.dispatchStarted === true &&
+          this.currentState.inFlightEffect?.effectId === effect.effectId
+        ) {
+          await this.commit(
+            {
+              error: {
+                code: "effect_outcome_unknown",
+                message: `The outcome of effect ${effect.effectId} could not be established.`,
+                recoverability: "ask-user",
+                suggestedActions: ["Inspect the run evidence before starting a new task."],
+              },
+              type: "run.blocked",
+            },
+            effect.effectId,
+          );
+          return;
+        }
+        if (
+          effect.type === "anchor_edit.execute" ||
+          effect.type === "anchor_edit.prepare" ||
+          effect.type === "review.eden_patch.capture" ||
+          effect.type === "review.git_snapshot.capture" ||
+          effect.type === "review.git_check.capture"
+        ) {
+          await this.markDispatchStarted();
+        }
         const observation = await this.host.execute(effect, signal);
         await this.commit(observation, effect.effectId);
         return;
@@ -274,7 +354,13 @@ export class RuntimeEngine {
               }
             }),
           ],
-          enabledTools: ["list_files", "read_file", "search_repository", "git_status"],
+          enabledTools: [
+            "list_files",
+            "read_file",
+            "search_repository",
+            "git_status",
+            "anchor_edit",
+          ],
           maxOutputTokens: effect.maxOutputTokens,
           version: 1,
         },

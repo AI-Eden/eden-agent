@@ -79,6 +79,18 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         });
         cursor += 1;
         break;
+      case "safe.action.proposed":
+        events.push({
+          ...base,
+          currentAction: view.currentAction,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          phase: view.phase,
+          progress: progress(state),
+          type: "phase.progress",
+        });
+        cursor += 1;
+        break;
       case "fake.model.tool-requested": {
         const activity = view.tools?.at(-1);
         if (activity === undefined) {
@@ -209,6 +221,11 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         cursor += 1;
         break;
       case "effect.requested":
+      case "effect.dispatch.started":
+      case "approval.consumed":
+      case "anchor_edit.completed":
+      case "review.eden_patch.captured":
+      case "review.git_snapshot.captured":
       case "model.context.committed":
       case "fake.action.completed":
         events.push({
@@ -222,6 +239,41 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         });
         cursor += 1;
         break;
+      case "review.git_check.completed":
+        if (state.phase === "awaiting-approval") {
+          events.push({
+            ...base,
+            approval: approvalPresentation(state.action),
+            cursor,
+            eventId: `${record.eventId}:product:0`,
+            type: "approval.presented",
+          });
+          cursor += 1;
+          break;
+        }
+        if (state.phase === "terminal") {
+          if (view.review === undefined) {
+            throw new ProjectionError("A completed safe review requires complete review evidence.");
+          }
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:0`,
+            review: view.review,
+            type: "review.updated",
+          });
+          cursor += 1;
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:1`,
+            outcome: requireTerminal(view),
+            type: "run.terminal",
+          });
+          cursor += 1;
+          break;
+        }
+        throw new ProjectionError("A review check must present approval or terminal review.");
       case "verification.completed": {
         const check = view.checks[0];
         if (check === undefined) {

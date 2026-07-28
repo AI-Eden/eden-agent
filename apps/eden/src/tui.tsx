@@ -457,6 +457,7 @@ function EdenTuiSurface({
     return {
       hasProfile: (profileCatalog?.profiles.length ?? 0) > 0,
       hasRepositoryReview: review?.repository !== undefined,
+      hasReview: view?.review !== undefined,
       hasTools: (view?.tools?.length ?? 0) > 0,
       overlay,
       runState,
@@ -702,8 +703,12 @@ function EdenTuiSurface({
   const activeRunId = view?.runId ?? null;
   useEffect(() => {
     if (activeRunId === null) return;
-    setRunPane(approvalIdentity !== null || awaitingRetry ? "recovery" : "conversation");
-  }, [activeRunId, approvalIdentity, awaitingRetry]);
+    setRunPane(
+      approvalIdentity !== null || awaitingRetry || view?.review !== undefined
+        ? "recovery"
+        : "conversation",
+    );
+  }, [activeRunId, approvalIdentity, awaitingRetry, view?.review]);
 
   const toolIdentity = view?.tools?.map((activity) => activity.call.toolCallId).join("\0") ?? "";
   useEffect(() => {

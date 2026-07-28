@@ -1,6 +1,6 @@
 # R2 Provider Onboarding and Repository Understanding Plan
 
-- Status: Accepted; Build in progress; Slices 0-6 complete
+- Status: Accepted; Build complete; Slices 0-8 complete
 - Date: 2026-07-19
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `326e1c3ca8674b44710089cb8f6c6a64e5154716`
@@ -875,17 +875,12 @@ owner decisions when they preserve the frozen contract.
 - automatic installation of Git or ripgrep;
 - signed installers, upgrades, package-manager publication, or general release support.
 
-## Human approval
+## Human approval and closeout
 
 The owner approved this plan, the decision brief, ADR 0013, ADR 0014, and the `SPEC.md`/`CONTEXT.md`
-changes as one Freeze packet on 2026-07-19. The owner explicitly limited this session to committing and
-publishing the Freeze documents, so Build remains not started. A fresh session must revalidate live state
-and receive current execution authority before implementation begins.
+changes as one Freeze packet on 2026-07-19. A later session separately authorized Build. Slices 0-8 and the
+accepted plan are complete at public commit `1f580babc29ad8e818ac8547a52cd7d25425a358`.
 
-When Build is authorized, approval covers continuous execution through Slice 8 and its automated/single-
-agent Review. It does not authorize release or external publication beyond authority separately granted in
-the active collaboration.
-
-After approval, do not pause between slices merely to repeat the accepted decision. Pause only for a stop
-condition above, missing external credentials required for a claimed matching-surface row, evidence that
-invalidates an architecture or public contract, or a new authority request.
+That closeout proves the bounded provider/repository-understanding scope and its recorded matching
+surfaces. It does not declare the whole R2 roadmap or release support complete. Kimi remains `not-run`, and
+later R2 slices still require a fresh owner-gated Explore, Freeze, and Build authorization.

@@ -4,7 +4,9 @@ import type {
   Action,
   KernelEffect,
   KernelEvent,
+  RepositoryToolResult,
   RunState,
+  SafeActuationAction,
   TerminalOutcome,
   TransitionResult,
 } from "./model.ts";
@@ -22,7 +24,7 @@ function terminal(
 ) {
   if ("model" in state) {
     return {
-      action: null,
+      action: state.action,
       attempts: state.attempts,
       conversation: state.conversation,
       context: state.context,
@@ -37,6 +39,7 @@ function terminal(
       terminalOutcome: outcome,
       tool: state.tool,
       tools: state.tools,
+      ...(state.safeReview === undefined ? {} : { safeReview: state.safeReview }),
       workspace: state.workspace,
     } as const;
   }
@@ -49,6 +52,7 @@ function terminal(
     task: state.task,
     terminalOutcome: outcome,
     tool: state.tool,
+    ...(state.safeReview === undefined ? {} : { safeReview: state.safeReview }),
     workspace: state.workspace,
   } as const;
 }
@@ -89,6 +93,44 @@ function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
   if (effect.type === "repository.tool.execute" && expected.type === "repository.tool.execute") {
     return canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall);
   }
+  if (effect.type === "anchor_edit.execute" && expected.type === "anchor_edit.execute") {
+    return canonicalValue(effect.envelope) === canonicalValue(expected.envelope);
+  }
+  if (effect.type === "anchor_edit.prepare" && expected.type === "anchor_edit.prepare") {
+    return (
+      effect.expectedRevision === expected.expectedRevision &&
+      effect.parentActionId === expected.parentActionId &&
+      effect.proposalRevision === expected.proposalRevision &&
+      canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall) &&
+      canonicalValue(effect.workspace) === canonicalValue(expected.workspace)
+    );
+  }
+  if (
+    effect.type === "review.eden_patch.capture" &&
+    expected.type === "review.eden_patch.capture"
+  ) {
+    return (
+      effect.actionId === expected.actionId &&
+      canonicalValue(effect.envelope) === canonicalValue(expected.envelope)
+    );
+  }
+  if (
+    effect.type === "review.git_snapshot.capture" &&
+    expected.type === "review.git_snapshot.capture"
+  ) {
+    return (
+      effect.actionId === expected.actionId &&
+      effect.expectedHead === expected.expectedHead &&
+      effect.phase === expected.phase
+    );
+  }
+  if (effect.type === "review.git_check.capture" && expected.type === "review.git_check.capture") {
+    return (
+      effect.actionId === expected.actionId &&
+      effect.head === expected.head &&
+      effect.phase === expected.phase
+    );
+  }
   return true;
 }
 
@@ -101,6 +143,34 @@ function actionMatches(left: Action, right: Action): boolean {
     left.digest === right.digest &&
     left.reason === right.reason &&
     left.scope === right.scope
+  );
+}
+
+function isSafeAction(action: Action | null): action is SafeActuationAction {
+  return action !== null && "safeActuation" in action;
+}
+
+function narrowerSafeAction(parent: SafeActuationAction, child: SafeActuationAction): boolean {
+  const left = parent.safeActuation.envelope;
+  const right = child.safeActuation.envelope;
+  if (
+    left.kind !== "anchor_edit" ||
+    right.kind !== "anchor_edit" ||
+    left.operation.type !== "anchor_edit" ||
+    right.operation.type !== "anchor_edit"
+  ) {
+    return false;
+  }
+  return (
+    left.runId === right.runId &&
+    left.workspace.workspaceId === right.workspace.workspaceId &&
+    left.operation.path === right.operation.path &&
+    left.operation.baseByteLength === right.operation.baseByteLength &&
+    left.operation.baseSha256 === right.operation.baseSha256 &&
+    right.operation.replacements.length <= left.operation.replacements.length &&
+    canonicalValue(left.authority) === canonicalValue(right.authority) &&
+    canonicalValue(left.budgets) === canonicalValue(right.budgets) &&
+    canonicalValue(left.scope) === canonicalValue(right.scope)
   );
 }
 
@@ -158,6 +228,102 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       if (state.phase !== "awaiting-approval" || event.approvalId !== state.action.approvalId) {
         return illegal(state, event);
       }
+      if (isSafeAction(state.action)) {
+        const action = state.action;
+        if ("model" in state) {
+          if (event.decision === "deny") {
+            if (state.tool === null || state.tool.call.name !== "anchor_edit") {
+              return illegal(state, event);
+            }
+            const result: RepositoryToolResult = {
+              data: {
+                parentActionId: action.actionId,
+                reason: "The user denied this exact action digest.",
+              },
+              name: "anchor_edit",
+              status: "denied",
+              toolCallId: state.tool.call.toolCallId,
+            };
+            const tool = { call: state.tool.call, result };
+            if (action.safeActuation.parentActionId !== null) {
+              return {
+                ok: true,
+                state: terminal(
+                  {
+                    ...state,
+                    action,
+                    conversation: [...state.conversation, { ...tool, role: "tool" }],
+                    tool,
+                    tools: [...state.tools.slice(0, -1), tool],
+                  },
+                  {
+                    error: {
+                      code: "denial_lineage_exhausted",
+                      message: "This denial lineage already used its one narrower proposal.",
+                      recoverability: "ask-user",
+                      suggestedActions: ["Review the denied actions or start a new task."],
+                    },
+                    state: "blocked",
+                  },
+                ),
+              };
+            }
+            return {
+              ok: true,
+              state: {
+                ...state,
+                action,
+                conversation: [...state.conversation, { ...tool, role: "tool" }],
+                inFlightEffect: null,
+                modelStep: state.modelStep + 1,
+                phase: "executing",
+                revision: state.revision + 1,
+                stage: "model-ready",
+                tool,
+                tools: [...state.tools.slice(0, -1), tool],
+              },
+            };
+          }
+          return {
+            ok: true,
+            state: {
+              ...state,
+              action,
+              dispatchStarted: false,
+              inFlightEffect: null,
+              phase: "executing",
+              revision: state.revision + 1,
+              stage: "approval-consume-ready",
+            },
+          };
+        }
+        if (event.decision === "deny") {
+          return {
+            ok: true,
+            state: {
+              ...state,
+              action,
+              dispatchStarted: false,
+              inFlightEffect: null,
+              phase: "executing",
+              revision: state.revision + 1,
+              stage: "safe-reproposal-ready",
+            },
+          };
+        }
+        return {
+          ok: true,
+          state: {
+            ...state,
+            action,
+            dispatchStarted: false,
+            inFlightEffect: null,
+            phase: "executing",
+            revision: state.revision + 1,
+            stage: "approval-consume-ready",
+          },
+        };
+      }
       if (event.decision === "deny") {
         return {
           ok: true,
@@ -182,6 +348,131 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           stage: "action-ready",
         },
       };
+    case "safe.action.proposed": {
+      const providerProposal =
+        state.phase === "executing" &&
+        "model" in state &&
+        state.stage === "action-prepare-in-flight" &&
+        state.inFlightEffect?.type === "anchor_edit.prepare" &&
+        state.inFlightEffect.effectId === event.effectId;
+      const directProposal =
+        state.phase === "executing" &&
+        !("model" in state) &&
+        (state.stage === "model-ready" ||
+          (state.stage === "safe-reproposal-ready" &&
+            state.action !== null &&
+            isSafeAction(state.action) &&
+            state.action.safeActuation.parentActionId === null));
+      if (state.phase !== "executing" || (!providerProposal && !directProposal)) {
+        return illegal(state, event);
+      }
+      const safe = event.action.safeActuation;
+      const envelope = safe.envelope;
+      const parentAction =
+        "model" in state
+          ? state.action
+          : state.stage === "safe-reproposal-ready"
+            ? state.action
+            : null;
+      const replacingDenied = parentAction !== null;
+      if (
+        envelope.runId !== state.runId ||
+        envelope.workspace.workspaceId !== state.workspace.workspaceId ||
+        event.action.actionId !== envelope.actionId ||
+        event.action.digest !== safe.policy.actionDigest ||
+        event.action.digest !== safe.approval.actionDigest ||
+        event.action.approvalId.length === 0 ||
+        safe.policy.decision !== "ask" ||
+        safe.approval.state !== "available" ||
+        safe.approval.expectedRevision !== state.revision + 10 ||
+        safe.approval.proposalRevision !== envelope.proposalRevision ||
+        (replacingDenied
+          ? safe.parentActionId !== parentAction.actionId ||
+            !narrowerSafeAction(parentAction, event.action)
+          : safe.parentActionId !== null)
+      ) {
+        return illegal(state, event);
+      }
+      if ("model" in state) {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            action: event.action,
+            dispatchStarted: false,
+            inFlightEffect: null,
+            phase: "executing",
+            revision: state.revision + 1,
+            safeReview: {
+              baselineCheck: null,
+              baselineGit: null,
+              currentCheck: null,
+              currentGit: null,
+              edenPatch: null,
+            },
+            stage: "eden-patch-ready",
+          },
+        };
+      }
+      return {
+        ok: true,
+        state: {
+          action: event.action,
+          correlationId: state.correlationId,
+          dispatchStarted: false,
+          inFlightEffect: null,
+          phase: "executing",
+          revision: state.revision + 1,
+          runId: state.runId,
+          safeReview: {
+            baselineCheck: null,
+            baselineGit: null,
+            currentCheck: null,
+            currentGit: null,
+            edenPatch: null,
+          },
+          stage: "eden-patch-ready",
+          task: state.task,
+          terminalOutcome: null,
+          tool: state.tool,
+          workspace: state.workspace,
+        },
+      };
+    }
+    case "approval.consumed": {
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "approval-consume-ready" ||
+        !isSafeAction(state.action)
+      ) {
+        return illegal(state, event);
+      }
+      const approval = state.action.safeActuation.approval;
+      if (
+        event.approvalId !== state.action.approvalId ||
+        event.actionDigest !== approval.actionDigest ||
+        event.expectedRevision !== approval.expectedRevision ||
+        event.proposalRevision !== approval.proposalRevision ||
+        approval.state !== "available"
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          action: {
+            ...state.action,
+            safeActuation: {
+              ...state.action.safeActuation,
+              approval: { ...approval, state: "consumed" },
+            },
+          },
+          revision: state.revision + 1,
+          stage: "safe-action-ready",
+        },
+      };
+    }
     case "effect.requested": {
       if (state.phase !== "executing") {
         return illegal(state, event);
@@ -227,6 +518,22 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           },
         };
       }
+      if (
+        "model" in state &&
+        state.stage === "action-prepare-ready" &&
+        event.effect.type === "anchor_edit.prepare"
+      ) {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            dispatchStarted: false,
+            inFlightEffect: event.effect,
+            revision: state.revision + 1,
+            stage: "action-prepare-in-flight",
+          },
+        };
+      }
       if (state.stage === "action-ready" && event.effect.type === "fake.action.execute") {
         return {
           ok: true,
@@ -235,6 +542,63 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
             inFlightEffect: event.effect,
             revision: state.revision + 1,
             stage: "action-in-flight",
+          },
+        };
+      }
+      if (
+        state.stage === "safe-action-ready" &&
+        event.effect.type === "anchor_edit.execute" &&
+        isSafeAction(state.action)
+      ) {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            dispatchStarted: false,
+            inFlightEffect: event.effect,
+            revision: state.revision + 1,
+            stage: "safe-action-in-flight",
+          },
+        };
+      }
+      const reviewTransition = (() => {
+        switch (state.stage) {
+          case "eden-patch-ready":
+            return event.effect.type === "review.eden_patch.capture"
+              ? "eden-patch-in-flight"
+              : null;
+          case "git-baseline-ready":
+            return event.effect.type === "review.git_snapshot.capture"
+              ? "git-baseline-in-flight"
+              : null;
+          case "check-baseline-ready":
+            return event.effect.type === "review.git_check.capture"
+              ? "check-baseline-in-flight"
+              : null;
+          case "git-current-ready":
+            return event.effect.type === "review.git_snapshot.capture"
+              ? "git-current-in-flight"
+              : null;
+          case "check-current-ready":
+            return event.effect.type === "review.git_check.capture"
+              ? "check-current-in-flight"
+              : null;
+          default:
+            return null;
+        }
+      })();
+      if (reviewTransition !== null) {
+        if (!isSafeAction(state.action)) return illegal(state, event);
+        const action = state.action;
+        return {
+          ok: true,
+          state: {
+            ...state,
+            action,
+            dispatchStarted: false,
+            inFlightEffect: event.effect,
+            revision: state.revision + 1,
+            stage: reviewTransition,
           },
         };
       }
@@ -250,6 +614,198 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         };
       }
       return illegal(state, event);
+    }
+    case "effect.dispatch.started":
+      if (
+        state.phase !== "executing" ||
+        !(
+          (state.stage === "safe-action-in-flight" &&
+            state.inFlightEffect?.type === "anchor_edit.execute") ||
+          (state.stage === "action-prepare-in-flight" &&
+            state.inFlightEffect?.type === "anchor_edit.prepare") ||
+          (state.stage === "eden-patch-in-flight" &&
+            state.inFlightEffect?.type === "review.eden_patch.capture") ||
+          ((state.stage === "git-baseline-in-flight" || state.stage === "git-current-in-flight") &&
+            state.inFlightEffect?.type === "review.git_snapshot.capture") ||
+          ((state.stage === "check-baseline-in-flight" ||
+            state.stage === "check-current-in-flight") &&
+            state.inFlightEffect?.type === "review.git_check.capture")
+        ) ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.dispatchStarted
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          dispatchStarted: true,
+          revision: state.revision + 1,
+        },
+      };
+    case "anchor_edit.completed":
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "safe-action-in-flight" ||
+        state.inFlightEffect?.type !== "anchor_edit.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        !isSafeAction(state.action) ||
+        state.action.safeActuation.envelope.operation.type !== "anchor_edit"
+      ) {
+        return illegal(state, event);
+      }
+      if (
+        event.observation.path !== state.action.safeActuation.envelope.operation.path ||
+        event.observation.baseSha256 !== state.action.safeActuation.envelope.operation.baseSha256 ||
+        event.observation.desiredSha256 !==
+          state.action.safeActuation.envelope.operation.desiredSha256 ||
+        event.observation.byteLength !==
+          state.action.safeActuation.envelope.operation.desiredByteLength
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          dispatchStarted: state.dispatchStarted || event.recovered,
+          inFlightEffect: null,
+          revision: state.revision + 1,
+          stage: "git-current-ready",
+        },
+      };
+    case "review.eden_patch.captured":
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "eden-patch-in-flight" ||
+        state.inFlightEffect?.type !== "review.eden_patch.capture" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.inFlightEffect.actionId !== event.actionId ||
+        !isSafeAction(state.action) ||
+        state.safeReview === undefined ||
+        state.safeReview.edenPatch !== null
+      ) {
+        return illegal(state, event);
+      }
+      if (event.patch.state === "blocked") {
+        return {
+          ok: true,
+          state: terminal(
+            {
+              ...state,
+              inFlightEffect: null,
+              safeReview: { ...state.safeReview, edenPatch: event.patch },
+            },
+            { error: event.patch.error, state: "blocked" },
+          ),
+        };
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          inFlightEffect: null,
+          revision: state.revision + 1,
+          safeReview: { ...state.safeReview, edenPatch: event.patch },
+          stage: "git-baseline-ready",
+        },
+      };
+    case "review.git_snapshot.captured": {
+      const expectedStage =
+        event.phase === "baseline" ? "git-baseline-in-flight" : "git-current-in-flight";
+      if (
+        state.phase !== "executing" ||
+        state.stage !== expectedStage ||
+        state.inFlightEffect?.type !== "review.git_snapshot.capture" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.inFlightEffect.actionId !== event.actionId ||
+        state.inFlightEffect.phase !== event.phase ||
+        !isSafeAction(state.action) ||
+        state.safeReview === undefined ||
+        (event.phase === "current" &&
+          (state.safeReview.baselineGit === null ||
+            state.safeReview.baselineGit.head !== event.snapshot.head))
+      ) {
+        return illegal(state, event);
+      }
+      if (event.snapshot.trackedPatch.state === "blocked") {
+        return {
+          ok: true,
+          state: terminal(
+            {
+              ...state,
+              inFlightEffect: null,
+              safeReview:
+                event.phase === "baseline"
+                  ? { ...state.safeReview, baselineGit: event.snapshot }
+                  : { ...state.safeReview, currentGit: event.snapshot },
+            },
+            { error: event.snapshot.trackedPatch.error, state: "blocked" },
+          ),
+        };
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          inFlightEffect: null,
+          revision: state.revision + 1,
+          safeReview:
+            event.phase === "baseline"
+              ? { ...state.safeReview, baselineGit: event.snapshot }
+              : { ...state.safeReview, currentGit: event.snapshot },
+          stage: event.phase === "baseline" ? "check-baseline-ready" : "check-current-ready",
+        },
+      };
+    }
+    case "review.git_check.completed": {
+      const expectedStage =
+        event.phase === "baseline" ? "check-baseline-in-flight" : "check-current-in-flight";
+      if (
+        state.phase !== "executing" ||
+        state.stage !== expectedStage ||
+        state.inFlightEffect?.type !== "review.git_check.capture" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.inFlightEffect.actionId !== event.actionId ||
+        state.inFlightEffect.phase !== event.phase ||
+        state.inFlightEffect.head !== event.check.head ||
+        !isSafeAction(state.action) ||
+        state.safeReview === undefined
+      ) {
+        return illegal(state, event);
+      }
+      const safeReview =
+        event.phase === "baseline"
+          ? { ...state.safeReview, baselineCheck: event.check }
+          : { ...state.safeReview, currentCheck: event.check };
+      const action = state.action;
+      if (event.phase === "baseline") {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            action,
+            inFlightEffect: null,
+            phase: "awaiting-approval",
+            revision: state.revision + 1,
+            safeReview,
+          },
+        };
+      }
+      return {
+        ok: true,
+        state: terminal(
+          { ...state, action, inFlightEffect: null, safeReview },
+          {
+            answer:
+              event.check.status === "passed"
+                ? "The approved edit is complete; review and diff-check are available."
+                : "The approved edit is complete; review includes diff-check diagnostics.",
+            state: "completed",
+          },
+        ),
+      };
     }
     case "model.context.committed":
       if (
@@ -362,6 +918,46 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           };
         }
         const tool = { call, result: null };
+        if (call.name === "anchor_edit") {
+          if (state.action !== null && state.action.safeActuation.parentActionId !== null) {
+            return {
+              ok: true,
+              state: terminal(
+                { ...state, attempts },
+                {
+                  error: {
+                    code: "denial_lineage_exhausted",
+                    message: "This denial lineage already used its one narrower proposal.",
+                    recoverability: "ask-user",
+                    suggestedActions: ["Review the denied actions or start a new task."],
+                  },
+                  state: "blocked",
+                },
+              ),
+            };
+          }
+          return {
+            ok: true,
+            state: {
+              ...state,
+              attempts,
+              conversation: [
+                ...state.conversation,
+                {
+                  content: event.observation.text,
+                  privateContinuity: event.observation.privateContinuity,
+                  role: "assistant",
+                  toolCalls: event.observation.toolCalls,
+                },
+              ],
+              inFlightEffect: null,
+              revision: state.revision + 1,
+              stage: "action-prepare-ready",
+              tool,
+              tools: [...state.tools, tool],
+            },
+          };
+        }
         return {
           ok: true,
           state: {

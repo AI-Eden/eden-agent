@@ -170,6 +170,31 @@ export const ApprovalPresentationSchema = Type.Object(
     reason: boundedText(),
     scope: boundedText(),
     digest: Type.String({ maxLength: 512, minLength: 1 }),
+    authority: Type.Optional(
+      Type.Object(
+        {
+          baseSnapshots: Type.Array(
+            Type.Object(
+              {
+                byteLength: Type.Integer({ maximum: 1_048_576, minimum: 0 }),
+                path: Type.String({ maxLength: 4_096, minLength: 1 }),
+                sha256: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+              },
+              closed,
+            ),
+            { maxItems: 1 },
+          ),
+          executionMode: Type.Literal("trusted_host_policy_only"),
+          isolation: Type.Literal("none"),
+          lifetime: Type.Literal("single_use_proposal_revision"),
+          network: Type.Literal("not_requested"),
+          policyRuleId: Type.String(identifierOptions),
+          policyRuleSetRevision: Type.String(identifierOptions),
+          proposalRevision: RevisionSchema,
+        },
+        closed,
+      ),
+    ),
   },
   closed,
 );
@@ -310,11 +335,40 @@ export const GitStatusToolCallSchema = Type.Object(
   },
   closed,
 );
+export const AnchorEditToolCallSchema = Type.Refine(
+  Type.Object(
+    {
+      arguments: Type.Object(
+        {
+          path: RepositoryPathSchema,
+          replacements: Type.Array(
+            Type.Object(
+              {
+                expectedOccurrences: Type.Literal(1),
+                newText: Type.String({ maxLength: 16_384 }),
+                oldText: Type.String({ maxLength: 16_384, minLength: 1 }),
+              },
+              closed,
+            ),
+            { maxItems: 16, minItems: 1 },
+          ),
+        },
+        closed,
+      ),
+      name: Type.Literal("anchor_edit"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (call) =>
+    new TextEncoder().encode(JSON.stringify(call.arguments.replacements)).byteLength <= 16_384,
+);
 export const RepositoryToolCallSchema = Type.Union([
   ListFilesToolCallSchema,
   ReadFileToolCallSchema,
   SearchRepositoryToolCallSchema,
   GitStatusToolCallSchema,
+  AnchorEditToolCallSchema,
 ]);
 export type RepositoryToolCall = Type.Static<typeof RepositoryToolCallSchema>;
 
@@ -477,8 +531,24 @@ export const RepositoryToolFailureSchema = Type.Object(
       Type.Literal("read_file"),
       Type.Literal("search_repository"),
       Type.Literal("git_status"),
+      Type.Literal("anchor_edit"),
     ]),
     status: Type.Literal("failed"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const AnchorEditDeniedResultSchema = Type.Object(
+  {
+    data: Type.Object(
+      {
+        parentActionId: ActionIdSchema,
+        reason: boundedText(),
+      },
+      closed,
+    ),
+    name: Type.Literal("anchor_edit"),
+    status: Type.Literal("denied"),
     toolCallId: Type.String(identifierOptions),
   },
   closed,
@@ -488,6 +558,7 @@ export const RepositoryToolResultSchema = Type.Union([
   ReadFileToolSuccessSchema,
   SearchRepositoryToolSuccessSchema,
   GitStatusToolSuccessSchema,
+  AnchorEditDeniedResultSchema,
   RepositoryToolFailureSchema,
 ]);
 export type RepositoryToolResult = Type.Static<typeof RepositoryToolResultSchema>;
@@ -818,10 +889,102 @@ export const ChangedFileSchema = Type.Object(
       Type.Literal("modified"),
       Type.Literal("deleted"),
       Type.Literal("renamed"),
+      Type.Literal("unmerged"),
     ]),
+    attribution: Type.Optional(
+      Type.Union([Type.Literal("eden"), Type.Literal("pre_existing"), Type.Literal("both")]),
+    ),
   },
   closed,
 );
+const ProductReviewPatchSchema = Type.Union([
+  Type.Refine(
+    Type.Object(
+      {
+        byteLength: Type.Integer({ maximum: 24_576, minimum: 0 }),
+        content: Type.String({ maxLength: 24_576 }),
+        contentHash: contentHashSchema,
+        state: Type.Literal("complete"),
+      },
+      closed,
+    ),
+    (patch) => new TextEncoder().encode(patch.content).byteLength === patch.byteLength,
+  ),
+  Type.Object(
+    {
+      error: ProductErrorSchema,
+      state: Type.Literal("blocked"),
+    },
+    closed,
+  ),
+]);
+const ProductReviewDiagnosticSchema = Type.Object(
+  {
+    diagnosticId: Type.String(identifierOptions),
+    line: Type.Integer({ maximum: Number.MAX_SAFE_INTEGER, minimum: 1 }),
+    message: boundedText(),
+    path: RepositoryPathSchema,
+  },
+  closed,
+);
+const ProductReviewCheckSchema = Type.Refine(
+  Type.Object(
+    {
+      checkId: CheckIdSchema,
+      contentHash: contentHashSchema,
+      diagnostics: Type.Array(ProductReviewDiagnosticSchema, { maxItems: 256 }),
+      head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }),
+      observedAt: Type.String({ format: "date-time" }),
+      status: Type.Union([Type.Literal("passed"), Type.Literal("failed"), Type.Literal("unknown")]),
+      template: Type.Literal("git_diff_check"),
+    },
+    closed,
+  ),
+  (check) =>
+    new TextEncoder().encode(JSON.stringify(check.diagnostics)).byteLength <= 24_576 &&
+    (check.status !== "passed" || check.diagnostics.length === 0),
+);
+export const ProductReviewSchema = Type.Object(
+  {
+    actionDigest: Type.String({ pattern: "^[a-f0-9]{64}$" }),
+    actionId: ActionIdSchema,
+    approval: Type.Object(
+      {
+        approvalId: ApprovalIdSchema,
+        expectedRevision: RevisionSchema,
+        proposalRevision: RevisionSchema,
+        state: Type.Literal("consumed"),
+      },
+      closed,
+    ),
+    baselineCheck: ProductReviewCheckSchema,
+    changedFiles: Type.Array(ChangedFileSchema, { maxItems: 256 }),
+    currentCheck: ProductReviewCheckSchema,
+    currentTrackedPatch: ProductReviewPatchSchema,
+    edenPatch: ProductReviewPatchSchema,
+    executionMode: Type.Literal("trusted_host_policy_only"),
+    head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }),
+    isolation: Type.Literal("none"),
+    network: Type.Literal("not_requested"),
+    newlyObservedDiagnostics: Type.Array(Type.String(identifierOptions), { maxItems: 256 }),
+    observedAt: Type.String({ format: "date-time" }),
+    policy: Type.Object(
+      {
+        decision: Type.Literal("ask"),
+        evaluatedAt: Type.String({ format: "date-time" }),
+        reason: boundedText(),
+        ruleId: Type.String(identifierOptions),
+        ruleSetRevision: Type.String(identifierOptions),
+      },
+      closed,
+    ),
+    residualRisk: boundedText(),
+    statusHash: contentHashSchema,
+    untrackedPaths: Type.Array(RepositoryPathSchema, { maxItems: 256 }),
+  },
+  closed,
+);
+export type ProductReview = Type.Static<typeof ProductReviewSchema>;
 export const BudgetSummarySchema = Type.Refine(
   Type.Object(
     {
@@ -852,6 +1015,7 @@ export const ProductViewSchema = Type.Object(
     progress: Type.Union([ProgressSchema, Type.Null()]),
     currentAction: Type.Union([ActionSummarySchema, Type.Null()]),
     approval: Type.Union([ViewApprovalSchema, Type.Null()]),
+    review: Type.Optional(ProductReviewSchema),
     changedFiles: Type.Array(ChangedFileSchema, { maxItems: 256 }),
     checks: Type.Array(CheckResultSchema, { maxItems: 128 }),
     budget: BudgetSummarySchema,
@@ -1030,6 +1194,14 @@ export const VerificationUpdatedEventSchema = Type.Object(
   },
   closed,
 );
+export const ReviewUpdatedEventSchema = Type.Object(
+  {
+    ...eventEnvelope,
+    type: Type.Literal("review.updated"),
+    review: ProductReviewSchema,
+  },
+  closed,
+);
 export const RunTerminalEventSchema = Type.Object(
   {
     ...eventEnvelope,
@@ -1070,6 +1242,7 @@ export const ProductEventSchema = Type.Union([
   ToolUpdatedEventSchema,
   ModelAttemptUpdatedEventSchema,
   ConversationUpdatedEventSchema,
+  ReviewUpdatedEventSchema,
   RunTerminalEventSchema,
 ]);
 export type ProductEvent = Type.Static<typeof ProductEventSchema>;
