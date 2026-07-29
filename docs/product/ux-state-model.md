@@ -41,6 +41,21 @@ Review keeps two patches visibly separate: **Eden change** is the approved base-
 Eden, pre-existing, or shared attribution. Baseline and current `git diff --check` evidence remain separate,
 and passing copy says the closed check passed rather than claiming verification or success.
 
+For the accepted Docker repository-check contract, approval prioritizes the resolved literal process,
+catalog/input/image/platform digests, read-only mounts, omitted host authorities, closed environment,
+`network=none`, containment profile, budgets, policy reason, and one-use lifetime. The isolation label says
+Linux container and names the current Docker backend; it does not say native sandbox or daemon isolation.
+
+Execution uses preparing, created, running, stopping, reconciling, and cleaning product states without
+showing raw Docker CLI syntax as authority. Review distinguishes passed, failed, timed out, cancelled, OOM,
+overflow, engine failure, cleanup failure, and unknown. Complete bounded stdout and stderr are separately
+expandable local evidence. Passing copy says the named basic check passed and the run remains `completed`.
+
+Default doctor is a separate read-only prerequisite view. An explicit Docker probe presents its own exact
+confirmation before creating an object. Missing image, unsupported backend, mismatch, or cleanup residual
+has a concrete manual next action; doctor never offers automatic pull, daemon configuration, or broad
+cleanup.
+
 ## Responsive terminal layout
 
 - Narrow: one primary column with explicit view switching.

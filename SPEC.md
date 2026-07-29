@@ -11,6 +11,11 @@ packet, ADR 0015, ADR 0016, and `docs/plans/2026-07-28-r2-safe-actuation-and-rev
 authorized Build. Changes to trust, terminal states, public product contracts, or non-goals require an ADR
 and human approval.
 
+On 2026-07-29 the owner confirmed shared understanding for the next Docker-isolated repository-check
+direction and accepted ADR 0017, the focused contract changes, and
+`docs/plans/2026-07-29-r2-docker-repository-check.md` as one Freeze packet. They are accepted implementation
+input, not current implementation truth, and Build is not authorized.
+
 ## User story
 
 As a developer in a local Git repository, I can give Eden a coding task and acceptance checks, review its grounded plan, approve only scoped risky actions, interrupt or resume safely, and accept the result only after seeing the diff and verifier-produced evidence.
@@ -163,6 +168,50 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
 - The runner is trusted-host policy containment, not isolation. Docker remains a separate later R2 exit
   slice with its own Freeze evidence. No native sandbox, network isolation, or general-shell claim follows
   from this contract.
+
+## R2 Docker repository-check contract
+
+- A trusted repository may declare named checks only in one closed version 1 catalog at
+  `.eden/checks/catalog.json`. Trust permits discovery, not execution. The catalog must be a Git-tracked
+  regular UTF-8 file; dirty current bytes are eligible only when their complete hash, dirty truth, `HEAD`,
+  selected entry, and resolved literal process join the action.
+- The model selects one catalog name and cannot supply shell text, executable or argument overrides,
+  interpolation, parameters, environment, network, image, mounts, resources, or approval. The first
+  catalog has no includes, nested scope, persistent grants, or automatic execution.
+- Each selection becomes one exact, single-use, always-ask canonical repository-check action. It binds the
+  catalog and process, complete tracked-current-byte input manifest, Eden toolchain and immutable image
+  manifests, requested Linux platform, mounts, closed environment, `network=none`, containment profile,
+  budgets, policy revisions, and proposal lifetime. Any revalidation drift makes it stale.
+- The first toolchain is one Eden-owned Node 24 Linux-container image. Check dispatch never builds, pulls,
+  imports, logs in, or installs. A missing or mismatched exact local platform image is a blocked
+  prerequisite.
+- Eden stages a bounded snapshot containing current bytes of Git-tracked regular files only. `.git`,
+  untracked and ignored files, links, hardlinks, gitlinks, special files, host/provider/Docker state, and
+  over-budget inputs do not enter the container. The staged workspace and container root are read-only.
+- Repository code runs as a numeric non-root user with all capabilities dropped, no new privileges,
+  built-in seccomp, no privileged mode, devices, Docker/agent sockets, host namespaces, ports, or restart,
+  and fixed memory, CPU, PID, file, time, output, staging, and temporary-filesystem budgets. This is
+  container containment, not Docker-daemon or native-sandbox isolation.
+- A stable named and labelled container separates create from start. Dispatch start is durable before
+  repository code runs. Recovery reconciles the exact created, running, or exited object and never creates
+  a duplicate after possible dispatch. Terminal receipt precedes exact cleanup; mismatched or ambiguous
+  state is unknown.
+- Separate complete bounded stdout and stderr, byte counts, hashes, outcome, image/input identity, receipt,
+  and cleanup truth are durable local product evidence. Overflow terminates the check. Raw output does not
+  automatically enter provider context or repair.
+- The TUI owns interactive approval and execution. Headless NDJSON projects equivalent facts and stops at
+  approval; this contract adds no broad approval flag or public general resume command.
+- `eden doctor` is read-only by default. An explicit separately confirmed probe may run one no-repository,
+  no-provider, no-network diagnostic container under smaller fixed limits. Neither mode remediates,
+  installs, pulls, configures a daemon, changes context, or deletes objects automatically.
+- A check remains a basic observation in non-success `completed` review. It cannot emit `succeeded`,
+  start a repair loop, or produce an Evidence Pack.
+- Hosted Ubuntu x64 may establish an implementation candidate. Whole R2 still requires real macOS Docker
+  Desktop and Windows Docker Desktop WSL2/Linux-container automated rows plus one independent external-user
+  failing-test journey. Missing rows remain `not-run`; release support remains separate.
+
+The owner accepted this contract with the complete 2026-07-29 Freeze packet. Docker and repository-check
+behavior remain unavailable until a separately authorized Build and matching evidence.
 
 ## Persistence and recovery
 

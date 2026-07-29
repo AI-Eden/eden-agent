@@ -178,6 +178,46 @@ from a separate hardened Git observation. No clean-worktree precondition or rese
 The owner accepted this extension with its decision brief, ADR 0015, ADR 0016, focused contracts, and
 test-first plan. Docker stays a later independent R2 exit slice.
 
+## Approved R2 Docker repository-check extension
+
+The accepted 2026-07-29 Freeze packet extends the same authority path rather than introducing a second
+runner protocol:
+
+```text
+model selects tracked catalog name
+  -> runtime resolves literal process and tracked-current-byte manifest
+  -> runtime resolves exact local image/platform/backend
+  -> canonical repository-check action and default-deny policy
+  -> AgentClient presents and consumes one approval
+  -> private staging plus stable Docker create/start effect
+  -> wrapper result and action-specific reconciliation
+  -> local check/output/receipt/cleanup projection
+  -> non-success completed review
+```
+
+`contracts` owns the closed catalog, manifest, image, profile, doctor, action, result, receipt, cleanup, and
+product shapes. `kernel` owns pure proposal, approval, effect/lifecycle, observation, and review facts.
+`coding-runtime` owns Git-backed discovery, immutable staging, Docker CLI and doctor ports, canonical
+encoding, policy, receipts, reconciliation, cleanup, and projection. `apps/eden` owns CLI/TUI presentation
+only. The Eden image wrapper owns one container-local process lifecycle and result protocol; it does not
+own product completion.
+
+The existing native-process port remains below the Docker adapter and receives only runtime-owned Docker
+CLI requests. Neither the model, catalog, renderer, nor provider receives Docker executable, host argv,
+environment, socket, or cleanup authority.
+
+The full canonical input manifest is durable, while staged repository bytes are private ephemeral state.
+Stable container and staging identities derive from the journaled effect. Pure replay performs no Docker
+I/O; execution reopen invokes only repository-check-specific reconciliation. This internal reopen seam
+does not add the public general resume command deferred to R3.
+
+Default doctor inspection is a read-only prerequisite projection outside a run. The explicit probe crosses
+into mutation only through its own canonical diagnostic action, approval, receipt, and exact cleanup. It
+cannot become an image, package, daemon, context, or orphan-remediation service.
+
+The owner accepted this extension with ADR 0017 and the complete Freeze packet. Docker execution and Build
+remain unavailable before the separate Build checkpoint.
+
 ## Deferred boundaries
 
 `apps/agentd`, `apps/desktop`, and `crates/eden-native` are not empty scaffolds. They are created only after the R5 service gate or a native-port benchmark. This keeps architecture options visible without pretending they have already been paid for.

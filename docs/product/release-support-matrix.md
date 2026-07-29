@@ -19,6 +19,28 @@ R1 requires clean-machine installation for the selected development distribution
 
 Unsupported guarantees, especially native sandbox parity, must be visible in the product and release notes.
 
+## Accepted R2 Docker repository-check evidence gates
+
+The accepted 2026-07-29 Freeze packet separates implementation evidence from whole-R2 and release claims:
+
+| Lane | Docker execution | Required claim |
+| --- | --- | --- |
+| Hosted Ubuntu x64 | authoritative automated fixture, recovery, containment, package, and TUI/headless rows | implementation candidate |
+| Hosted macOS arm64 | no nested Docker claim; contracts, package, TUI, and negative doctor only | non-Docker regression |
+| Hosted Windows x64 | no Docker Desktop claim; contracts, package, TUI, and negative doctor only | non-Docker regression |
+| Real Linux/WSL2 | same exact-SHA automated Docker driver | matching backend evidence |
+| Real macOS Docker Desktop | Linux-container mode and same exact-SHA automated driver | required whole-R2 row |
+| Real Windows Docker Desktop WSL2 | Linux-container mode and same exact-SHA automated driver | required whole-R2 row |
+| Independent external user | pinned failing-test Quickstart with their own configured provider | required whole-R2 journey |
+
+Every Docker row records exact application SHA, archive hash, image index and resolved platform manifest,
+client/daemon/backend versions, platform, profile, fixture/input digest, lifecycle receipt, resource
+enforcement, and cleanup. Missing rows remain `not-run`; multi-architecture image or emulation evidence
+cannot substitute for a real Docker Desktop backend.
+
+An Ubuntu-green candidate does not close whole R2. Complete rows do not by themselves establish
+installation, upgrade, uninstall, signing, update, or release support.
+
 ## Accepted R1 evidence
 
 The owner accepted R1 on 2026-07-17. The final

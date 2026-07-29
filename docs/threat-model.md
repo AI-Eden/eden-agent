@@ -85,10 +85,35 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   process that durably started without terminal evidence is unknown and cannot retry automatically.
 - Describe trusted-host policy containment, approval, network mode, and Docker isolation as separate
   controls. The presence of one must not change the product claim for another.
+- Treat a repository check catalog as untrusted executable intent. Read it only after exact-root trust,
+  require one tracked regular UTF-8 current snapshot, bind its complete hash and resolved process to one
+  always-ask action, and reject shell grammar, includes, parameters, or persistent grants in the first
+  Docker slice.
+- Build a complete bounded manifest from Git-tracked current regular-file bytes and stage it outside the
+  workspace. Exclude `.git`, untracked/ignored files, links, gitlinks, special files, host/provider/Docker
+  state, and over-budget data; mount only the revalidated snapshot read-only.
+- Bind immutable image index, requested Linux platform, resolved platform manifest, wrapper, profile,
+  mounts, closed environment, `network=none`, and every budget to the approved action. Check dispatch must
+  never build, pull, import, install, or consult a registry credential.
+- Run repository code non-root with a read-only root/workspace, all capabilities dropped, no new
+  privileges, built-in seccomp, no privileged mode, devices, Docker/agent sockets, host namespaces, ports,
+  restart, inherited environment, or catalog override of containment.
+- Separate Docker create and start, journal dispatch before start, derive exact names/labels from the
+  stable effect, and reconcile created/running/exited objects without duplicate execution. Remove only
+  exactly attributed objects after a durable terminal receipt; never prune or use fuzzy Eden-like labels.
+- Bound stdout and stderr independently and treat all repository output and wrapper results as untrusted
+  basic evidence. Do not send raw output to a provider or let exit zero create verifier success.
+- Keep doctor read-only by default. Require a separate canonical approval for the bounded Docker probe and
+  grant no automatic image, package, daemon, context, trust, configuration, or cleanup remediation.
 
 ## Execution modes
 
 R2 distinguishes trusted-host execution from Docker isolation. They share policy vocabulary but make different guarantees. Native OS sandboxing is a later per-platform project; the UI must not imply equal isolation where evidence differs.
+
+The accepted repository-check profile constrains one Linux container and its repository process. It does
+not constrain a compromised Docker daemon, Docker Desktop VM, host kernel, administrator, or malicious
+same-user holder of Docker authority. Hosted Ubuntu evidence does not prove macOS or Windows Docker Desktop
+behavior, and architecture emulation does not prove a host backend.
 
 ## Desktop extension
 

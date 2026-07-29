@@ -37,6 +37,11 @@ inspection, plan review, scoped approvals, progress, changed files, diff, requir
 steering, pause, resume, cancellation, and recovery. Historical inspection does not imply that execution
 can resume from that run.
 
+The accepted remaining R2 contract adds one interactive, exact-approved, Docker-isolated named repository
+check and a separate `eden doctor` prerequisite surface. Doctor is read-only by default; its explicit
+Docker probe is a separately confirmed diagnostic action, not automatic setup or remediation. Headless
+clients receive the same check and approval facts but stop before interactive execution.
+
 ## Later surface
 
 Eden Studio is a cross-platform session control plane considered only after the local-service architecture gate. It adds multi-project navigation, dense review, notifications, keychain integration, installers, and updates. It must not duplicate the harness or become a code editor.

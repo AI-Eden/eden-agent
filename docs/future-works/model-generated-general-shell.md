@@ -20,7 +20,14 @@ R2 still delivers the `SPEC.md` commitment to policy-controlled command executio
 not require accepting arbitrary model-authored shell text. The accepted first safe-actuation packet uses
 one modify-only AnchorEdit and one hardened `git diff --check` template to exercise canonical action
 digests, policy, approval, cancellation, receipts, trusted-host containment, and action-specific recovery.
-It executes no repository code. Docker remains a separate later R2 exit slice.
+It executes no repository code. The Docker repository-check contract is separately frozen under ADR 0017
+but remains unimplemented.
+
+The owner-approved Freeze direction for that bounded Docker slice uses a repository-declared named
+check, not model-authored executable, arguments, or shell text. The selected catalog, image, and repository
+snapshot boundaries are frozen implementation input rather than current implementation truth. Their
+deferred alternatives are tracked separately in
+[Repository Check Contract Evolution](repository-check-contract-evolution.md).
 
 ## Deferred product problem
 
@@ -66,8 +73,9 @@ general shell:
 - trusted-host execution reports policy containment without implying isolation;
 - the Docker runner passes its filesystem, process, network, cancellation, and cleanup matrix;
 - exact approval presentation, durable receipts, crash recovery, and stale-action rejection are proven;
-- a measured repository corpus shows closed templates are the limiting factor rather than provider,
-  context, search, edit, or verification quality;
+- a measured repository corpus shows the selected closed repository catalog is the limiting factor rather
+  than catalog onboarding, provider, context, search, edit, image availability, repository ingress, or
+  verification quality;
 - Windows, macOS, and Linux command construction and process-tree semantics have named owners and fixtures.
 
 ## Viable architecture families
@@ -79,11 +87,10 @@ general shell:
    image with explicit mounts, network policy, resource budgets, process-tree ownership, and output caps.
 3. **Trusted-host general shell with layered policy:** considered only with truthful non-isolation copy,
    command rules, exact approval, environment scrubbing, hook/interpreter analysis, and strong receipts.
-4. **Repository-declared task catalog:** a versioned workspace file exposes named tasks whose definitions
-   are reviewed separately; the model chooses a task and bounded parameters rather than writing shell text.
-
-These families are not interchangeable. A future Explore phase must select one public authority contract
-instead of combining their strongest-sounding claims.
+The repository-declared closed task catalog is the bounded comparator that must first prove insufficient;
+it is not itself a general-shell family. The three broader families above are not interchangeable. A future
+Explore phase must select one public authority contract instead of combining their strongest-sounding
+claims.
 
 ## Required evidence before changing claims
 

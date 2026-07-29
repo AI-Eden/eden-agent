@@ -118,6 +118,27 @@ patch, baseline check, current check, and changed-file attribution retain their 
 time, and content hashes. Exceeding a complete-value budget appends a visible blocker instead of a partial
 patch. A passing check may lead to non-success `completed` but cannot emit `succeeded`.
 
+The accepted Docker repository-check lifecycle adds closed facts for catalog resolution, complete input
+manifest, image/platform/backend resolution, policy and approval, staging readiness, container creation,
+dispatch start, lifecycle observation, wrapper result, terminal receipt, and cleanup. One stable
+repository-check effect owns every Docker object and staging identity.
+
+Create is not dispatch. A matching created container can prove repository code did not start. Dispatch
+start is durable before `docker start`; after that boundary, recovery may observe the same running
+container or reconstruct an exited result but may not create another container. Missing, mismatched, or
+ambiguous post-dispatch state becomes unknown.
+
+Result facts retain separate complete bounded stdout and stderr bytes and hashes. Overflow is its own
+terminal observation, not a truncated pass. Cleanup is a later explicit fact and cannot rewrite the check
+outcome. Replay folds all of these facts without Docker inspection, wait, stop, or removal.
+
+Doctor inspection rows are not journal events because the default command is read-only current-host
+diagnosis. An explicit probe creates its own canonical diagnostic action, dispatch and receipt facts, and
+exact cleanup; it has no repository or provider facts.
+
+The owner accepted these event families with ADR 0017 and the complete Freeze packet. They remain
+unimplemented until separate Build authorization.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

@@ -15,6 +15,11 @@ public candidate `3c23446db471eead735a0ac971551c43ecb55759` passed the Ubuntu, m
 matrix in run 30382567704. This closes the accepted safe-actuation packet, not all of R2 and not release
 support.
 
+On 2026-07-29 the owner accepted all 17 Docker repository-check Explore decisions and confirmed shared
+understanding. The decision frontier is empty. The owner then accepted ADR 0017, the focused public
+contracts, decision brief, and `docs/plans/2026-07-29-r2-docker-repository-check.md` as one Freeze packet.
+Build, Docker execution, image publication, real provider use, commit, and push remain unauthorized.
+
 ## Current truth
 
 - The public product is English-only.
@@ -128,6 +133,18 @@ The slice ends in non-success `completed` review. Packaged crash-restart remains
 `covered-by-real-runtime-test-not-run-in-packaged-pty`; Docker and repository-code checks remain
 `not-run`. General shell, repository code execution, Docker execution, create/delete/rename, repair loops,
 verifier-owned success, release support, signing, and installers remain outside this Freeze packet.
+
+## Current Build checkpoint
+
+The accepted Docker repository-check packet includes ADR 0017, the 2026-07-29 decision brief, focused
+PRODUCT/SPEC/architecture/event/product-contract/threat/UX/support changes, and the ordered test-first plan.
+It freezes one tracked catalog, one exact always-ask check action, one immutable tracked-file snapshot, one
+Eden Node 24 image, a fixed network-none/container profile, stable Docker reconciliation, bounded local
+output, read-only doctor plus explicit probe, and layered platform/external-user evidence.
+
+The next human checkpoint is separate Build authorization. Missing real macOS Docker Desktop, Windows
+Docker Desktop WSL2, or independent external-user evidence remains `not-run`, keeps whole R2 incomplete,
+and never becomes release-support evidence.
 
 ## Known open questions
 

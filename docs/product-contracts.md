@@ -194,6 +194,48 @@ observations. Untracked paths may appear in status but their contents do not ent
 The first `ClosedCheckObservation` is only hardened `git diff --check`. A passing value is not verifier
 evidence and cannot create `succeeded`. An edit/check flow reaches non-success `completed` review.
 
+## Docker repository-check activity
+
+The catalog summary exposes fixed path, schema version, current `HEAD`, tracked/dirty state, byte length,
+content hash, selected name, and the exact literal container process. It contains no shell, interpolation,
+parameter, environment, network, image, mount, resource, or approval field.
+
+The canonical action presentation exposes:
+
+- catalog, process, input-manifest, image-index, requested-platform, resolved-manifest, wrapper, and profile
+  identities;
+- read-only workspace/root, bounded temporary/result locations, closed environment, `network=none`, and
+  omitted host authorities;
+- memory, CPU, PID, file, time, stream, staging, and temporary-filesystem limits;
+- policy rule/revision, proposal lifetime, digest, and the fact that repository-code execution always
+  requires one exact approval.
+
+Repository-check progress is a closed lifecycle value such as preparing, created, running, stopping,
+reconciling, or cleaning. It never exports the host Docker executable, raw Docker argv, socket, credential,
+or daemon diagnostics as user authority.
+
+The terminal observation distinguishes passed, failed, timed out, cancelled, OOM, output overflow, engine
+failure, cleanup failure, and unknown. It binds action/effect, input, image/platform, profile, receipt, and
+cleanup identities. Separate stdout and stderr are complete within their fixed bounds and carry byte
+counts and SHA-256 values. Overflow cannot decode as a pass.
+
+Raw repository-check output is local product data. It is absent from provider context, private provider
+continuity, ordinary diagnostics, and default evidence bundles. The provider may receive the closed
+outcome needed to end the current R2 turn but cannot receive raw streams or propose repair/recheck in this
+slice.
+
+The TUI may resolve the exact approval and execute the check. Headless NDJSON emits the same durable facts
+through `approval.presented`, then exits with structured recovery. No broad repository-check approval
+flag, second-invocation continuation, or public general resume command is added.
+
+`eden doctor --json` returns one versioned closed catalog of prerequisite rows. Plain doctor renders that
+same value. Default rows are read-only. The explicit probe is a separate canonical diagnostic action with
+no repository, provider, credential, or network; non-interactive JSON stops at its approval rather than
+inventing a bypass.
+
+The owner accepted these contracts with ADR 0017 and the complete Freeze packet. They remain unavailable
+until the owner separately authorizes Build and matching implementation evidence exists.
+
 ## Run catalog and inspection
 
 The pre-release protocol v1 adds closed, non-throwing decoders for these renderer-independent values:
