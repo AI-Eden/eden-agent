@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "status": "published-verified-local-manifest-uncommitted",
+  "recordedAt": "2026-07-30T19:34:05+08:00",
+  "sourceSha": "a99718f3d091fe90e031e90b6259fb0e5bdf4b49",
+  "sourceState": "uncommitted-build-worktree",
+  "slice": 3,
+  "sourceHashes": {
+    "dockerfileSha256": "dc0e82e80321a66307eef6e131609f60181e716f38eb3e6353bcbff7d5a2c5a5",
+    "wrapperSha256": "0c669fe522a14c9afce051d98f57e373f9bb2b7fb0b5ef6fb2241b472a05a0c3",
+    "baseManifestSha256": "6d31fcadfde7a814fa30702846ff95f9e8facf8120e4965c3ce9e0944745be49"
+  },
+  "approvedBase": {
+    "reference": "gcr.io/distroless/nodejs24-debian13:nonroot",
+    "imageIndexDigest": "sha256:af85d11ce7ef10172855a6e3649e3e8125b1b9e3ca41849ec2918036f05cb212",
+    "platforms": [
+      {
+        "platform": "linux/amd64",
+        "manifestDigest": "sha256:b1386d556b478c420927eb212236bfb31be9834a4549850a060a6351f7fff514",
+        "configDigest": "sha256:952899fca64fb2f9495815ef4f82b124c49549d25de86f3a2d61acded14b7e1c"
+      },
+      {
+        "platform": "linux/arm64",
+        "manifestDigest": "sha256:c6465a8fcd268010c53e6e33e58d479dd232aa34f2312500afad8f605caffdc3",
+        "configDigest": "sha256:6478a947c658f8f17bdbd8c3b600f916c2700e4a138850337fa098134a05e633"
+      }
+    ]
+  },
+  "buildEnvironment": {
+    "dockerDesktop": "4.45.0",
+    "dockerEngine": "28.3.3",
+    "dockerApi": "1.51",
+    "buildx": "0.27.0-desktop.1",
+    "buildkit": "0.23.2",
+    "hostPlatform": "linux/amd64",
+    "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2 x86_64"
+  },
+  "independentExecutionBackend": {
+    "kind": "ephemeral-userns-remap-daemon",
+    "dockerEngine": "29.6.2",
+    "dockerApi": "1.55",
+    "archiveBytes": 87312398,
+    "archiveSha256": "d6204aea92238e2453d5445c885b9d2e5eb8f82915568ec50edf9dbe12a3ac74",
+    "storageDriver": "overlay2",
+    "containerdSnapshotter": false,
+    "dataRoot": "isolated-temporary-directory",
+    "socket": "isolated-temporary-unix-socket",
+    "registeredService": false,
+    "automaticStart": false,
+    "daemonStopped": true,
+    "temporaryStateRemoved": true,
+    "dockerDesktopConfigurationChanged": false,
+    "defaultDockerContextChanged": false,
+    "bridge": "none",
+    "iptables": false,
+    "ip6tables": false,
+    "ipForward": false,
+    "ipMasquerade": false,
+    "securityOptions": ["name=seccomp,profile=builtin", "name=userns", "name=cgroupns"]
+  },
+  "reproducibleOciCandidate": {
+    "buildCount": 2,
+    "byteIdentical": true,
+    "sourceDateEpoch": 0,
+    "provenanceAttestation": "disabled",
+    "archive": {
+      "bytes": 108929536,
+      "sha256": "89972d7166fa05810c62748c131b4ece36c3cd67bfe731f8898ef82fb649a82e"
+    },
+    "imageIndexDigest": "sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f",
+    "platforms": [
+      {
+        "platform": "linux/amd64",
+        "manifestDigest": "sha256:0157ea0bfdc08aaa026898d23edaff9336359024f25c49265a5276cb3c611cb2",
+        "configDigest": "sha256:f175c02a2a6d4012c1d0852c82b03893810ee91803244a1699046d2eee7cc443"
+      },
+      {
+        "platform": "linux/arm64",
+        "manifestDigest": "sha256:7977eb382ee08c4b3e2f6c32dbf47dec5fa38b2160bc46a3faf742171823d230",
+        "configDigest": "sha256:31b5c699e50ea674594f825c59f65c7b3f84d3f73ea0fdcd47a3cb4fb4b8566f"
+      }
+    ]
+  },
+  "publication": {
+    "status": "published-verified",
+    "repository": "ghcr.io/ai-eden/eden-node24-check",
+    "tag": "eden-node24-check-v1",
+    "visibility": "private",
+    "imageIndexDigest": "sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f",
+    "platforms": [
+      {
+        "platform": "linux/amd64",
+        "manifestDigest": "sha256:0157ea0bfdc08aaa026898d23edaff9336359024f25c49265a5276cb3c611cb2",
+        "configDigest": "sha256:f175c02a2a6d4012c1d0852c82b03893810ee91803244a1699046d2eee7cc443"
+      },
+      {
+        "platform": "linux/arm64",
+        "manifestDigest": "sha256:7977eb382ee08c4b3e2f6c32dbf47dec5fa38b2160bc46a3faf742171823d230",
+        "configDigest": "sha256:31b5c699e50ea674594f825c59f65c7b3f84d3f73ea0fdcd47a3cb4fb4b8566f"
+      }
+    ],
+    "method": "verified-oci-layout-import",
+    "tagDigestVerified": true,
+    "immutableDigestReferenceVerified": true,
+    "rawIndexSha256Verified": true,
+    "packageMetadataVerified": true
+  },
+  "configEvidence": {
+    "created": "1970-01-01T00:00:00Z",
+    "entrypoint": ["/nodejs/bin/node", "/opt/eden/wrapper.mjs"],
+    "user": "65532:65532",
+    "workingDirectory": "/workspace",
+    "wrapperChildEnvironment": {
+      "CI": "1",
+      "HOME": "/tmp/eden-home",
+      "LANG": "C.UTF-8",
+      "PATH": "/usr/local/bin:/usr/bin:/bin"
+    }
+  },
+  "layerEvidence": {
+    "nodeAlias": {
+      "kind": "symbolic-link",
+      "path": "/usr/local/bin/node",
+      "target": "/nodejs/bin/node",
+      "platforms": ["linux/amd64", "linux/arm64"]
+    },
+    "wrapper": {
+      "path": "/opt/eden/wrapper.mjs",
+      "sourceBytesMatch": true,
+      "sha256": "0c669fe522a14c9afce051d98f57e373f9bb2b7fb0b5ef6fb2241b472a05a0c3"
+    }
+  },
+  "localLoad": {
+    "status": "loaded-local-only",
+    "tag": "eden-node24-check:local-slice3",
+    "platform": "linux/amd64",
+    "dockerManifestDigest": "sha256:cbfbfe56b4411d87d5b27682e4f9ceedf9f6a1175d3fb6d3f54e9396c1eb5537",
+    "dockerConfigDigest": "sha256:db152ba07e3d031900d306b93953d221aa2c1c4ada14d0b8809fe9debab66785"
+  },
+  "realImageFixture": {
+    "status": "passed",
+    "blocker": null,
+    "required": "no_host_user_namespace",
+    "userNamespaceProbe": {
+      "status": "passed",
+      "backendHostNamespace": "user:[4026531837]",
+      "containerNamespace": "user:[4026532530]",
+      "uidMap": "0 100000 65536",
+      "gidMap": "0 100000 65536",
+      "processUid": 65532,
+      "processGid": 65532,
+      "effectiveCapabilities": "0000000000000000",
+      "noNewPrivileges": true,
+      "seccompFilter": true,
+      "containerRemoved": true
+    },
+    "containerCreated": true,
+    "containerId": "dff27a896c52ed1eae22b0ec7f55a1cef0197180e9479b36126f7db5f895b154",
+    "repositoryCodeExecuted": true,
+    "containerExitCode": 0,
+    "oomKilled": false,
+    "wrapperResult": {
+      "outcome": "passed",
+      "wrapperReason": "process_exited",
+      "exitCode": 0,
+      "stdoutEncoding": "base64",
+      "stdout": "/wCACg==",
+      "stdoutByteLength": 4,
+      "stdoutSha256": "sha256:2f2e272d087efb57e3a8964f71e382d401c15c42b7a3daf3655a0861ef1754f9",
+      "stderrEncoding": "base64",
+      "stderr": "Zml4dHVyZS1zdGRlcnIK",
+      "stderrByteLength": 15,
+      "stderrSha256": "sha256:f921a264caca8ec79f8bd9b36de3b488aefdaf7aef458dcfcbcd02d1817a5557"
+    },
+    "cleanup": {
+      "containerRemoved": true,
+      "stagingRemoved": true,
+      "remainingContainers": 0
+    }
+  },
+  "backendDecision": {
+    "ownerSelection": "separate_fresh_docker_engine_with_userns_remap",
+    "selectedBackend": "ephemeral-independent-docker-engine",
+    "wslVersion": "2.7.10.0",
+    "eciMinimumWslVersionSatisfied": true,
+    "dockerDesktopBusinessEntitlement": "unavailable",
+    "eciEnabled": false,
+    "containerdImageStoreEnabled": true,
+    "currentDesktopUsernsRemap": "not-selected",
+    "independentDaemonStarted": true,
+    "independentDaemonStopped": true,
+    "independentDaemonTemporaryStateRemoved": true,
+    "independentDaemonUsernsRemap": "eden:eden",
+    "postStartProbeRequired": true,
+    "postStartProbePassed": true
+  },
+  "applicationToolchainManifest": {
+    "status": "written-local-uncommitted",
+    "path": "packages/coding-runtime/src/repository-check-toolchain.ts",
+    "reviewedPublishedImageIdentities": true,
+    "repositoryCommitRequiredBeforeExecution": true
+  },
+  "verification": {
+    "fullWorkspaceTest": "passed",
+    "contractTests": "passed",
+    "wrapperUnitTests": "passed",
+    "imageSourceTests": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "codeCheck": "passed",
+    "markdownCheck": "passed",
+    "ociDigestChain": "passed",
+    "ociConfig": "passed",
+    "ociLayerAlias": "passed",
+    "ociWrapperBytes": "passed",
+    "reproducibleBuild": "passed",
+    "userNamespaceProbe": "passed",
+    "realImageFixture": "passed"
+  },
+  "authority": {
+    "dockerBuild": "performed-local-only",
+    "dockerExecution": "performed-local-probe-and-fixture-only",
+    "dockerDesktopConfiguration": "not-changed",
+    "dockerDesktopRestart": "not-run",
+    "independentDockerDaemon": "started-tested-stopped-and-removed",
+    "externalNetwork": "anonymous-public-reads-and-authorized-ghcr-publication",
+    "provider": "not-requested",
+    "imagePublication": "performed-authorized-exact-repository-only",
+    "registryLogin": "performed-temporary-ghcr-only-and-removed",
+    "registryCredentialScope": "temporary-write-packages-removed-and-verified",
+    "registryPush": "performed-exact-repository-and-tag-only",
+    "externalUser": "not-run",
+    "commit": "not-run",
+    "push": "not-run"
+  }
+}

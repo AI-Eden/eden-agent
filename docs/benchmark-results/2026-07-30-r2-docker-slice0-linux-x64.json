@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAt": "2026-07-30T10:00:40+08:00",
+  "sourceSha": "a99718f3d091fe90e031e90b6259fb0e5bdf4b49",
+  "acceptedBaselineSha": "0ed7873bf4c134b77a4c00e96dbaf182007f031b",
+  "environment": {
+    "platform": "linux",
+    "architecture": "x64",
+    "kernel": "Linux 6.18.33.2-microsoft-standard-WSL2 x86_64",
+    "node": "24.15.0",
+    "pnpm": "11.13.0",
+    "bun": "1.3.14",
+    "git": "2.43.0"
+  },
+  "contractBudgets": {
+    "catalogBytes": 4133,
+    "argumentBytes": 3926,
+    "manifestBytes": 23734,
+    "actionRecordBytes": 29931,
+    "resultRecordBytes": 44965,
+    "estimatedRunBytes": 82622,
+    "journalRecordLimitBytes": 65536,
+    "journalRunLimitBytes": 1048576
+  },
+  "contractAmendment": {
+    "approvedAt": "2026-07-30",
+    "baseImage": {
+      "reference": "gcr.io/distroless/nodejs24-debian13:nonroot",
+      "imageIndexDigest": "sha256:af85d11ce7ef10172855a6e3649e3e8125b1b9e3ca41849ec2918036f05cb212",
+      "linuxAmd64ManifestDigest": "sha256:b1386d556b478c420927eb212236bfb31be9834a4549850a060a6351f7fff514",
+      "linuxArm64ManifestDigest": "sha256:c6465a8fcd268010c53e6e33e58d479dd232aa34f2312500afad8f605caffdc3"
+    },
+    "executableAlias": "/usr/local/bin/node -> /nodejs/bin/node",
+    "registryMetadataRead": "performed-anonymous-read-only",
+    "streamEncoding": "canonical-base64-of-raw-bytes",
+    "streamLengthAndHash": "decoded-raw-bytes"
+  },
+  "archive": {
+    "application": {
+      "bytes": 113690752,
+      "sha256": "478c6b8fcac93d68983cecc2c2f332736fccae26d629456667a488437b38b65f"
+    },
+    "ripgrep": {
+      "bytes": 5728032,
+      "sha256": "193906679498de4d939345b937fa24e0e69a03c244bd70c859f5e41232713f21",
+      "version": "15.0.0"
+    },
+    "notices": {
+      "bytes": 2379,
+      "sha256": "6863f5d24ecd1aa71f3abb859389cd55d41e3755f65a1e8b64e60269aa12dfa5"
+    },
+    "manifest": {
+      "bytes": 606,
+      "sha256": "5c22c1b633e8306ebd81aa7e80fe38cae49fd79304f992600375d1b2f9afb443"
+    }
+  },
+  "safeActuationBaseline": {
+    "status": "passed",
+    "evidenceBytes": 13467,
+    "evidenceSha256": "1e646a821e0bdc5aa43dd6e9dd485e67c61bad4a72867a4feb5e7aa7eb68b1ac",
+    "scenarios": [
+      "approve",
+      "deny-narrow",
+      "stale",
+      "pre-existing",
+      "check-failure",
+      "narrow-review"
+    ]
+  },
+  "verification": {
+    "preChangeFullWorkspace": "passed",
+    "dockerContractGuards": "passed",
+    "safeActuationFocused": "passed",
+    "safeActuationViewport60x20": "passed",
+    "safeActuationViewport80x24": "passed",
+    "safeActuationViewport100x30": "passed",
+    "typecheck": "passed",
+    "nativeArchive": "passed"
+  },
+  "authority": {
+    "dockerExecution": "not-run",
+    "repositoryCodeChecks": "not-run",
+    "provider": "not-requested",
+    "externalNetwork": "not-requested",
+    "imagePublication": "not-run",
+    "commit": "not-run",
+    "push": "not-run"
+  }
+}

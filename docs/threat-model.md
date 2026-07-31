@@ -105,6 +105,11 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   basic evidence. Do not send raw output to a provider or let exit zero create verifier success.
 - Keep doctor read-only by default. Require a separate canonical approval for the bounded Docker probe and
   grant no automatic image, package, daemon, context, trust, configuration, or cleanup remediation.
+- Under the accepted 2026-07-31 amendment, keep probe authority outside repository runs. Bind backend,
+  image/platform, fixed program, profile, budgets, and exact labels to one standalone digest; consume one
+  always-ask approval before create; journal receipt before exact cleanup; and block synthetic workspace,
+  broad recovery, raw Docker diagnostics, or non-interactive approval. The passing real Slice 4 probe
+  exercised these boundaries without adding repository or provider authority.
 
 ## Execution modes
 

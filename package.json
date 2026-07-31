@@ -16,12 +16,16 @@
     "markdown:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\"",
     "test:r2-native-archive": "node scripts/r2-native-tools-archive.mjs apps/eden/dist",
     "test:r2-budgets": "node --test scripts/r2-contract-budgets.test.mjs",
+    "test:r2-docker-contracts": "node --test scripts/r2-docker-slice0.test.mjs packages/contracts/test/repository-check.test.ts packages/contracts/test/repository-check-action.test.ts packages/contracts/test/repository-check-result.test.ts packages/contracts/test/repository-check-product.test.ts",
+    "test:r2-docker-probe-freeze": "node --test scripts/r2-docker-probe-freeze.test.mjs",
+    "test:r2-doctor": "node --test packages/coding-runtime/test/docker-doctor.test.ts apps/eden/test/doctor.test.ts apps/eden/test/args.test.ts",
     "test:r2-process": "node --test packages/coding-runtime/test/native-process.test.ts packages/coding-runtime/test/workspace-trust-process.test.ts packages/coding-runtime/test/workspace-trust-matrix-process.test.ts apps/eden/test/headless-process.test.ts",
     "test:r2-provider-fixtures": "pnpm --filter @eden/providers test && node --test packages/coding-runtime/test/provider-agent-client.test.ts packages/coding-runtime/test/provider-model-loop.test.ts packages/coding-runtime/test/provider-readiness.test.ts",
     "test:r2-secret-canaries": "node --test packages/providers/test/openai-compatible.test.ts packages/coding-runtime/test/provider-profile-store.test.ts packages/coding-runtime/test/provider-readiness.test.ts apps/eden/test/run-history.test.ts",
     "test:r2-safe-actuation": "node --test packages/coding-runtime/test/safe-actuation-policy.test.ts packages/coding-runtime/test/anchor-edit.test.ts packages/coding-runtime/test/git-review.test.ts packages/coding-runtime/test/safe-actuation-recovery.test.ts packages/coding-runtime/test/safe-actuation-provider-loop.test.ts packages/coding-runtime/test/safe-actuation-agent-client.test.ts && pnpm --filter @eden/cli exec bun test test/tui-focus.test.ts test/tui-r2-conversation.test.tsx",
     "test:r2-tui-pty": "node scripts/r2-tui-pty.mjs apps/eden/dist/eden docs/benchmark-results/2026-07-20-r2-tui-linux-x64.json",
-    "test": "node --test scripts/*.test.mjs && pnpm --workspace-concurrency=1 -r test",
+    "test": "node --test scripts/*.test.mjs images/node24-check/*.test.mjs && pnpm --workspace-concurrency=1 -r test",
+    "test:r2-docker-wrapper": "node --test images/node24-check/*.test.mjs",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

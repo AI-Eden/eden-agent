@@ -10,6 +10,15 @@ import {
   RevisionSchema,
   RunIdSchema,
 } from "./protocol.ts";
+import {
+  RepositoryCheckBudgetsSchema,
+  RepositoryCheckMountsSchema,
+  RepositoryCheckOperationSchema,
+  RepositoryCheckProfileSchema,
+  RepositoryCheckStagingSchema,
+  RepositoryCheckToolchainIdentitySchema,
+  RepositorySnapshotManifestV1Schema,
+} from "./repository-check.ts";
 
 const closed = { additionalProperties: false } as const;
 const sha256Schema = Type.String({ pattern: "^sha256:[a-f0-9]{64}$" });
@@ -70,33 +79,40 @@ export const GitDiffCheckOperationSchema = Type.Object(
   { type: Type.Literal("git_diff_check"), head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }) },
   closed,
 );
-export const ClosedOperationSchema = Type.Union([
+const HostOperationSchema = Type.Union([
   AnchorEditOperationSchema,
   GitTrackedQueryOperationSchema,
   GitDiffOperationSchema,
   GitDiffCheckOperationSchema,
 ]);
-export type ClosedOperation = Type.Static<typeof ClosedOperationSchema>;
 
-export const ActionEnvelopeV1Schema = Type.Refine(
+const commonActionProperties = {
+  actionVersion: Type.Literal(1),
+  actionId: ActionIdSchema,
+  runId: RunIdSchema,
+  proposalRevision: RevisionSchema,
+  workspace: Type.Object(
+    { workspaceId: identifierSchema, canonicalRootHash: sha256Schema },
+    closed,
+  ),
+  cwd: Type.Literal("."),
+  lifetime: Type.Object(
+    { kind: Type.Literal("single_use_proposal_revision"), revision: RevisionSchema },
+    closed,
+  ),
+} as const;
+
+const HostActionEnvelopeV1Schema = Type.Refine(
   Type.Object(
     {
-      actionVersion: Type.Literal(1),
-      actionId: ActionIdSchema,
-      runId: RunIdSchema,
-      proposalRevision: RevisionSchema,
+      ...commonActionProperties,
       kind: Type.Union([
         Type.Literal("anchor_edit"),
         Type.Literal("git_tracked_query"),
         Type.Literal("git_diff"),
         Type.Literal("git_diff_check"),
       ]),
-      operation: ClosedOperationSchema,
-      workspace: Type.Object(
-        { workspaceId: identifierSchema, canonicalRootHash: sha256Schema },
-        closed,
-      ),
-      cwd: Type.Literal("."),
+      operation: HostOperationSchema,
       scope: Type.Object(
         {
           capability: boundedText(),
@@ -120,10 +136,6 @@ export const ActionEnvelopeV1Schema = Type.Refine(
           timeoutMs: Type.Union([Type.Integer({ maximum: 60_000, minimum: 1 }), Type.Null()]),
           outputBytes: Type.Union([Type.Integer({ maximum: 2_097_152, minimum: 1 }), Type.Null()]),
         },
-        closed,
-      ),
-      lifetime: Type.Object(
-        { kind: Type.Literal("single_use_proposal_revision"), revision: RevisionSchema },
         closed,
       ),
     },
@@ -161,6 +173,61 @@ export const ActionEnvelopeV1Schema = Type.Refine(
     );
   },
 );
+
+export const RepositoryCheckActionEnvelopeV1Schema = Type.Refine(
+  Type.Object(
+    {
+      ...commonActionProperties,
+      authority: Type.Object(
+        {
+          environmentClass: Type.Literal("closed_non_secret"),
+          executionMode: Type.Literal("docker_container"),
+          isolation: Type.Literal("linux_container"),
+          network: Type.Literal("none"),
+          policyVersion: Type.Literal(1),
+          ruleSetRevision: Type.Literal("r2-docker-repository-check-v1"),
+        },
+        closed,
+      ),
+      baseSnapshots: Type.Array(FileSnapshotSchema, { maxItems: 0 }),
+      budgets: RepositoryCheckBudgetsSchema,
+      kind: Type.Literal("repository_check_v1"),
+      mounts: RepositoryCheckMountsSchema,
+      operation: RepositoryCheckOperationSchema,
+      profile: RepositoryCheckProfileSchema,
+      repositorySnapshot: RepositorySnapshotManifestV1Schema,
+      scope: Type.Object(
+        {
+          capability: Type.Literal("repository.execute.named_check"),
+          paths: Type.Tuple([Type.Literal(".")]),
+        },
+        closed,
+      ),
+      staging: RepositoryCheckStagingSchema,
+      toolchain: RepositoryCheckToolchainIdentitySchema,
+    },
+    closed,
+  ),
+  (envelope) =>
+    envelope.proposalRevision === envelope.lifetime.revision &&
+    envelope.operation.catalog.head.length >= 40 &&
+    envelope.toolchain.profileRevision === envelope.profile.profileRevision &&
+    utf8.encode(JSON.stringify(envelope)).byteLength <= 65_536,
+);
+export type RepositoryCheckActionEnvelopeV1 = Type.Static<
+  typeof RepositoryCheckActionEnvelopeV1Schema
+>;
+
+export const ClosedOperationSchema = Type.Union([
+  HostOperationSchema,
+  RepositoryCheckOperationSchema,
+]);
+export type ClosedOperation = Type.Static<typeof ClosedOperationSchema>;
+
+export const ActionEnvelopeV1Schema = Type.Union([
+  HostActionEnvelopeV1Schema,
+  RepositoryCheckActionEnvelopeV1Schema,
+]);
 export type ActionEnvelopeV1 = Type.Static<typeof ActionEnvelopeV1Schema>;
 
 export const PolicyDecisionSchema = Type.Object(

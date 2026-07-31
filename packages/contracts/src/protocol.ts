@@ -10,6 +10,7 @@ import type {
   SelectProviderProfileCommand,
 } from "./provider-profiles.ts";
 import { ProviderProfileSummarySchema } from "./provider-profiles.ts";
+import { RepositoryCheckProductViewV1Schema } from "./repository-check-result.ts";
 
 export const productProtocolVersion = 1 as const;
 export const ProductProtocolVersionSchema = Type.Literal(productProtocolVersion);
@@ -1004,7 +1005,7 @@ export const ViewApprovalSchema = Type.Object(
   closed,
 );
 
-export const ProductViewSchema = Type.Object(
+const ProductViewObjectSchema = Type.Object(
   {
     protocolVersion: ProductProtocolVersionSchema,
     viewId: Type.String(identifierOptions),
@@ -1027,8 +1028,15 @@ export const ProductViewSchema = Type.Object(
     attempts: Type.Optional(Type.Array(ModelAttemptSummarySchema, { maxItems: 12 })),
     conversation: Type.Optional(Type.Array(ConversationTurnSchema, { maxItems: 9 })),
     retry: Type.Optional(RetrySummarySchema),
+    repositoryCheck: Type.Optional(RepositoryCheckProductViewV1Schema),
   },
   closed,
+);
+export const ProductViewSchema = Type.Refine(
+  ProductViewObjectSchema,
+  (view) =>
+    view.repositoryCheck === undefined ||
+    (view.repositoryCheck.runId === view.runId && view.terminalOutcome?.state !== "succeeded"),
 );
 export type ProductView = Type.Static<typeof ProductViewSchema>;
 
@@ -1234,6 +1242,17 @@ export const ConversationUpdatedEventSchema = Type.Object(
   },
   closed,
 );
+export const RepositoryCheckUpdatedEventSchema = Type.Refine(
+  Type.Object(
+    {
+      ...eventEnvelope,
+      repositoryCheck: RepositoryCheckProductViewV1Schema,
+      type: Type.Literal("repository.check.updated"),
+    },
+    closed,
+  ),
+  (event) => event.runId === event.repositoryCheck.runId,
+);
 export const ProductEventSchema = Type.Union([
   SessionSnapshotEventSchema,
   PhaseProgressEventSchema,
@@ -1242,6 +1261,7 @@ export const ProductEventSchema = Type.Union([
   ToolUpdatedEventSchema,
   ModelAttemptUpdatedEventSchema,
   ConversationUpdatedEventSchema,
+  RepositoryCheckUpdatedEventSchema,
   ReviewUpdatedEventSchema,
   RunTerminalEventSchema,
 ]);

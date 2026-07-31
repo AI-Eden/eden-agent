@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import {
   type ActionEnvelopeV1,
   type AnchorEditOperation,
+  type DockerDiagnosticProbeActionV1,
   decodeActionEnvelope,
+  decodeDockerDiagnosticProbeAction,
   type PolicyDecision,
 } from "@eden/contracts";
 
@@ -35,6 +37,125 @@ export function safeActionDigest(envelope: ActionEnvelopeV1): string {
   return createHash("sha256").update(canonicalActionBytes(envelope)).digest("hex");
 }
 
+export function canonicalDockerDiagnosticProbeActionBytes(
+  action: DockerDiagnosticProbeActionV1,
+): Uint8Array {
+  const decoded = decodeDockerDiagnosticProbeAction(action);
+  if (!decoded.ok) throw new TypeError(decoded.error.message);
+  const payload = new TextEncoder().encode(JSON.stringify(sortCanonical(decoded.value)));
+  const bytes = new Uint8Array(actionDomain.byteLength + payload.byteLength);
+  bytes.set(actionDomain);
+  bytes.set(payload, actionDomain.byteLength);
+  return bytes;
+}
+
+export function dockerDiagnosticProbeActionDigest(action: DockerDiagnosticProbeActionV1): string {
+  return createHash("sha256")
+    .update(canonicalDockerDiagnosticProbeActionBytes(action))
+    .digest("hex");
+}
+
+export type DockerDiagnosticProbePolicyDecision = PolicyDecision & {
+  readonly decision: "ask";
+  readonly ruleId: "r2.docker-diagnostic-probe.exact";
+  readonly ruleSetRevision: "r2-docker-diagnostic-probe-v1";
+};
+export type DockerDiagnosticProbePolicyEvaluation =
+  | DockerDiagnosticProbePolicyDecision
+  | (PolicyDecision & {
+      readonly decision: "deny";
+      readonly ruleId: "r2.default-deny";
+      readonly ruleSetRevision: "r2-docker-diagnostic-probe-v1";
+    });
+
+export function evaluateDockerDiagnosticProbePolicy(
+  action: DockerDiagnosticProbeActionV1,
+  evaluatedAt: string,
+): DockerDiagnosticProbePolicyEvaluation {
+  const decoded = decodeDockerDiagnosticProbeAction(action);
+  if (!decoded.ok) {
+    return {
+      actionDigest: "0".repeat(64),
+      decision: "deny",
+      evaluatedAt,
+      reason: "The action does not match the accepted Docker diagnostic probe rule set.",
+      ruleId: "r2.default-deny",
+      ruleSetRevision: "r2-docker-diagnostic-probe-v1",
+    };
+  }
+  return {
+    actionDigest: dockerDiagnosticProbeActionDigest(decoded.value),
+    decision: "ask",
+    evaluatedAt,
+    reason: "The exact Docker diagnostic probe requires one interactive approval.",
+    ruleId: "r2.docker-diagnostic-probe.exact",
+    ruleSetRevision: "r2-docker-diagnostic-probe-v1",
+  };
+}
+
+export type DockerDiagnosticProbeApprovalState = {
+  readonly approvalId: string;
+  readonly actionDigest: string;
+  readonly actionId: string;
+  readonly expectedRevision: number;
+  readonly probeId: string;
+  readonly proposalRevision: number;
+  readonly state: "available" | "consumed";
+};
+
+export function createDockerDiagnosticProbeApproval(input: {
+  readonly action: DockerDiagnosticProbeActionV1;
+  readonly approvalId: string;
+  readonly expectedRevision: number;
+}): DockerDiagnosticProbeApprovalState {
+  return {
+    actionDigest: dockerDiagnosticProbeActionDigest(input.action),
+    actionId: input.action.actionId,
+    approvalId: input.approvalId,
+    expectedRevision: input.expectedRevision,
+    probeId: input.action.probeId,
+    proposalRevision: input.action.proposalRevision,
+    state: "available",
+  };
+}
+
+export type DockerDiagnosticProbeApprovalConsumption =
+  | {
+      readonly approval: DockerDiagnosticProbeApprovalState & {
+        readonly state: "consumed";
+      };
+      readonly ok: true;
+    }
+  | {
+      readonly code:
+        | "approval_already_consumed"
+        | "approval_digest_mismatch"
+        | "approval_identity_mismatch"
+        | "approval_revision_stale";
+      readonly ok: false;
+    };
+
+export function consumeDockerDiagnosticProbeApproval(
+  approval: DockerDiagnosticProbeApprovalState,
+  action: DockerDiagnosticProbeActionV1,
+  currentRevision: number,
+): DockerDiagnosticProbeApprovalConsumption {
+  if (approval.state === "consumed") return { code: "approval_already_consumed", ok: false };
+  if (
+    approval.expectedRevision !== currentRevision ||
+    approval.proposalRevision !== action.proposalRevision
+  ) {
+    return { code: "approval_revision_stale", ok: false };
+  }
+  if (approval.actionId !== action.actionId || approval.probeId !== action.probeId) {
+    return { code: "approval_identity_mismatch", ok: false };
+  }
+  if (approval.actionDigest !== dockerDiagnosticProbeActionDigest(action)) {
+    return { code: "approval_digest_mismatch", ok: false };
+  }
+  return { approval: { ...approval, state: "consumed" }, ok: true };
+}
+
 export function evaluateSafeActuationPolicy(
   envelope: ActionEnvelopeV1,
   evaluatedAt: string,
@@ -58,6 +179,16 @@ export function evaluateSafeActuationPolicy(
       ruleSetRevision: safeActuationRuleSetRevision,
       actionDigest: digest,
       reason: "Tracked UTF-8 modifications require one exact approval.",
+      evaluatedAt,
+    };
+  }
+  if (decoded.value.kind === "repository_check_v1") {
+    return {
+      decision: "deny",
+      ruleId: "r2.default-deny",
+      ruleSetRevision: safeActuationRuleSetRevision,
+      actionDigest: digest,
+      reason: "The repository-check rule set is not active in the host safe-actuation policy.",
       evaluatedAt,
     };
   }

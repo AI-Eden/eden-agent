@@ -347,6 +347,31 @@ test("safe-actuation review keeps Eden and repository patches separate with attr
       state: "completed",
     },
   };
+  for (const [width, height, layoutMode] of [
+    [60, 20, "narrow"],
+    [80, 24, "medium"],
+    [100, 30, "wide"],
+  ] as const) {
+    const baseline = await testRender(
+      <EdenTuiLayout
+        {...baseProps}
+        compact={layoutMode === "narrow"}
+        focusId="run.review"
+        height={height}
+        layoutMode={layoutMode}
+        runPane="recovery"
+        view={view}
+        width={width}
+      />,
+      { height, width },
+    );
+    try {
+      await act(async () => baseline.flush());
+      expect(baseline.captureCharFrame()).toContain("SAFE ACTUATION REVIEW");
+    } finally {
+      act(() => baseline.renderer.destroy());
+    }
+  }
   const renderer = await testRender(
     <EdenTuiLayout
       {...baseProps}
@@ -429,6 +454,46 @@ test("safe-actuation approval exposes exact authority without claiming isolation
     },
     phase: "awaiting-approval",
   };
+  for (const [width, height, layoutMode] of [
+    [60, 20, "narrow"],
+    [80, 24, "medium"],
+    [100, 30, "wide"],
+  ] as const) {
+    const baseline = await testRender(
+      <EdenTuiLayout
+        {...baseProps}
+        compact={layoutMode === "narrow"}
+        focusId="run.approve"
+        height={height}
+        layoutMode={layoutMode}
+        runPane="recovery"
+        view={view}
+        width={width}
+      />,
+      { height, width },
+    );
+    try {
+      await act(async () => baseline.flush());
+      const frame = baseline.captureCharFrame();
+      expect(frame).toContain("approval: pending");
+      expect(frame).toContain("workspace trust");
+      expect(frame).toContain("separate");
+      let authorityFrames = frame;
+      for (let step = 0; step < 24 && !/isolation\s+none/u.test(authorityFrames); step += 1) {
+        await act(async () => {
+          baseline.mockInput.pressArrow("down");
+          await baseline.flush();
+        });
+        authorityFrames += baseline.captureCharFrame();
+      }
+      const normalizedAuthority = authorityFrames
+        .replace(/[^\p{L}\p{N}._-]+/gu, " ")
+        .replaceAll(/\s+/gu, " ");
+      expect(normalizedAuthority).toContain("isolation none");
+    } finally {
+      act(() => baseline.renderer.destroy());
+    }
+  }
   const renderer = await testRender(
     <EdenTuiLayout
       {...baseProps}

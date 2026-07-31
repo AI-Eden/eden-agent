@@ -10,6 +10,7 @@ import type {
 } from "@eden/contracts";
 import type { KeyEvent } from "@opentui/core";
 
+import { RepositoryCheckCard } from "./repository-check-cards.tsx";
 import { densityForLayout, tuiDesignTokens } from "./tui-design.ts";
 import type {
   TuiFocusId,
@@ -674,6 +675,12 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                       <text>{safeTerminalBlock(turn.content)}</text>
                     </box>
                   ))}
+                  {props.view.repositoryCheck !== undefined && (
+                    <RepositoryCheckCard
+                      repositoryCheck={props.view.repositoryCheck}
+                      width={props.width}
+                    />
+                  )}
                   {outcome !== null && outcome !== undefined && (
                     <box
                       style={{

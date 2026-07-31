@@ -14,7 +14,19 @@ and human approval.
 On 2026-07-29 the owner confirmed shared understanding for the next Docker-isolated repository-check
 direction and accepted ADR 0017, the focused contract changes, and
 `docs/plans/2026-07-29-r2-docker-repository-check.md` as one Freeze packet. They are accepted implementation
-input, not current implementation truth, and Build is not authorized.
+input. Build was separately authorized on 2026-07-30. Slices 0-3 and the read-only half of Slice 4 are
+complete in an uncommitted worktree. The accepted probe amendment now has a deterministic runner and
+active recovery implementation. Authorized fresh-daemon/image preparation exposed a missing common
+backend-selection surface before probe execution, and the owner approved and Build implemented the
+narrow named-context correction. A second prepared attempt found
+that the compatible classic image store omits `.Descriptor`; the owner approved and Build implemented an
+exact config-digest platform-mapping fallback. A later attempt created but never started the exact
+container, then failed closed on immutable image environment representation. The owner approved and Build
+implemented an exact unique four-value environment set with order-independent inspection. A passing real
+probe then exposed one external Docker-label normalization defect. The focused fix made fixtures and the
+parser use the exact `eden.*` keys; active recovery subsequently started the same exact container without
+a second approval or duplicate create, passed all nine enforcement rows, recorded receipt before cleanup,
+and removed the container. Slice 4 is complete.
 
 ## User story
 
@@ -203,15 +215,40 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   approval; this contract adds no broad approval flag or public general resume command.
 - `eden doctor` is read-only by default. An explicit separately confirmed probe may run one no-repository,
   no-provider, no-network diagnostic container under smaller fixed limits. Neither mode remediates,
-  installs, pulls, configures a daemon, changes context, or deletes objects automatically.
+  installs, pulls, configures a daemon, changes the default context, or deletes objects automatically. A
+  probe may select one existing safe named context, which must bind both Doctor and execution calls.
 - A check remains a basic observation in non-success `completed` review. It cannot emit `succeeded`,
   start a repair loop, or produce an Evidence Pack.
 - Hosted Ubuntu x64 may establish an implementation candidate. Whole R2 still requires real macOS Docker
   Desktop and Windows Docker Desktop WSL2/Linux-container automated rows plus one independent external-user
   failing-test journey. Missing rows remain `not-run`; release support remains separate.
 
-The owner accepted this contract with the complete 2026-07-29 Freeze packet. Docker and repository-check
-behavior remain unavailable until a separately authorized Build and matching evidence.
+The owner accepted this contract with the complete 2026-07-29 Freeze packet and separately authorized
+Build on 2026-07-30. The read-only Doctor and deterministic explicit-probe candidates are implemented
+locally, including safe named-context binding; repository-check dispatch and real probe execution remain
+unavailable.
+
+### Accepted diagnostic-probe amendment
+
+The accepted 2026-07-31 amendment makes the explicit probe a standalone
+`docker_diagnostic_probe_v1` transaction rather than a synthetic repository run. It uses no workspace,
+catalog, snapshot, staging tree, provider, model, credential, or repository mount. One exact action binds
+the current Docker backend, published image/platform manifest, application-owned fixed Node diagnostic
+program, exact fixed `HOME`, `LANG`, `PATH`, and `SSL_CERT_FILE` values, closed profile, and every budget
+under a dedicated always-ask rule. Docker inspect ordering is non-semantic, but missing, duplicate,
+changed, inherited, or additional environment values fail closed.
+
+The transaction owns a bounded private diagnostic journal, stable container identity, consumed approval,
+dispatch fact, receipt-before-cleanup ordering, durable terminal draft, exact active recovery, and
+standalone product command/event/view contracts. Default Doctor and probe JSON preview remain
+zero-mutation. Deterministic Build is authorized and implemented; Docker execution, image preparation,
+credentials, and publication require separate authority.
+
+Image readiness always requires the exact index RepoDigest, platform config digest, Linux OS/architecture,
+entrypoint, nonroot user, and working directory. A local descriptor, when present, must match the frozen
+platform manifest. Only when it is absent may the exact config digest select that same manifest from the
+application-owned immutable platform mapping. Malformed, missing, or contradictory evidence blocks; this
+fallback performs no registry lookup or network request.
 
 ## Persistence and recovery
 

@@ -1,6 +1,12 @@
 import type { ProductError, RunId } from "@eden/contracts";
 
 export type CliArguments =
+  | { readonly format: "json" | "plain"; readonly mode: "doctor" }
+  | {
+      readonly dockerContext?: string;
+      readonly format: "json" | "plain";
+      readonly mode: "doctor-probe";
+    }
   | { readonly mode: "help" }
   | { readonly mode: "profile-check" }
   | { readonly mode: "profile-list" }
@@ -25,12 +31,18 @@ export const helpText = `Usage:
   eden run show --json <run-id>
   eden profile list --json
   eden profile check --json
+  eden doctor [--json]
+  eden doctor --probe-docker [--context <safe-name>] [--json]
   eden --help
 
 The default command opens the terminal product.
 Headless JSON emits one ProductEvent object per line.
 Run history JSON emits one RunCatalog or read-only RunInspection object.
+Doctor inspects local prerequisites without mutation or remediation.
+The explicit Docker probe previews one exact always-ask diagnostic action.
 `;
+
+const dockerContextNamePattern = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/u;
 
 function invalid(message: string): CliArgumentsResult {
   return {
@@ -47,6 +59,39 @@ function invalid(message: string): CliArgumentsResult {
 export async function parseArgs(argv: readonly string[]): Promise<CliArgumentsResult> {
   if (argv.length === 0) return { ok: true, value: { mode: "tui" } };
   if (argv.length === 1 && argv[0] === "--help") return { ok: true, value: { mode: "help" } };
+  if (argv[0] === "doctor") {
+    if (argv.length === 1) {
+      return { ok: true, value: { format: "plain", mode: "doctor" } };
+    }
+    if (argv.length === 2 && argv[1] === "--json") {
+      return { ok: true, value: { format: "json", mode: "doctor" } };
+    }
+    if (argv.length === 2 && argv[1] === "--probe-docker") {
+      return { ok: true, value: { format: "plain", mode: "doctor-probe" } };
+    }
+    if (argv.length === 3 && argv[1] === "--probe-docker" && argv[2] === "--json") {
+      return { ok: true, value: { format: "json", mode: "doctor-probe" } };
+    }
+    if (
+      (argv.length === 4 || argv.length === 5) &&
+      argv[1] === "--probe-docker" &&
+      argv[2] === "--context" &&
+      dockerContextNamePattern.test(argv[3] ?? "") &&
+      (argv.length === 4 || argv[4] === "--json")
+    ) {
+      return {
+        ok: true,
+        value: {
+          dockerContext: argv[3] as string,
+          format: argv.length === 5 ? "json" : "plain",
+          mode: "doctor-probe",
+        },
+      };
+    }
+    return invalid(
+      "Doctor accepts only the frozen --json, --probe-docker, and safe --context grammar.",
+    );
+  }
   if (argv.length === 3 && argv[0] === "profile" && argv[2] === "--json") {
     if (argv[1] === "list") return { ok: true, value: { mode: "profile-list" } };
     if (argv[1] === "check") return { ok: true, value: { mode: "profile-check" } };

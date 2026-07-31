@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-07-29
+- Accepted amendment: `docs/research/2026-07-31-r2-docker-diagnostic-probe-freeze-amendment.md`;
+  owner approved 2026-07-31
 
 ## Context
 
@@ -127,9 +129,37 @@ required backend features, staging prerequisites, and exactly attributed orphan 
 pull, build, install, configure, start a daemon, change a Docker context, delete an object, read raw check
 output, or contact a provider.
 
+The explicit probe may additionally select one already existing Docker context through
+`--context <safe-name>`, where the name matches `[A-Za-z0-9][A-Za-z0-9_.-]{0,127}`. The same global
+selection prefixes every Doctor and diagnostic lifecycle invocation. This does not expose a raw host or
+socket, create a context, or change the user's default context; omission retains active-context behavior.
+
+Image evidence is exact across both descriptor-capable and classic stores. Every ready image must match
+the frozen index RepoDigest, platform config digest, OS/architecture, entrypoint, nonroot user, and working
+directory. When a local `.Descriptor.digest` exists it must equal the frozen platform manifest. Only when
+the descriptor is absent may the exact config digest select that manifest from the application-owned
+immutable platform mapping. Present-but-malformed or contradictory evidence blocks without registry
+lookup, credential, or network fallback.
+
 An explicit Docker probe is a separately confirmed canonical diagnostic action. It uses the exact local
 image, no repository input, no provider, no network, and a smaller fixed profile. It produces a receipt and
 uses the same exact ownership and recovery rules. It is not automatic remediation.
+
+Slice 4 discovered that the original accepted public contracts did not define this standalone action. The
+accepted 2026-07-31 amendment keeps the probe outside repository runs and freezes a dedicated action,
+always-ask approval command, diagnostic journal, product event/view, receipt, cleanup, and recovery
+contract. It reuses the `eden.action.v1` canonical domain without adding a synthetic workspace or
+reinterpreting `repository_check_v1`. The owner authorized its deterministic Build, including exact active
+recovery; Docker execution and external preparation remain separate authority.
+
+The accepted 2026-08-01 matching-surface amendment binds the immutable image certificate path alongside
+the fixed application environment. Inspection compares the exact unique environment set without treating
+Docker's returned order as semantic. Missing, duplicate, changed, inherited, or additional values remain
+blocked; no host environment, image, network, or privilege authority was added.
+
+Slice 4 subsequently passed one real probe on the approved independent `userns-remap` backend. Active
+recovery used the same exact created container without a second approval or duplicate create, all nine
+enforcement rows passed, receipt preceded exact cleanup, and the backend returned to zero containers.
 
 Hosted Ubuntu x64 is the authoritative automated Docker lane for the implementation candidate. Hosted
 macOS and Windows retain non-Docker contract, package, TUI, and negative-doctor evidence. Whole-R2 closure

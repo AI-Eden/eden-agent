@@ -136,8 +136,19 @@ Doctor inspection rows are not journal events because the default command is rea
 diagnosis. An explicit probe creates its own canonical diagnostic action, dispatch and receipt facts, and
 exact cleanup; it has no repository or provider facts.
 
-The owner accepted these event families with ADR 0017 and the complete Freeze packet. They remain
-unimplemented until separate Build authorization.
+The accepted 2026-07-31 amendment stores those facts in one bounded standalone diagnostic JSONL journal,
+not a synthetic run journal. Its execution order is action prepared, approval consumed, effect intent,
+container created, dispatch started, receipt recorded with a durable terminal draft, cleanup recorded, and
+terminal. A proven pre-create absence closes through `docker.probe.recovery.closed`; the public standalone
+`docker.probe.recovery.resolved` value reports `not_started`. One unresolved effect may reconcile only the
+same exact created/running/exited object; pure projection and JSON recovery perform no Docker I/O.
+
+The owner accepted the repository-check event families with ADR 0017 and separately authorized Build on
+2026-07-30. Their decoders exist but runtime reduction/dispatch remains inactive. The standalone probe
+event family, journal projection, deterministic runner, and exact active recovery are implemented in the
+local uncommitted candidate. The passing real probe reopened the same durable transaction, recovered the
+same exact container, recorded `container.created`, `dispatch.started`, receipt-before-cleanup, cleanup,
+and terminal facts in order, and performed no duplicate create or second approval.
 
 ## Replay
 

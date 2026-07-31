@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "status": "slice4-complete-real-probe-passed-with-exact-object-recovery",
+  "recordedAt": "2026-08-01T02:41:04+08:00",
+  "sourceSha": "a99718f3d091fe90e031e90b6259fb0e5bdf4b49",
+  "sourceState": "uncommitted-build-worktree",
+  "workflowPhase": "slice4-real-probe-complete",
+  "trigger": {
+    "slice": 4,
+    "discovery": "The accepted probe behavior has no closed standalone action, approval, journal, product, receipt, cleanup, or recovery contract.",
+    "readOnlyDoctor": "complete",
+    "probeImplementation": "deterministic-runner-recovery-named-context-classic-store-and-closed-environment-complete"
+  },
+  "amendment": {
+    "path": "docs/research/2026-07-31-r2-docker-diagnostic-probe-freeze-amendment.md",
+    "kind": "docker_diagnostic_probe_v1",
+    "standalone": true,
+    "runBound": false,
+    "repositoryInput": "none",
+    "provider": "none",
+    "network": "none",
+    "policy": "always-ask",
+    "canonicalDomain": "eden.action.v1\\u0000",
+    "diagnosticJournal": "<eden-state>/diagnostics/docker-probe-v1/journal.jsonl",
+    "matchingSurfaceCheckpointRequiredBeforeDockerExecution": true,
+    "namedContextSelection": {
+      "grammar": "eden doctor --probe-docker --context <safe-name> [--json]",
+      "safeNamePattern": "[A-Za-z0-9][A-Za-z0-9_.-]{0,127}",
+      "doctorAndExecutionSameContext": true,
+      "rawHostPublicOption": false,
+      "changesDefaultContext": false
+    },
+    "classicStorePlatformEvidence": {
+      "requiredLocalFacts": [
+        "exact-index-repodigest",
+        "exact-platform-config-digest",
+        "linux-os-architecture",
+        "fixed-entrypoint-user-working-directory"
+      ],
+      "descriptorPresent": "must-match-frozen-platform-manifest",
+      "descriptorAbsent": "resolve-only-from-frozen-platform-config-mapping",
+      "registryLookup": false,
+      "network": false,
+      "configDigests": {
+        "linux/amd64": "sha256:f175c02a2a6d4012c1d0852c82b03893810ee91803244a1699046d2eee7cc443",
+        "linux/arm64": "sha256:31b5c699e50ea674594f825c59f65c7b3f84d3f73ea0fdcd47a3cb4fb4b8566f"
+      }
+    },
+    "closedEnvironment": {
+      "values": [
+        "HOME=/tmp",
+        "LANG=C.UTF-8",
+        "PATH=/usr/local/bin:/usr/bin:/bin",
+        "SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt"
+      ],
+      "comparison": "exact-unique-set-order-independent",
+      "hostEnvironmentInheritance": false,
+      "additionalValues": "blocked"
+    }
+  },
+  "canonicalFixture": {
+    "encodedBytes": 2477,
+    "maximumBytes": 16384,
+    "sha256": "c72190e0aebe5512362cf891954913bca226aa1d734a71bd0635998a99f92b03",
+    "independentEncoder": true
+  },
+  "currentProductionBoundary": {
+    "standaloneActionDecoder": "accepted",
+    "standaloneCommandDecoder": "accepted",
+    "standaloneEventDecoder": "accepted",
+    "runBoundActionDecoder": "rejects-standalone-probe",
+    "runBoundProductCommandDecoder": "rejects-standalone-probe",
+    "runBoundProductEventDecoder": "rejects-standalone-probe",
+    "interactiveProbeCliGrammar": "accepted",
+    "jsonProbeCliGrammar": "accepted",
+    "namedContextProbeCliGrammar": "accepted",
+    "cliIntegration": "complete-same-context-doctor-and-execution",
+    "classicStoreImageEvidence": "complete-exact-config-mapping-with-descriptor-precedence",
+    "dockerRunner": "deterministic-and-real-probe-passed",
+    "crashRecoveryExecutor": "deterministic-complete"
+  },
+  "matchingSurfaceAttempt": {
+    "authorization": "approved-exact-one-probe",
+    "status": "failed-closed-after-create-before-start-environment-inspection-mismatch",
+    "selectedBackend": "fresh-independent-userns-remap-daemon",
+    "preparation": {
+      "dockerEngine": "29.6.2-static-bundle-verified",
+      "daemon": "started-independent-userns-remap",
+      "namedContext": "used-with-default-context-unchanged",
+      "imageIndexDigest": "sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f",
+      "imagePlatform": "linux/amd64",
+      "imageConfigDigest": "sha256:f175c02a2a6d4012c1d0852c82b03893810ee91803244a1699046d2eee7cc443",
+      "localDescriptor": "absent-on-classic-overlay2-store",
+      "registryCredential": "temporary-read-only-use-removed-before-probe"
+    },
+    "actionDigest": "2d1c60345ef5b93e264730a5770f0b13fc07f8d05a0698719c64dd9c0b967613",
+    "blocker": "Docker inspect merged the immutable image SSL_CERT_FILE value and returned a non-CLI environment order; the old parser required only three ordered values.",
+    "dockerDiagnosticProbeCommandCount": 2,
+    "containerCreateCount": 1,
+    "containerStartCount": 0,
+    "containerStateAtFailure": "created",
+    "journalSha256": "sha256:0bdbb34bc12012cfc532ebab3e2081bf2a07eded1c2c60d9ce6d4e6dae539a25",
+    "cleanup": {
+      "daemonAndContainerd": "stopped",
+      "containers": "zero",
+      "images": "zero",
+      "registryConfiguration": "removed",
+      "readPackagesScope": "removed",
+      "temporaryMount": "removed",
+      "temporaryDirectory": "removed"
+    },
+    "nextOperationalRequirements": [
+      "reacquire the pinned Docker Engine 29.6.2 static bundle",
+      "start one new ephemeral userns-remap daemon",
+      "create one temporary safe named Docker context without changing the default context",
+      "temporarily add private GHCR read authority only for the immutable pull",
+      "pull only the immutable approved image digest",
+      "remove the registry credential before the probe",
+      "run exactly one interactive frozen probe and remove the temporary context and daemon state"
+    ]
+  },
+  "passingProbe": {
+    "authorization": "approved-continuous-authority-packet",
+    "status": "passed",
+    "selectedBackend": "fresh-independent-userns-remap-daemon",
+    "dockerEngine": "29.6.2",
+    "dockerApi": "1.55",
+    "namedContext": "eden-r2-goal-pbfbmw",
+    "imageIndexDigest": "sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f",
+    "imagePlatform": "linux/amd64",
+    "imageConfigDigest": "sha256:f175c02a2a6d4012c1d0852c82b03893810ee91803244a1699046d2eee7cc443",
+    "actionDigest": "c2c11b45af6700ede7fcacdc2e1f19e11cd17271733d1fc7ce8ba0f0f6e92990",
+    "probeId": "probe-a5ca4641-7ada-460a-a50e-d6f0cb68859c",
+    "effectId": "effect-probe-a5ca4641-7ada-460a-a50e-d6f0cb68859c",
+    "containerId": "cc867ab80b9c359d0ae055288939321c681052165931fe1db55f09c826254e9e",
+    "containerName": "eden-probe-1458df78723a66f695122f12",
+    "recovery": {
+      "initialState": "effect_intent",
+      "sameContainerRecovered": true,
+      "additionalApprovalConsumed": false,
+      "duplicateCreate": false
+    },
+    "semanticRows": {
+      "processUser": "passed",
+      "userNamespace": "passed",
+      "capabilities": "passed",
+      "noNewPrivileges": "passed",
+      "seccomp": "passed",
+      "rootFilesystem": "passed",
+      "temporaryFilesystem": "passed",
+      "resourceLimits": "passed",
+      "resultProtocol": "passed"
+    },
+    "resultDigest": "sha256:e4d6e6bc90c81e362235e2725628fce100cf0e5c54f94fe4655c461bfce219c3",
+    "journal": {
+      "terminalSequence": 8,
+      "sha256": "sha256:a19cbd681e997e4767e7235ab04708137f195fb9785aa4235b54db5ade2641f6"
+    },
+    "cleanup": {
+      "receiptBeforeCleanup": true,
+      "container": "removed-by-exact-identity",
+      "containerCountAfter": 0,
+      "pinnedImageRetainedForAuthorizedSlices": true,
+      "registryCredential": "removed-before-probe"
+    }
+  },
+  "verification": {
+    "freezeGuard": "passed-closed-environment-amendment",
+    "focusedClosedEnvironmentTests": "passed",
+    "markdownCheck": "passed",
+    "diffCheck": "passed",
+    "fullWorkspaceTest": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "codeCheck": "passed",
+    "packagedNamedContextGrammar": "passed-help-and-parser-no-docker-io",
+    "packagedRawHostRejection": "passed-exit-2-no-docker-io",
+    "packagedCliJsonRecoverySurface": "passed-no-docker-io",
+    "nativeArchive": "passed",
+    "nativeArchiveApplicationHash": "sha256:4988a8111e4c661c197df8b2acde07a0797ecdf85fb04f54636699955b359ee2",
+    "realProbeLabelNormalizationRedGreen": "passed",
+    "realProbe": "passed-with-exact-object-recovery",
+    "postProbeContainerCensus": "zero"
+  },
+  "authority": {
+    "probeContractBuild": "deterministic-runner-recovery-named-context-classic-store-and-closed-environment-complete",
+    "dockerRead": "used-only-for-authorized-daemon-and-image-preparation",
+    "dockerExecution": "one-create-one-start-passed-receipted-and-cleaned",
+    "repositoryCodeChecks": "not-run",
+    "provider": "not-requested",
+    "credential": "temporary-ghcr-read-use-complete-and-removed",
+    "externalNetwork": "used-only-for-authorized-bundle-and-immutable-image-acquisition",
+    "imagePublication": "not-run",
+    "commit": "not-run",
+    "push": "not-run"
+  }
+}

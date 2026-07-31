@@ -76,3 +76,58 @@ test("profile list and check require exact JSON-only grammar", async () => {
   });
   strictEqual((await parseArgs(["profile", "list"])).ok, false);
 });
+
+test("doctor accepts only the frozen read-only and explicit probe grammar", async () => {
+  deepStrictEqual(await parseArgs(["doctor"]), {
+    ok: true,
+    value: { format: "plain", mode: "doctor" },
+  });
+  deepStrictEqual(await parseArgs(["doctor", "--json"]), {
+    ok: true,
+    value: { format: "json", mode: "doctor" },
+  });
+  deepStrictEqual(await parseArgs(["doctor", "--probe-docker"]), {
+    ok: true,
+    value: { format: "plain", mode: "doctor-probe" },
+  });
+  deepStrictEqual(await parseArgs(["doctor", "--probe-docker", "--json"]), {
+    ok: true,
+    value: { format: "json", mode: "doctor-probe" },
+  });
+  deepStrictEqual(await parseArgs(["doctor", "--probe-docker", "--context", "eden-fresh-userns"]), {
+    ok: true,
+    value: {
+      dockerContext: "eden-fresh-userns",
+      format: "plain",
+      mode: "doctor-probe",
+    },
+  });
+  deepStrictEqual(
+    await parseArgs(["doctor", "--probe-docker", "--context", "desktop-linux", "--json"]),
+    {
+      ok: true,
+      value: { dockerContext: "desktop-linux", format: "json", mode: "doctor-probe" },
+    },
+  );
+
+  for (const argv of [
+    ["doctor", "--json", "--json"],
+    ["doctor", "--json", "--probe-docker"],
+    ["doctor", "--probe-docker", "--probe-docker"],
+    ["doctor", "--probe-docker", "--json", "--json"],
+    ["doctor", "--probe-docker", "--yes"],
+    ["doctor", "--context", "default"],
+    ["doctor", "--probe-docker", "--context"],
+    ["doctor", "--probe-docker", "--context", ""],
+    ["doctor", "--probe-docker", "--context", "unix:///tmp/docker.sock"],
+    ["doctor", "--probe-docker", "--context", "../daemon"],
+    ["doctor", "--probe-docker", "--context", "a".repeat(129)],
+    ["doctor", "--probe-docker", "--context", "default", "--context", "other"],
+    ["doctor", "--probe-docker", "--json", "--context", "default"],
+    ["doctor", "--probe-docker", "--host", "unix:///tmp/docker.sock"],
+    ["doctor", "--yes"],
+    ["doctor", "repair"],
+  ]) {
+    strictEqual((await parseArgs(argv)).ok, false);
+  }
+});

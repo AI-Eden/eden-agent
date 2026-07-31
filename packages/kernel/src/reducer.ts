@@ -807,6 +807,9 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         ),
       };
     }
+    case "repository.check.lifecycle":
+    case "repository.check.completed":
+      return illegal(state, event);
     case "model.context.committed":
       if (
         state.phase !== "executing" ||

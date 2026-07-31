@@ -233,8 +233,31 @@ same value. Default rows are read-only. The explicit probe is a separate canonic
 no repository, provider, credential, or network; non-interactive JSON stops at its approval rather than
 inventing a bypass.
 
-The owner accepted these contracts with ADR 0017 and the complete Freeze packet. They remain unavailable
-until the owner separately authorizes Build and matching implementation evidence exists.
+The accepted 2026-07-31 amendment defines standalone Docker diagnostic action, approval command,
+approval/recovery-required/recovery-resolved values, lifecycle event, result, receipt, cleanup, and
+product-view families. They do not join the run-bound product unions. The probe accepts an optional
+`--context <safe-name>` before optional `--json`; the name selects one existing context for both Doctor
+and execution without changing the default context or accepting a raw host/socket. `eden doctor
+--probe-docker --json` emits exactly one closed preview or recovery-required value, exits 2, and creates
+no journal, lock, or Docker object. Interactive recovery may append an exact `not_started` closure or
+reconcile only the durably identified object.
+
+The image prerequisite exposes exact index, platform manifest, config digest, and evidence-source details.
+Descriptor-capable stores must match their local descriptor. Classic stores may report the same frozen
+manifest only after the exact platform config digest and fixed image configuration select the
+application-owned mapping. Missing, malformed, mutable, or contradictory evidence remains blocked; no
+registry or network fallback is part of Doctor or probe authority.
+
+The probe action also binds the exact fixed `HOME`, `LANG`, `PATH`, and immutable-image
+`SSL_CERT_FILE` values. Docker inspect may return them in any order, but the unique set must match exactly;
+missing, duplicated, changed, inherited, or additional environment values block execution and recovery.
+
+The owner accepted the repository-check and read-only Doctor contracts with ADR 0017 and separately
+authorized Build on 2026-07-30. Read-only Doctor is implemented in the local uncommitted candidate;
+repository-check dispatch remains inactive. The standalone probe contracts, runner, and deterministic
+active recovery are implemented locally. The passing real probe recovered the same exact container from
+durable `effect_intent`, consumed no second approval, created no duplicate object, recorded its receipt
+before cleanup, and returned the daemon to zero containers.
 
 ## Run catalog and inspection
 

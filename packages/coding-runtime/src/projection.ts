@@ -297,6 +297,11 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         cursor += 1;
         break;
       }
+      case "repository.check.lifecycle":
+      case "repository.check.completed":
+        throw new ProjectionError(
+          "Repository-check journal projection is not active before the lifecycle slice.",
+        );
       case "run.cancelled":
       case "run.blocked":
         events.push({

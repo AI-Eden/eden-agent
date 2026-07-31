@@ -23,6 +23,58 @@ export {
   type PrepareContextOptions,
   type PreparedContext,
 } from "./context/index.ts";
+export {
+  createDockerDiagnosticProbeRecoveryRequiredEvent,
+  createDockerDiagnosticProbeRecoveryResolvedEvent,
+  DockerDiagnosticProbeJournal,
+  DockerDiagnosticProbeJournalError,
+  type DockerDiagnosticProbeJournalProjection,
+  type DockerDiagnosticProbeJournalRecord,
+  type DockerDiagnosticProbeRecoveryClosure,
+  type DockerDiagnosticProbeRecoveryProjectionResult,
+  type DockerDiagnosticProbeRecoveryResolvedProjectionResult,
+  type DockerDiagnosticProbeTerminalDraft,
+  projectDockerDiagnosticProbeJournal,
+} from "./docker-diagnostic-probe-journal.ts";
+export {
+  type DockerDiagnosticProbeIdentity,
+  type DockerDiagnosticProbePreparation,
+  prepareDockerDiagnosticProbeApproval,
+} from "./docker-diagnostic-probe-preflight.ts";
+export {
+  type DockerDiagnosticProbeContainerInspection,
+  type DockerDiagnosticProbeContainerInspectionDecodeResult,
+  type DockerDiagnosticProbeProgramDecodeResult,
+  decodeDockerDiagnosticProbeContainerInspection,
+  decodeDockerDiagnosticProbeProgramOutput,
+  dockerDiagnosticProbeProgramIdentity,
+  dockerDiagnosticProbeProgramSource,
+} from "./docker-diagnostic-probe-program.ts";
+export {
+  createDockerDiagnosticProbeExecutionPlan,
+  DockerCliDiagnosticProbePort,
+  type DockerCliDiagnosticProbePortOptions,
+  type DockerDiagnosticProbeContainerConfiguration,
+  type DockerDiagnosticProbeExecutionPlan,
+  type DockerDiagnosticProbeExecutionPlanResult,
+  type DockerDiagnosticProbeExecutionPort,
+  type DockerDiagnosticProbeRecoveryPort,
+  type ExecuteDockerDiagnosticProbeEnvironment,
+  type ExecuteDockerDiagnosticProbeInput,
+  type ExecuteDockerDiagnosticProbeResult,
+  executeDockerDiagnosticProbe,
+  type RecoverDockerDiagnosticProbeEnvironment,
+  type RecoverDockerDiagnosticProbeResult,
+  recoverDockerDiagnosticProbe,
+} from "./docker-diagnostic-probe-runner.ts";
+export {
+  DockerCliDoctorPort,
+  type DockerCliDoctorPortOptions,
+  type DockerDoctorObservation,
+  type DockerDoctorPort,
+  DockerDoctorService,
+  type DockerDoctorServiceOptions,
+} from "./docker-doctor.ts";
 export { FakeToolHost } from "./fake-tool-host.ts";
 export {
   createEdenPatch,
@@ -43,8 +95,15 @@ export {
 export type { PlanArtifact } from "./planning/index.js";
 export {
   canonicalActionBytes,
+  canonicalDockerDiagnosticProbeActionBytes,
+  consumeDockerDiagnosticProbeApproval,
   consumeSafeApproval,
+  createDockerDiagnosticProbeApproval,
   createSafeApproval,
+  type DockerDiagnosticProbeApprovalConsumption,
+  type DockerDiagnosticProbeApprovalState,
+  dockerDiagnosticProbeActionDigest,
+  evaluateDockerDiagnosticProbePolicy,
   evaluateSafeActuationPolicy,
   isNarrowerAnchorEdit,
   type SafeApproval,
@@ -61,6 +120,17 @@ export {
 export type { ProjectionResult } from "./projection.ts";
 export { ProjectionError, projectJournal, projectView } from "./projection.ts";
 export { ReplayError, replayRecords } from "./replay.ts";
+export {
+  type RepositoryCheckSelection,
+  RepositoryCheckSnapshotError,
+  RepositoryCheckSnapshotService,
+  type RepositoryCheckSnapshotServiceOptions,
+  type StagedRepositorySnapshot,
+} from "./repository-check-snapshot.ts";
+export {
+  repositoryCheckToolchainConfigDigests,
+  repositoryCheckToolchainManifest,
+} from "./repository-check-toolchain.ts";
 export type {
   EffectHost,
   JournalRecordMetadata,

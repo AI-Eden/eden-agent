@@ -56,6 +56,12 @@ confirmation before creating an object. Missing image, unsupported backend, mism
 has a concrete manual next action; doctor never offers automatic pull, daemon configuration, or broad
 cleanup.
 
+Under the accepted 2026-07-31 amendment, interactive probe states are preflight, awaiting approval,
+creating, created, running, result decoded, cleaning, and terminal review. A prior unresolved approved
+probe is shown as exact recovery before any new proposal. JSON mode projects approval-required or
+recovery-required and exits without mutation. Interactive recovery either closes a proven non-start as
+`not_started`, resumes the exact durable object, or stops fail-closed for ambiguous identity.
+
 ## Responsive terminal layout
 
 - Narrow: one primary column with explicit view switching.

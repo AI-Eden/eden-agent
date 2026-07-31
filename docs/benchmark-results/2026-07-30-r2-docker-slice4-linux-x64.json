@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "status": "read-only-doctor-complete-probe-contract-blocked",
+  "recordedAt": "2026-07-30T23:23:48+08:00",
+  "sourceSha": "a99718f3d091fe90e031e90b6259fb0e5bdf4b49",
+  "sourceState": "uncommitted-build-worktree",
+  "slice": 4,
+  "readOnlyDoctor": {
+    "status": "passed",
+    "surfaces": ["eden doctor", "eden doctor --json"],
+    "mode": "read_only",
+    "mutation": "none",
+    "rowOrder": [
+      "docker.client",
+      "docker.daemon",
+      "docker.context",
+      "docker.api",
+      "docker.backend",
+      "docker.platform",
+      "docker.image",
+      "docker.security",
+      "docker.resources",
+      "docker.staging",
+      "eden.state",
+      "docker.orphans"
+    ],
+    "dockerCommands": [
+      "docker version --format {{json .}}",
+      "docker context show",
+      "docker context inspect --format {{json .}} <current-context>",
+      "docker info --format {{json .}}",
+      "docker image inspect --format {{json .}} <exact-image-index-reference>",
+      "docker container ls --all --filter label=eden.schema=eden.repository-check.v1 --format {{json .}}"
+    ],
+    "mutatingDockerCommandObserved": false,
+    "repositoryRead": false,
+    "providerContact": false
+  },
+  "realReadOnlyInspection": {
+    "status": "expected-blocked",
+    "observedAt": "2026-07-30T15:23:48.725Z",
+    "backend": {
+      "dockerDesktop": "4.45.0",
+      "clientVersion": "28.3.3",
+      "daemonVersion": "28.3.3",
+      "clientApiVersion": "1.51",
+      "daemonApiVersion": "1.51",
+      "daemonMinimumApiVersion": "1.24",
+      "context": "default",
+      "platform": "linux/amd64",
+      "cgroupVersion": "2"
+    },
+    "rows": {
+      "docker.client": "ready",
+      "docker.daemon": "ready",
+      "docker.context": "ready",
+      "docker.api": "ready",
+      "docker.backend": "ready",
+      "docker.platform": "ready",
+      "docker.image": "blocked",
+      "docker.security": "blocked",
+      "docker.resources": "ready",
+      "docker.staging": "ready",
+      "eden.state": "ready",
+      "docker.orphans": "ready"
+    },
+    "blockers": {
+      "exactLocalImage": "absent",
+      "pullPolicy": "never",
+      "seccomp": true,
+      "userNamespace": false,
+      "cgroupNamespace": true
+    },
+    "exactAttributedContainerCount": 0,
+    "statePathBefore": "missing",
+    "statePathAfter": "missing",
+    "plainJsonSemanticParity": true,
+    "dockerObjectCreated": false,
+    "dockerObjectRemoved": false
+  },
+  "failureMatrix": {
+    "missingClient": "blocked",
+    "unreachableDaemon": "blocked",
+    "malformedDockerJson": "blocked",
+    "dockerTimeout": "blocked-without-follow-up-command",
+    "unsupportedContext": "blocked",
+    "nativeWindowsMode": "blocked",
+    "apiBelowFloor": "blocked",
+    "apiNegotiationGap": "blocked",
+    "wrongImageIndex": "blocked",
+    "wrongPlatformManifest": "blocked",
+    "missingSecurityFeature": "blocked",
+    "missingResourceFeature": "blocked",
+    "unsafeStatePermissions": "blocked",
+    "mismatchedOrphanLabels": "blocked",
+    "overBudgetOrphanIdentities": "blocked-without-truncation"
+  },
+  "probe": {
+    "status": "not-implemented-contract-amendment-required",
+    "commandAccepted": false,
+    "containerCreated": false,
+    "reason": "The Freeze requires one canonical diagnostic action, approval, receipt, and cleanup lifecycle, but the closed public contracts define only repository_check_v1 action and receipt shapes.",
+    "missingContracts": [
+      "canonical Docker diagnostic probe action",
+      "probe approval and product command",
+      "probe lifecycle facts and product events",
+      "probe receipt and cleanup",
+      "canonical bytes and digest domain",
+      "exact probe ownership labels"
+    ]
+  },
+  "verification": {
+    "focusedDoctorTests": "passed",
+    "fullWorkspaceTest": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "codeCheck": "passed",
+    "markdownCheck": "passed",
+    "diffCheck": "passed",
+    "realReadOnlyInspection": "passed-with-expected-blockers",
+    "realProbe": "not-run"
+  },
+  "authority": {
+    "dockerReadOnlyInspection": "performed",
+    "dockerProbe": "not-run",
+    "dockerExecution": "not-run",
+    "repositoryCodeChecks": "not-run",
+    "provider": "not-requested",
+    "credential": "not-used",
+    "externalUser": "not-run",
+    "commit": "not-run",
+    "push": "not-run"
+  }
+}

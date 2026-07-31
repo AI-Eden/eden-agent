@@ -1,6 +1,6 @@
 # R2 Docker Repository Check Plan
 
-- Status: Accepted Freeze input; Build not authorized
+- Status: Accepted; Slice 4 complete with a passing real probe and exact-object recovery; Slice 5 Build is next
 - Date: 2026-07-29
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `0ed7873bf4c134b77a4c00e96dbaf182007f031b`
@@ -41,23 +41,27 @@ prepared image under review, no provider credential, and no external network unl
 
 ## Current repository facts
 
-- `packages/contracts/src/safe-actuation.ts` has a closed `ActionEnvelopeV1`, but only for AnchorEdit and
-  runtime-owned Git operations. Execution mode is fixed to `trusted_host_policy_only`.
+- `packages/contracts/src/safe-actuation.ts` now includes the closed `repository_check_v1` envelope while
+  preserving AnchorEdit and runtime-owned Git decoding. The existing host policy still default-denies the
+  Docker action; no repository-check execution path exists.
 - ADR 0015 already fixes canonical JSON, SHA-256 action identity, policy revision, single-use approval,
   consume-before-dispatch, stable effect identity, and effect-kind reconciliation.
-- `packages/kernel` has no repository-check, Docker lifecycle, doctor, or cleanup fact.
+- `packages/kernel` decodes closed repository-check lifecycle and completed facts, but its reducer rejects
+  them until the lifecycle slice. It has no Docker dispatch or cleanup behavior.
 - `packages/coding-runtime/src/run-effect-host.ts` routes fake and safe-actuation effects only.
 - `packages/coding-runtime/src/native-process.ts` already provides exact `shell: false` process requests,
   separate output caps, timeout, cancellation, and process-tree termination. It must remain a mechanism,
   not policy or model command authority.
 - `InProcessAgentClient.open({ runId })` can reopen one exact execution journal and drive kind-specific
   reconciliation. `run.resume` remains an unsupported public command.
-- The TUI already presents digest-bound safe-actuation approval and attributed review. Headless NDJSON
-  projects the same journal-derived facts and stops at real approval.
+- The TUI has static renderer-neutral repository-check and read-only-doctor cards in addition to the
+  existing digest-bound safe-actuation approval and attributed review. ProductView/ProductEvent decode the
+  same closed repository-check projection; runtime journal projection remains deliberately inactive.
 - `apps/eden/src/args.ts` and `apps/eden/src/index.ts` have no doctor command.
 - The archive currently contains `eden`, `rg`, notices, and `eden-assets.json`; it contains no Docker image.
-- The repository has no Docker CLI adapter, toolchain manifest, image wrapper, repository-check catalog
-  decoder, tracked snapshot builder, or Docker evidence driver.
+- The repository has closed catalog, snapshot, application toolchain, action, result, receipt, cleanup,
+  doctor, and product decoders. It still has no Docker CLI adapter, image wrapper, tracked catalog/snapshot
+  runtime service, or Docker evidence driver.
 - Existing R2 evidence explicitly marks Docker and repository-code checks `not-run`.
 
 ## Frozen public contract after approval
@@ -284,9 +288,15 @@ Rows cover current existing prerequisites plus:
 - security option, cgroup/resource, staging filesystem, state permission, and budget prerequisites;
 - exactly attributed orphan counts and identities without raw output or automatic cleanup.
 
-`eden doctor --probe-docker` first presents one exact diagnostic action. Interactive confirmation is
-required. `--json` projects the approval requirement and stops; there is no `--yes` equivalent. The probe
-has no repository mount, provider, or network; uses one existing exact image, 64 MiB memory, 0.5 CPU,
+`eden doctor --probe-docker` first presents one exact diagnostic action. It may select one existing safe
+named context only as `--context <safe-name>` before optional `--json`; Doctor and execution receive that
+same selection, the default context is unchanged, and raw hosts/sockets are rejected. Interactive
+confirmation is required. `--json` projects the approval requirement and stops; there is no `--yes`
+equivalent. Image readiness requires the exact index RepoDigest and platform config digest plus its fixed
+Linux configuration. A present local descriptor must match the frozen platform manifest; only an absent
+descriptor may resolve through the application-owned exact platform/config mapping, without registry
+lookup or network. The probe has no repository mount, provider, or network; uses one existing exact image,
+64 MiB memory, 0.5 CPU,
 16 PIDs, 64 file descriptors, 1 MiB tmpfs, 4 KiB per stream, and a 10-second wall clock; verifies actual
 UID, capability, no-new-privileges, seccomp, read-only root, tmpfs, limits, result, and exact cleanup.
 
@@ -315,6 +325,47 @@ catalog/file validation, Git snapshot truth, real Docker happy paths, cleanup, a
 not mocked in their integration lanes.
 
 ## Ordered test-first implementation slices
+
+### Slice 0 evidence
+
+The owner separately authorized Build on 2026-07-30. Slice 0 ran at exact accepted Freeze SHA
+`a99718f3d091fe90e031e90b6259fb0e5bdf4b49`; the plan baseline
+`0ed7873bf4c134b77a4c00e96dbaf182007f031b` remains its ancestor. Both worktrees were clean before the
+first Build change.
+
+The pre-change full workspace suite passed after rerunning outside the restricted command sandbox. The
+initial sandbox attempt failed only because two existing hook tests could not spawn temporary Git fixtures
+(`spawnSync git EPERM`); the identical unrestricted command passed those tests and every workspace suite.
+No Docker command, repository code, provider, credential, or external network was used.
+
+The independent literal fixture ledger is:
+
+| Fixture | Encoded bytes | Frozen limit |
+| --- | ---: | ---: |
+| Selected process arguments | 3,926 | 4 KiB |
+| Catalog fixture | 4,133 | 16 KiB |
+| Complete 64-file manifest | 23,734 | 24 KiB |
+| Canonical action journal record | 29,931 | 64 KiB |
+| Complete result journal record | 44,965 | 64 KiB |
+| Estimated action lifecycle run | 82,622 | 1 MiB |
+
+The action and result records remain below the independently retained 80% record-headroom threshold.
+Current action, product, kernel, journal, model-tool, and CLI decoders reject all repository-check and
+doctor shapes. CLI help exposes no doctor or approval bypass. Existing safe-actuation evidence retains
+Docker and repository-code rows as `not-run`, `executionMode=trusted_host_policy_only`,
+`isolation=none`, and `network=not_requested`.
+
+The copied Bun archive passed its native-asset check with application SHA-256
+`478c6b8fcac93d68983cecc2c2f332736fccae26d629456667a488437b38b65f`, pinned ripgrep SHA-256
+`193906679498de4d939345b937fa24e0e69a03c244bd70c859f5e41232713f21`, notices SHA-256
+`6863f5d24ecd1aa71f3abb859389cd55d41e3755f65a1e8b64e60269aa12dfa5`, and manifest SHA-256
+`5c22c1b633e8306ebd81aa7e80fe38cae49fd79304f992600375d1b2f9afb443`. The packaged safe-actuation
+driver passed its six existing scenarios, and approval/review stayed visible without an isolation claim at
+`60x20`, `80x24`, and `100x30`.
+
+The machine-readable record is
+`docs/benchmark-results/2026-07-30-r2-docker-slice0-linux-x64.json`. Slice 0 changed no production
+behavior and triggered no stop condition. Slice 1 begins with the first new closed-contract RED.
 
 ### Slice 0: Baseline, budget ledger, and no-authority guards
 
@@ -361,6 +412,19 @@ SHA-256 call. Production constructors may not generate expected values.
 **Matching surface:** static approval, lifecycle, doctor, and review fixtures render in TUI components and
 headless JSON with identical semantic fields.
 
+**Build evidence, 2026-07-30:** complete. The catalog, snapshot, toolchain, action, result, receipt,
+cleanup, doctor, ProductView/ProductEvent, and kernel-fact RED matrices failed on absent production
+behavior and then passed. Snapshot digest fixtures use a separate test-only SHA-256 implementation under
+`eden.repository-snapshot.v1`; the existing AnchorEdit canonical-byte oracle remains unchanged. Static
+repository-check approval/lifecycle and read-only doctor rows pass at widths 60, 80, and 100. The complete
+workspace `pnpm test` passed outside the filesystem sandbox after the sandbox reproduced its known
+`spawnSync git EPERM` limitation; workspace typecheck, Biome, and diff checks are green. No Docker command,
+repository code, provider credential, external network, image publication, commit, or push was used.
+
+The contract-only boundary is explicit: `repository_check_v1` remains default-denied by the active host
+policy; repository-check kernel events decode but reduce/project as inactive. Slice 2 may implement only
+tracked catalog discovery and immutable staging and may not cross into Docker dispatch.
+
 ### Slice 2: Tracked catalog discovery and immutable snapshot staging
 
 **Likely files:**
@@ -387,7 +451,32 @@ mocked Git in the integration lane.
 **Matching surface:** catalog unavailable, dirty, stale, and snapshot-overflow states show exact recovery
 before an approval control exists.
 
+**Build evidence, 2026-07-30:** complete. A real temporary-Git RED matrix now covers clean and dirty
+tracked catalog bytes, exact named-process selection, untracked and invalid-UTF8 catalogs, hardlinks,
+tracked symlinks/unsupported index modes, current dirty file bytes, executable-bit mapping, untracked
+secret-canary absence, missing tracked files, 64-file overflow, concurrent source drift, workspace-external
+staging, post-copy hashing, read-only modes, and exact cleanup. The runtime uses fixed non-interactive Git
+argv through the existing bounded native-process port. It stages no `.git`, untracked/ignored path,
+symlink, hardlink, gitlink, or unsupported object. No Docker command, provider credential, external
+network, image publication, commit, or push was used.
+
 ### Slice 3: Eden image source, immutable toolchain manifest, and wrapper protocol
+
+**Approved Freeze amendment, 2026-07-30:** anonymous read-only registry metadata established that the
+current official Node 24 distroless nonroot image is
+`gcr.io/distroless/nodejs24-debian13:nonroot`, not a Debian 12 variant. The approved immutable index is
+`sha256:af85d11ce7ef10172855a6e3649e3e8125b1b9e3ca41849ec2918036f05cb212`; its approved
+`linux/amd64` manifest is
+`sha256:b1386d556b478c420927eb212236bfb31be9834a4549850a060a6351f7fff514`, and its approved
+`linux/arm64` manifest is
+`sha256:c6465a8fcd268010c53e6e33e58d479dd232aa34f2312500afad8f605caffdc3`.
+Because distroless exposes Node at `/nodejs/bin/node` while the accepted catalog freezes
+`/usr/local/bin/node`, the Eden image must install an image-level alias from the frozen path to the
+distroless path; wrapper-side command translation remains forbidden. Result `stdout` and `stderr` are
+canonical Base64 strings with explicit `base64` encoding literals. Their byte lengths, 16 KiB limits, and
+SHA-256 values apply to decoded raw bytes, preserving arbitrary non-UTF-8 output without truncation. The
+remeasured maximum result journal record is 44,965 bytes and the estimated complete run is 82,622 bytes,
+both within the unchanged persistence limits.
 
 **Likely files:**
 
@@ -412,9 +501,94 @@ image and real child process.
 **Matching surface:** doctor reports an absent or mismatched image as blocked with pull-never/manual
 preparation guidance.
 
-**External-write checkpoint:** stop before registry publication. Record reproducible local image/config/
-platform evidence and request exact owner authority for any push. After publication, review and commit the
-immutable index and platform digests before any check action can execute.
+**Build evidence, 2026-07-30:** the dependency-free wrapper RED-to-GREEN covers closed request/result
+decoding, raw non-UTF-8 output encoded as canonical Base64, exact 16 KiB boundaries and one-byte overflow,
+check failure, timeout, cancellation, TERM-to-KILL process-group cleanup, and the 64 KiB internal result.
+The image source pins the approved distroless index, creates the approved executable alias in an exec-form
+Node build step with no shell or extra base, returns to `65532:65532`, and fixes all build timestamps to
+epoch.
+
+Two local `linux/amd64,linux/arm64` OCI builds with provenance disabled were byte-identical. The archive
+SHA-256 is `89972d7166fa05810c62748c131b4ece36c3cd67bfe731f8898ef82fb649a82e`; the candidate
+index is `sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`.
+Its amd64/arm64 manifests are
+`sha256:0157ea0bfdc08aaa026898d23edaff9336359024f25c49265a5276cb3c611cb2` and
+`sha256:7977eb382ee08c4b3e2f6c32dbf47dec5fa38b2160bc46a3faf742171823d230`.
+Independent OCI extraction verified the two exact configs, nonroot vector entrypoint, working directory,
+epoch timestamps, alias type/target, and source-identical wrapper bytes. The amd64 source candidate was
+loaded only under local tag `eden-node24-check:local-slice3`; it was not published.
+
+The real-image fixture did not run and no container was created. Docker Desktop 4.45.0 / Engine 28.3.3
+reported only `name=seccomp,profile=builtin` and `name=cgroupns`; it did not report user-namespace remap.
+The accepted profile requires no host user namespace, so Build stopped rather than silently sharing the
+backend host user namespace. The owner selected the recommended branch on 2026-07-30: preserve the
+accepted containment claim and continue only on a compatible user-namespaced backend.
+
+The follow-up read-only audit found WSL 2.7.10, which satisfies Docker Desktop Enhanced Container
+Isolation's documented WSL 2.6-or-newer prerequisite. The current Desktop configuration uses the
+containerd image store and contains no evidence that Enhanced Container Isolation is enabled. Standard
+daemon-wide `userns-remap` is not the selected path on this existing Desktop instance because Docker does
+not support it with the containerd image store and enabling it would also mask existing daemon objects.
+The preferred next backend is Docker Desktop Enhanced Container Isolation when the installation has the
+required Docker Business entitlement. If that feature is unavailable, use a separate fresh Docker Engine
+configured with `userns-remap`, rather than weakening Freeze or mutating this existing Desktop store.
+
+Enabling Enhanced Container Isolation and restarting Docker Desktop are external machine-state changes,
+not implicit Build authority. Build pauses before those actions. After exact owner authorization and the
+restart, a repository-independent probe must prove a container-private user namespace before the real
+image fixture may create a container. The machine-readable record is
+`docs/benchmark-results/2026-07-30-r2-docker-slice3-linux-x64.json`.
+
+**Compatible-backend closure, 2026-07-30:** Enhanced Container Isolation was unavailable, so the owner
+selected the separate fresh `userns-remap` branch. Build used an official Docker Engine 29.6.2 static
+bundle at archive SHA-256
+`d6204aea92238e2453d5445c885b9d2e5eb8f82915568ec50edf9dbe12a3ac74` to start one ephemeral
+independent daemon. It used only isolated temporary data, exec, PID, and Unix-socket paths; it did not
+register a service, enable automatic start, change Docker Desktop, replace the default Docker context, or
+write daemon configuration. The daemon used `userns-remap=eden:eden`, classic `overlay2`, no bridge,
+iptables, IP forwarding, or masquerade. Its empty-state security options reported built-in seccomp,
+`userns`, and private cgroup namespaces.
+
+A repository-independent probe proved a distinct container user namespace
+(`user:[4026532530]` versus backend host `user:[4026531837]`), UID/GID maps
+`0 100000 65536`, numeric process user `65532:65532`, zero effective capabilities,
+`NoNewPrivs=1`, and active seccomp. The probe container was then removed.
+
+The real image fixture used the exact fixed profile, read-only workspace/control mounts, one writable
+result file, and the previously approved local amd64 image candidate. The wrapper executed the sole
+deterministic fixture source and returned `passed/process_exited/0`. Its four raw stdout bytes encoded as
+`/wCACg==` with SHA-256
+`2f2e272d087efb57e3a8964f71e382d401c15c42b7a3daf3655a0861ef1754f9`; its 15 stderr bytes
+encoded as `Zml4dHVyZS1zdGRlcnIK` with SHA-256
+`f921a264caca8ec79f8bd9b36de3b488aefdaf7aef458dcfcbcd02d1817a5557`. Independent raw-byte
+oracles matched. The exact fixture container and staging tree were removed, leaving zero containers on
+the independent daemon. Build then stopped the daemon, confirmed its managed containerd exited, and
+removed the exact temporary socket, data, executable, and archive directory. No persistent daemon service
+or state remains.
+
+The no-host-user-namespace stop condition is therefore cleared for this local candidate.
+
+**Publication closure, 2026-07-30:** exact owner authority permitted publication only to
+`ghcr.io/ai-eden/eden-node24-check` and temporary use of a GHCR credential for that publication. A direct
+import of the byte-verified OCI archive published display tag `eden-node24-check-v1`. Authenticated remote
+readback verified the frozen index
+`sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`, amd64/arm64 manifests
+`sha256:0157ea0bfdc08aaa026898d23edaff9336359024f25c49265a5276cb3c611cb2` and
+`sha256:7977eb382ee08c4b3e2f6c32dbf47dec5fa38b2160bc46a3faf742171823d230`, and configs
+`sha256:f175c02a2a6d4012c1d0852c82b03893810ee91803244a1699046d2eee7cc443` and
+`sha256:31b5c699e50ea674594f825c59f65c7b3f84d3f73ea0fdcd47a3cb4fb4b8566f`. The package remains
+private; no visibility change was made.
+
+The temporary Docker registry login and temporary `write:packages` scope were removed and verified after
+publication. The application-owned toolchain manifest now records the reviewed immutable identities
+locally. It is intentionally uncommitted because repository commit and push remain unauthorized. Check
+execution remains blocked: the accepted contract requires the immutable manifest to be reviewed and
+committed, and later slices must still implement the doctor, lifecycle, and effect host. No provider
+credential, repository check, repository commit, Git push, or public package-visibility change was used.
+
+**Repository-write checkpoint:** the registry-publication checkpoint is closed. Do not execute a
+repository check until the reviewed application manifest is committed under separate exact repository
+commit authority and the later dispatch slices have passed their gates.
 
 ### Slice 4: Read-only doctor and explicit diagnostic probe
 
@@ -439,6 +613,83 @@ inspection and every probe enforcement row use a real backend in the authoritati
 
 **Matching surface:** plain doctor and closed JSON agree; explicit probe presents exact authority and
 returns a machine-readable receipt without repository or provider data.
+
+**Build evidence, 2026-07-30:** the read-only half of Slice 4 is complete. `eden doctor` and
+`eden doctor --json` project the same 12 closed rows through one bounded Docker CLI port. The production
+adapter uses only version, context show/inspect, info, exact image inspect, and exact-label container-list
+reads; the default command has no Docker, repository, provider, state, or remediation mutation authority.
+The parser and service fail closed for missing, unreachable, malformed, timed-out, unsupported-platform,
+API-floor/negotiation, image, security, resource, state-permission, and orphan-identity failures.
+
+One real Docker Desktop read-only inspection reported the expected current blockers: the exact immutable
+image is not prepared in the active local store and the backend does not expose user-namespace isolation.
+The command retained pull-never behavior, found zero exactly attributed containers, and left the missing
+test state path absent. Plain and JSON surfaces agreed. Focused and full workspace tests, typecheck, build,
+code, Markdown, and diff checks passed. The machine-readable record is
+`docs/benchmark-results/2026-07-30-r2-docker-slice4-linux-x64.json`.
+
+At the Slice 4 Build-discovery checkpoint, the explicit probe was not implemented and remained rejected by
+the CLI. The original accepted Freeze required one exact canonical diagnostic action and approval,
+receipt, cleanup, and recovery facts, but the closed public contracts then defined only the
+repository-check action/lifecycle. Build therefore stopped for a Freeze amendment that closed the
+diagnostic action, canonical bytes/digest, approval command, ownership labels, lifecycle, receipt, cleanup,
+and product projections before any probe container could be created.
+
+**Accepted Freeze amendment, 2026-07-31:** the owner approved deterministic contract Build, not real
+Docker execution. The accepted amendment is
+`docs/research/2026-07-31-r2-docker-diagnostic-probe-freeze-amendment.md`. It defines one standalone
+`docker_diagnostic_probe_v1` transaction outside repository runs, using the existing canonical action
+domain with a dedicated always-ask policy, no repository/workspace/provider identity, one private bounded
+diagnostic journal, one exact labelled container, receipt-before-cleanup ordering, and standalone
+command/event/view contracts.
+
+The amended profile preserves the accepted 64 MiB memory, 0.5 CPU, 16 PID, 64 file-descriptor, 1 MiB
+tmpfs, 4 KiB-per-stream, and 10-second limits. It fixes the application-owned Node program identity,
+backend/image/platform revalidation, exact labels, nine semantic enforcement rows, stable recovery, and
+strict CLI grammar. Default Doctor remains unchanged. Non-interactive probe JSON is preview-only, exits 2,
+and creates no journal, lock, or Docker object. Deterministic Build reached a clarification checkpoint for
+Docker `MemorySwap` semantics and pre-effect durable `effectId` recovery. The owner approved the
+recommended no-swap interpretation and durable pre-first-write effect identity on 2026-07-31, authorizing
+deterministic CLI integration. That integration is complete: the production dispatcher performs only
+read-only preflight before preview, non-interactive JSON never prompts or writes state, and unresolved
+recovery performs neither Docker inspection nor journal mutation. The owner later authorized the exact
+create/start/receipt-before-cleanup runner and one real probe on a fresh independent `userns-remap`
+daemon. The deterministic runner and active recovery are complete: pre-create absence closes as
+`not_started`; exact created/running/exited objects reconcile without duplicate create; timeout applies the
+frozen stop-then-kill path; and receipt/cleanup/terminal crash points finish from a durable terminal draft.
+Ambiguous state remains `unknown`. A later authorized preparation created a fresh independent daemon and
+loaded the exact image, then stopped before the probe when production-path review found that Doctor and
+execution could not select the same backend. The owner approved a named-context amendment; its exact CLI
+grammar, common adapter selection, default-context preservation, and rejection matrix are deterministic
+and complete. The temporary daemon, image, credentials, mount, and directory were removed. The real probe
+still requires fresh matching-surface preparation.
+The next prepared attempt reached that production named-context surface but stopped before approval
+because classic `overlay2` omitted `.Descriptor`. The owner approved the exact config-digest platform
+mapping fallback on 2026-08-01. Doctor and preflight now require the frozen index, config digest,
+OS/architecture, entrypoint, user, and working directory; direct descriptors remain mandatory when
+present, while malformed or contradictory evidence blocks. The attempt created zero containers and
+removed its daemon, image, context, credentials, scope, mount, and temporary directory.
+The following authorized attempt reached approval and created one exact labelled container. Docker inspect
+then exposed the immutable image's fixed `SSL_CERT_FILE` plus non-semantic environment reordering, so the
+runner failed closed before start. The container never ran and was removed by exact full ID; the daemon
+returned to zero objects and the temporary context and credential scope were removed. The owner approved a
+minimal closed-environment amendment on 2026-08-01: the action and create arguments bind the fixed
+certificate path, while inspection accepts only the exact unique four-value environment set independent of
+order. The next authorized attempt found one final application-owned normalization defect: real Docker
+inspect reports the frozen ownership labels under their `eden.*` keys, while the parser compared them to
+the internal camel-case field names used by an unrealistic fixture. A focused RED changed the fixtures to
+real Docker keys and added extra-label rejection; the minimal GREEN maps those exact external keys back to
+the closed internal label record.
+
+The packaged CLI then reopened the same durable `effect_intent` transaction. It recovered container
+`cc867ab80b9c359d0ae055288939321c681052165931fe1db55f09c826254e9e`, started that exact object without a
+second create or approval, recorded a passing receipt before cleanup, removed the container by exact
+identity, and reached terminal sequence 8. All nine semantic enforcement rows passed. The independent
+daemon returned to zero containers while retaining only the pinned image; the journal SHA-256 is
+`a19cbd681e997e4767e7235ab04708137f195fb9785aa4235b54db5ade2641f6`. This closes Slice 4. Slice 5 begins
+from the immutable public baseline after its required review, commit, and remote proof.
+The machine-readable Freeze-amendment record is
+`docs/benchmark-results/2026-07-31-r2-docker-probe-freeze-amendment.json`.
 
 ### Slice 5: Docker create/start runner, stable receipts, and crash recovery
 
@@ -724,5 +975,5 @@ limits do not reopen owner decisions when all public invariants and independent 
 The owner approved the 17 Explore decisions, confirmed shared understanding, and accepted this plan,
 decision brief, ADR 0017, and the focused public contract updates as one Freeze packet on 2026-07-29.
 
-Build remains blocked until the owner separately authorizes it. Image publication, real provider use,
-external-user evidence, commit, push, and release remain separate authority boundaries.
+The owner separately authorized Build on 2026-07-30. Image publication, real provider use, external-user
+evidence, commit, push, and release remain separate authority boundaries.

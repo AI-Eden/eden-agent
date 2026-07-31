@@ -3,6 +3,9 @@ import {
   ClosedCheckObservationSchema,
   PatchObservationSchema,
   PolicyDecisionSchema,
+  RepositoryCheckLifecycleStateSchema,
+  RepositoryCheckReceiptV1Schema,
+  RepositoryCheckResultV1Schema,
 } from "@eden/contracts";
 import Type from "typebox";
 import Schema from "typebox/schema";
@@ -616,6 +619,32 @@ export const KernelEventSchema = Type.Union([
       type: Type.Literal("review.git_check.completed"),
     },
     closed,
+  ),
+  Type.Object(
+    {
+      actionId: identifier(),
+      effectId: identifier(),
+      observedAt: Type.String({ format: "date-time" }),
+      state: RepositoryCheckLifecycleStateSchema,
+      type: Type.Literal("repository.check.lifecycle"),
+    },
+    closed,
+  ),
+  Type.Refine(
+    Type.Object(
+      {
+        effectId: identifier(),
+        receipt: RepositoryCheckReceiptV1Schema,
+        result: RepositoryCheckResultV1Schema,
+        type: Type.Literal("repository.check.completed"),
+      },
+      closed,
+    ),
+    (event) =>
+      event.effectId === event.receipt.effectId &&
+      event.effectId === event.result.effectId &&
+      event.receipt.actionId === event.result.actionId &&
+      event.receipt.receiptId === event.result.receiptId,
   ),
   Type.Object(
     {

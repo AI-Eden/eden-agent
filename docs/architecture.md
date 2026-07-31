@@ -215,8 +215,15 @@ Default doctor inspection is a read-only prerequisite projection outside a run. 
 into mutation only through its own canonical diagnostic action, approval, receipt, and exact cleanup. It
 cannot become an image, package, daemon, context, or orphan-remediation service.
 
-The owner accepted this extension with ADR 0017 and the complete Freeze packet. Docker execution and Build
-remain unavailable before the separate Build checkpoint.
+The accepted 2026-07-31 amendment makes that boundary concrete without inventing a repository run. A
+standalone diagnostic action reuses the `eden.action.v1` canonical domain, while a dedicated private
+diagnostic journal and product protocol own approval, dispatch, receipt, cleanup, and recovery. The action
+has no run/workspace/catalog/snapshot/provider facts and cannot enter the run-bound `ProductCommand`,
+`ProductEvent`, or `ProductView` unions. Slice 4 exercised this boundary through one passing real probe.
+
+The owner accepted this extension with ADR 0017 and separately authorized Build on 2026-07-30.
+Repository-check dispatch remains unimplemented; the standalone probe implementation and real-backend
+checkpoint are complete.
 
 ## Deferred boundaries
 

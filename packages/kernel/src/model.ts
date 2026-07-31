@@ -4,6 +4,9 @@ import type {
   GitStatusEntry,
   PatchObservation,
   PolicyDecision,
+  RepositoryCheckLifecycleState,
+  RepositoryCheckReceiptV1,
+  RepositoryCheckResultV1,
 } from "@eden/contracts";
 
 export type Action = {
@@ -412,6 +415,19 @@ export type KernelEvent =
       readonly check: ClosedCheckObservation;
       readonly effectId: string;
       readonly phase: "baseline" | "current";
+    }
+  | {
+      readonly type: "repository.check.lifecycle";
+      readonly actionId: string;
+      readonly effectId: string;
+      readonly observedAt: string;
+      readonly state: RepositoryCheckLifecycleState;
+    }
+  | {
+      readonly type: "repository.check.completed";
+      readonly effectId: string;
+      readonly receipt: RepositoryCheckReceiptV1;
+      readonly result: RepositoryCheckResultV1;
     }
   | {
       readonly type: "fake.model.completed";

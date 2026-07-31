@@ -1,0 +1,43 @@
+{
+  "manifestVersion": 1,
+  "recordedAt": "2026-07-30",
+  "source": "anonymous-read-only-oci-registry-metadata",
+  "baseImage": {
+    "reference": "gcr.io/distroless/nodejs24-debian13:nonroot",
+    "imageIndexDigest": "sha256:af85d11ce7ef10172855a6e3649e3e8125b1b9e3ca41849ec2918036f05cb212",
+    "platformManifests": [
+      {
+        "platform": "linux/amd64",
+        "digest": "sha256:b1386d556b478c420927eb212236bfb31be9834a4549850a060a6351f7fff514"
+      },
+      {
+        "platform": "linux/arm64",
+        "digest": "sha256:c6465a8fcd268010c53e6e33e58d479dd232aa34f2312500afad8f605caffdc3"
+      }
+    ],
+    "configs": [
+      {
+        "platform": "linux/amd64",
+        "digest": "sha256:952899fca64fb2f9495815ef4f82b124c49549d25de86f3a2d61acded14b7e1c"
+      },
+      {
+        "platform": "linux/arm64",
+        "digest": "sha256:6478a947c658f8f17bdbd8c3b600f916c2700e4a138850337fa098134a05e633"
+      }
+    ]
+  },
+  "container": {
+    "entrypoint": ["/nodejs/bin/node", "/opt/eden/wrapper.mjs"],
+    "nodeAlias": {
+      "path": "/usr/local/bin/node",
+      "target": "/nodejs/bin/node"
+    },
+    "user": "65532:65532",
+    "workingDirectory": "/workspace",
+    "wrapperPath": "/opt/eden/wrapper.mjs"
+  },
+  "wrapper": {
+    "contentHash": "sha256:0c669fe522a14c9afce051d98f57e373f9bb2b7fb0b5ef6fb2241b472a05a0c3",
+    "protocolVersion": 1
+  }
+}

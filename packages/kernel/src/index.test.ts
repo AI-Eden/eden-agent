@@ -85,6 +85,18 @@ test("success remains impossible before current verifier evidence", () => {
   strictEqual(started.state.terminalOutcome, null);
 });
 
+test("repository-check lifecycle facts are closed kernel observations", () => {
+  const lifecycle = {
+    actionId: "action-repository-check-1",
+    effectId: "effect-repository-check-1",
+    observedAt: "2026-07-30T03:00:00.000Z",
+    state: "running",
+    type: "repository.check.lifecycle",
+  };
+  deepStrictEqual(decodeKernelEvent(lifecycle), { ok: true, value: lifecycle });
+  strictEqual(decodeKernelEvent({ ...lifecycle, dockerCommand: "docker start ..." }).ok, false);
+});
+
 test("the validated model observation creates the only approval action", () => {
   const started = transition(initialRunState, startEvent);
   const awaiting = modelObserved(started);
