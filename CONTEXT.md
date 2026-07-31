@@ -36,7 +36,11 @@ environment amendment, and its deterministic implementation is complete. The nex
 fixed one application-owned external-label normalization defect, then reopened the same journal and exact
 created container. The real probe passed all nine enforcement rows, wrote its receipt before exact
 cleanup, performed no duplicate create or second approval, and returned the daemon to zero containers.
-Slice 4 is complete; Slice 5 is next.
+Slice 4 is complete. On 2026-08-01 the owner approved the narrow Option A contract amendment binding
+Docker compatibility observations into the canonical repository-check action. Slices 5-8 are now locally
+complete. The implementation, fixed failing fixture, deterministic provider boundary, packaged three-
+scenario TUI driver, and closed evidence validator pass on the fresh independent `userns-remap` daemon.
+Slice 9 exact-SHA publication and hosted Ubuntu Docker evidence remain pending.
 Slice 0 preserved the
 safe-actuation surface, exact package hashes, Docker no-authority guards, and measured journal budget
 ledger. Slice 1 adds closed catalog, snapshot, toolchain, action, result, receipt, cleanup, doctor, kernel
@@ -286,12 +290,22 @@ malformed or contradictory evidence never falls back. Doctor and post-approval p
 same rule without registry lookup or network. The second attempt also ended with zero containers and full
 daemon/image/context/credential/scope/directory cleanup.
 
+Slices 5-8 now add the exact pull-never repository-check runner, stable state/receipt/recovery, Option A
+compatibility binding and revalidation, always-ask policy and approval consumption, ordered kernel and
+product lifecycle, local-only untrusted output, TUI/headless authority projection, and a dependency-free
+failing fixture. The packaged driver completed initial-fail, correct-edit/pass, and wrong-edit/fail against
+three distinct immutable snapshots with independent exact-image oracles, zero provider network calls,
+receipt-before-cleanup ordering, zero secret-canary capture, and zero remaining containers. This was a
+pre-commit local run at baseline `71e0a19`; it is not the exact-SHA hosted implementation artifact.
+
 Focused deterministic tests, the full workspace suite, typecheck, build, code, Markdown, and diff gates
-are green for the deterministic Build packet. Slice 3 evidence remains in
+are green for the local Build packet. Slice 3 evidence remains in
 `docs/benchmark-results/2026-07-30-r2-docker-slice3-linux-x64.json`; the read-only Slice 4 record is
 `docs/benchmark-results/2026-07-30-r2-docker-slice4-linux-x64.json`; the amendment record is
-`docs/benchmark-results/2026-07-31-r2-docker-probe-freeze-amendment.json`. No provider credential,
-repository commit, Git push, or public package-visibility change was authorized or performed.
+`docs/benchmark-results/2026-07-31-r2-docker-probe-freeze-amendment.json`. The remaining Slice 9
+implementation-candidate gate is a green exact-SHA hosted Ubuntu x64 Docker artifact. Real macOS Docker
+Desktop, Windows Docker Desktop WSL2, and independent external-user rows remain `not-run`; whole R2 and
+release support remain incomplete.
 
 ## Known open questions
 

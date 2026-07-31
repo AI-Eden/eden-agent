@@ -121,6 +121,36 @@ export type { ProjectionResult } from "./projection.ts";
 export { ProjectionError, projectJournal, projectView } from "./projection.ts";
 export { ReplayError, replayRecords } from "./replay.ts";
 export {
+  observeRepositoryCheckDockerCompatibility,
+  type RepositoryCheckDockerCompatibilityResult,
+  repositoryCheckDockerCompatibilityMatches,
+  repositoryCheckDockerEndpointSha256,
+} from "./repository-check-compatibility.ts";
+export {
+  RepositoryCheckEffectHost,
+  type RepositoryCheckEffectHostOptions,
+} from "./repository-check-effect-host.ts";
+export { repositoryCheckStagingIdentity } from "./repository-check-identity.ts";
+export {
+  createRepositoryCheckExecutionPlan,
+  DockerCliRepositoryCheckPort,
+  type DockerCliRepositoryCheckPortOptions,
+  decodeRepositoryCheckContainerInspection,
+  decodeRepositoryCheckInternalResult,
+  type ExecuteRepositoryCheckResult,
+  executeRepositoryCheck,
+  type RecoverRepositoryCheckResult,
+  type RepositoryCheckContainerInspection,
+  type RepositoryCheckDurableReceipt,
+  type RepositoryCheckExecutionEnvironment,
+  type RepositoryCheckExecutionPaths,
+  type RepositoryCheckExecutionPlan,
+  type RepositoryCheckExecutionPort,
+  type RepositoryCheckExecutionState,
+  type RepositoryCheckInternalResultV1,
+  recoverRepositoryCheck,
+} from "./repository-check-runner.ts";
+export {
   type RepositoryCheckSelection,
   RepositoryCheckSnapshotError,
   RepositoryCheckSnapshotService,
@@ -128,7 +158,14 @@ export {
   type StagedRepositorySnapshot,
 } from "./repository-check-snapshot.ts";
 export {
+  type PrepareRepositoryCheckExecutionStateOptions,
+  prepareRepositoryCheckExecutionState,
+  RepositoryCheckFileExecutionState,
+} from "./repository-check-state.ts";
+export {
   repositoryCheckToolchainConfigDigests,
+  repositoryCheckToolchainImageReference,
+  repositoryCheckToolchainImageRepository,
   repositoryCheckToolchainManifest,
 } from "./repository-check-toolchain.ts";
 export type {

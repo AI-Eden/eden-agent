@@ -620,6 +620,23 @@ const repositoryToolDefinitions: Readonly<Record<RepositoryToolCall["name"], Cha
       },
       type: "function",
     },
+    repository_check: {
+      function: {
+        description:
+          "Select one Git-tracked named repository check. Eden resolves the catalog, snapshots the repository, asks for exact approval, and executes in its fixed Docker isolation profile.",
+        name: "repository_check",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            checkName: { pattern: "^[a-z][a-z0-9-]{0,63}$", type: "string" },
+          },
+          required: ["checkName"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
     search_repository: {
       function: {
         description: "Search repository text with the pinned bounded search engine.",
@@ -650,7 +667,7 @@ function validateModelStepInput(input: ModelStepRequestV1): void {
     input.maxOutputTokens > 8_192 ||
     input.conversation.length === 0 ||
     input.conversation.length > 64 ||
-    input.enabledTools.length > 5 ||
+    input.enabledTools.length > 6 ||
     new Set(input.enabledTools).size !== input.enabledTools.length
   ) {
     throw new Error("invalid model-step input");

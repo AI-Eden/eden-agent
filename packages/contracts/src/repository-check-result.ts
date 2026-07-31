@@ -155,7 +155,6 @@ const WrapperReasonSchema = Type.Union([
   Type.Literal("stdout_overflow"),
   Type.Literal("stderr_overflow"),
   Type.Literal("docker_engine_failed"),
-  Type.Literal("cleanup_failed"),
   Type.Literal("result_unavailable"),
 ]);
 
@@ -222,7 +221,7 @@ export const RepositoryCheckResultV1Schema = Type.Refine(
       );
     }
     if (result.outcome === "cleanup_failed") {
-      return result.cleanup.status === "failed" && result.wrapperReason === "process_exited";
+      return result.cleanup.status === "failed";
     }
     return result.cleanup.status !== "failed";
   },

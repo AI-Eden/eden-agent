@@ -1,6 +1,6 @@
 # R2 Docker Repository Check Plan
 
-- Status: Accepted; Slice 4 complete with a passing real probe and exact-object recovery; Slice 5 Build is next
+- Status: Accepted; Slices 0-8 locally complete; Slice 9 implementation-candidate CI is pending
 - Date: 2026-07-29
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `0ed7873bf4c134b77a4c00e96dbaf182007f031b`
@@ -716,7 +716,26 @@ create/start/wait/stop/remove happy, failure, and recovery paths run on Linux.
 **Matching surface:** relaunch reconstructs created/running/exited truth and next safe action without
 public general resume or a second container.
 
+**Accepted Option A amendment, 2026-08-01:** Slice 5 and Slice 6 review found that the original action
+shape did not bind the selected Docker backend observations to the approval digest, and that
+`cleanup_failed` could not retain a non-`process_exited` wrapper reason. The owner approved
+`docs/research/2026-08-01-r2-docker-build-contract-gap-decision-brief.md`. Build must add the closed
+`dockerCompatibility` object described there, show its bounded facts at approval, and require exact
+re-observation before create/start. The result amendment preserves the original closed wrapper reason
+when cleanup fails. This adds no image, credential, provider, network, cleanup-action, or release
+authority.
+
 ### Slice 6: Policy, approval, kernel lifecycle, and provider-loop boundary
+
+**Build evidence, 2026-08-01:** Slice 5 and the accepted Option A amendment are locally complete. The
+closed action digest now binds the safe named context, hashed endpoint, client/daemon/API facts, required
+namespace/security/resource features, and exact local image identities. Preparation and dispatch use the
+same selected context and re-observe the complete object before staging and before Docker mutation.
+Deterministic runner tests cover exact pull-never creation, strict inspect identity, ordinary child
+failure with a successful wrapper receipt, created/running/exited recovery, ambiguity, timeout, OOM,
+cleanup failure, no duplicate execution, and newly staged-byte cleanup on pre-create compatibility drift.
+One real named-context test completed the exact create/start/receipt/cleanup path on Engine 29.6.2 with
+`userns-remap`, built-in seccomp, private cgroup namespaces, and zero remaining containers.
 
 **Likely files:**
 
@@ -747,6 +766,14 @@ and name recovery. Headless stops at the same approval with no bypass.
 
 ### Slice 7: Local output, review, TUI/headless parity, and lifecycle UX
 
+**Build evidence, 2026-08-01:** Slice 6 is locally complete. The model can select only one catalog name;
+the runtime resolves repository-owned process details, produces the always-ask canonical action, consumes
+one matching approval before dispatch, and records the ordered lifecycle through non-success `completed`
+review. Repository output remains available in the local projection but is absent from the second model
+request. A passing check cannot emit verifier-owned `succeeded`. Option A compatibility changes alter the
+approval digest and drift blocks before create/start. Focused policy, provider-loop, reducer, journal, and
+projection tests are green.
+
 **Likely files:**
 
 - product projections in `packages/coding-runtime`;
@@ -770,6 +797,13 @@ matching flow uses the real kernel, journal, projection, Docker result, and Agen
 output expansion, failed check, unknown recovery, cleanup warning, resize, CJK, and terminal restore.
 
 ### Slice 8: Deterministic fixture journey and adversarial acceptance driver
+
+**Build evidence, 2026-08-01:** Slice 7 is locally complete. The TUI approval exposes the exact process,
+snapshot/image/profile identity, selected safe context, user-namespace truth, network-none authority,
+budgets, policy, and single-use lifetime without exposing a raw Docker command. Journal-derived lifecycle,
+receipt, cleanup, separate Base64 streams, and untrusted local result remain visible in review. Static
+repository-check cards remain legible at widths 60, 80, and 100; headless execution recognizes the same
+Docker-bound approval and stops without a broad approval bypass.
 
 **Likely files:**
 
@@ -797,6 +831,23 @@ execution, bounded review, and terminal restoration in the fixture. Crash at cre
 checkpoints reopens the exact run internally without duplicate execution.
 
 ### Slice 9: Candidate, real-host matrix, and independent external-user gate
+
+**Local Build evidence, 2026-08-01:** Slice 8 is locally complete. The copied Bun archive and a separately
+compiled deterministic harness exercised three real temporary Git repositories against the exact
+immutable amd64 image: the original snapshot failed, one correct AnchorEdit produced a passing immutable
+snapshot, and one wrong AnchorEdit remained failing. Independent pull-never image oracles agreed with all
+three outcomes. Each product run consumed one approval, recorded receipt before cleanup, retained local
+raw output while withholding it from the deterministic provider boundary, captured no credential or
+secret canary, produced no verifier success, and left zero Docker objects. The three snapshot digests were
+distinct. The evidence validator rejects missing rows, open nested records, wrong exact source SHA,
+stale image/platform identity, unsupported namespace truth, credential capture, verifier success,
+incomplete cleanup, and secret exposure.
+
+The pre-commit local driver used source baseline `71e0a19b14784af3ed8fde7b01098417a8d504a0`; it is
+development evidence, not the Slice 9 exact-SHA artifact. Full tests, typecheck, build, Biome, Markdown,
+and diff gates are green. Slice 9 must still publish the implementation commit and obtain a green hosted
+Ubuntu x64 Docker artifact at that exact SHA. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and
+the independent external-user journey remain `not-run`, so whole R2 and release support remain open.
 
 **Likely files:**
 

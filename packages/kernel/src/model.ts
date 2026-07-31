@@ -1,6 +1,8 @@
 import type {
   ActionEnvelopeV1,
   ClosedCheckObservation,
+  RepositoryToolCall as ContractRepositoryToolCall,
+  RepositoryToolResult as ContractRepositoryToolResult,
   GitStatusEntry,
   PatchObservation,
   PolicyDecision,
@@ -57,6 +59,18 @@ export type SafeReviewProgress = {
   readonly edenPatch: PatchObservation | null;
 };
 
+export type RepositoryCheckProgress = {
+  readonly actionId: string;
+  readonly effectId: string;
+  readonly lifecycle: readonly {
+    readonly observedAt: string;
+    readonly state: RepositoryCheckLifecycleState;
+  }[];
+  readonly receipt: RepositoryCheckReceiptV1 | null;
+  readonly result: RepositoryCheckResultV1 | null;
+  readonly state: RepositoryCheckLifecycleState;
+};
+
 export type RunWorkspace = {
   readonly name: string;
   readonly root: string;
@@ -71,145 +85,17 @@ export type KernelProductError = {
   readonly suggestedActions: readonly string[];
 };
 
-export type RepositoryToolCall =
-  | {
-      readonly arguments: { readonly continuation: string | null; readonly path: string };
-      readonly name: "list_files";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly arguments: {
-        readonly maxBytes: number;
-        readonly offset: number;
-        readonly path: string;
-      };
-      readonly name: "read_file";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly arguments: {
-        readonly continuation: number | null;
-        readonly path: string;
-        readonly pattern: string;
-      };
-      readonly name: "search_repository";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly arguments: object;
-      readonly name: "git_status";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly arguments: {
-        readonly path: string;
-        readonly replacements: {
-          readonly expectedOccurrences: 1;
-          readonly newText: string;
-          readonly oldText: string;
-        }[];
-      };
-      readonly name: "anchor_edit";
-      readonly toolCallId: string;
-    };
+type DeepReadonly<T> = T extends (...arguments_: never[]) => unknown
+  ? T
+  : T extends readonly unknown[]
+    ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+    : T extends object
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+      : T;
 
-export type RepositoryToolResult =
-  | {
-      readonly data: {
-        readonly contentHash: string;
-        readonly continuation: string | null;
-        readonly entries: readonly (
-          | { readonly kind: "directory"; readonly path: string; readonly size: null }
-          | { readonly kind: "file"; readonly path: string; readonly size: number }
-        )[];
-        readonly sourcePath: string;
-        readonly truncated: boolean;
-        readonly visited: number;
-      };
-      readonly name: "list_files";
-      readonly status: "succeeded";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly data: {
-        readonly parentActionId: string;
-        readonly reason: string;
-      };
-      readonly name: "anchor_edit";
-      readonly status: "denied";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly data: {
-        readonly bytesRead: number;
-        readonly content: string;
-        readonly contentHash: string;
-        readonly nextOffset: number | null;
-        readonly offset: number;
-        readonly sourcePath: string;
-        readonly totalBytes: number;
-      };
-      readonly name: "read_file";
-      readonly status: "succeeded";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly data: {
-        readonly contentHash: string;
-        readonly continuation: number | null;
-        readonly engine: {
-          readonly contentHash: string;
-          readonly name: "ripgrep";
-          readonly version: string;
-        };
-        readonly matches: readonly {
-          readonly byteColumn: number;
-          readonly lineNumber: number;
-          readonly path: string;
-          readonly preview: string;
-        }[];
-        readonly sourcePath: string;
-        readonly truncated: boolean;
-      };
-      readonly name: "search_repository";
-      readonly status: "succeeded";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly data: {
-        readonly contentHash: string;
-        readonly entries: readonly {
-          readonly indexStatus: string;
-          readonly kind:
-            | "added"
-            | "copied"
-            | "deleted"
-            | "modified"
-            | "renamed"
-            | "unmerged"
-            | "untracked";
-          readonly originalPath: string | null;
-          readonly path: string;
-          readonly worktreeStatus: string;
-        }[];
-        readonly gitVersion: string;
-        readonly sourcePath: ".";
-      };
-      readonly name: "git_status";
-      readonly status: "succeeded";
-      readonly toolCallId: string;
-    }
-  | {
-      readonly error: KernelProductError;
-      readonly name:
-        | "anchor_edit"
-        | "git_status"
-        | "list_files"
-        | "read_file"
-        | "search_repository";
-      readonly status: "failed";
-      readonly toolCallId: string;
-    };
+export type RepositoryToolCall = DeepReadonly<ContractRepositoryToolCall>;
+
+export type RepositoryToolResult = DeepReadonly<ContractRepositoryToolResult>;
 
 export type RepositoryToolExchange = {
   readonly call: RepositoryToolCall;
@@ -328,9 +214,25 @@ export type KernelEffect =
       readonly workspace: RunWorkspace;
     }
   | {
+      readonly type: "repository_check.prepare";
+      readonly effectId: string;
+      readonly executionEffectId: string;
+      readonly expectedRevision: number;
+      readonly proposalRevision: number;
+      readonly runId: string;
+      readonly toolCall: Extract<RepositoryToolCall, { readonly name: "repository_check" }>;
+      readonly workspace: RunWorkspace;
+    }
+  | {
       readonly type: "anchor_edit.execute";
       readonly effectId: string;
       readonly envelope: ActionEnvelopeV1;
+      readonly runId: string;
+    }
+  | {
+      readonly type: "repository_check.execute";
+      readonly effectId: string;
+      readonly envelope: Extract<ActionEnvelopeV1, { readonly kind: "repository_check_v1" }>;
       readonly runId: string;
     }
   | {
@@ -486,6 +388,7 @@ type ActiveRunFields = {
   readonly terminalOutcome: null;
   readonly tool: RepositoryToolExchange | null;
   readonly safeReview?: SafeReviewProgress;
+  readonly repositoryCheck?: RepositoryCheckProgress;
   readonly workspace: RunWorkspace;
 };
 
@@ -555,6 +458,7 @@ type ProviderActiveRunFields = {
   readonly terminalOutcome: null;
   readonly tool: RepositoryToolExchange | null;
   readonly safeReview?: SafeReviewProgress;
+  readonly repositoryCheck?: RepositoryCheckProgress;
   readonly tools: readonly RepositoryToolExchange[];
   readonly workspace: RunWorkspace;
 };

@@ -73,6 +73,11 @@ export type StagedRepositorySnapshot = {
   readonly cleanup: () => Promise<void>;
   readonly directory: string;
   readonly manifest: RepositorySnapshotManifestV1;
+  readonly validate: () => Promise<boolean>;
+};
+
+export type CapturedRepositorySnapshot = {
+  readonly manifest: RepositorySnapshotManifestV1;
 };
 
 export type RepositoryCheckSnapshotServiceOptions = {
@@ -84,6 +89,27 @@ export type RepositoryCheckSnapshotServiceOptions = {
   readonly stateDirectory: string;
   readonly workspaceRoot: string;
 };
+
+export async function reopenRepositoryCheckSnapshot(input: {
+  readonly effectId: string;
+  readonly manifest: RepositorySnapshotManifestV1;
+  readonly stateDirectory: string;
+}): Promise<StagedRepositorySnapshot> {
+  if (!/^[a-z0-9][a-z0-9-]{0,127}$/u.test(input.effectId)) {
+    throw new RepositoryCheckSnapshotError(
+      "staging_identity_invalid",
+      "The effect identity is not safe for staging.",
+    );
+  }
+  const stateDirectory = resolvePath(input.stateDirectory);
+  const directory = join(stateDirectory, "repository-check-staging", input.effectId);
+  return {
+    cleanup: async () => removeStaging(directory),
+    directory,
+    manifest: input.manifest,
+    validate: () => validateStagedDirectory(directory, input.manifest),
+  };
+}
 
 type TrackedEntry = {
   readonly executable: boolean;
@@ -178,7 +204,7 @@ async function readSafeFile(
   }
 }
 
-async function removeStaging(directory: string, force: boolean): Promise<void> {
+async function removeStaging(directory: string): Promise<void> {
   const makeWritable = async (path: string): Promise<void> => {
     let entries: Dirent<string>[];
     try {
@@ -192,7 +218,54 @@ async function removeStaging(directory: string, force: boolean): Promise<void> {
     }
   };
   await makeWritable(directory);
-  await rm(directory, { force, recursive: true });
+  await rm(directory, { force: true, recursive: true });
+}
+
+async function validateStagedDirectory(
+  directory: string,
+  manifest: RepositorySnapshotManifestV1,
+): Promise<boolean> {
+  try {
+    const root = await lstat(directory);
+    if (!root.isDirectory() || root.isSymbolicLink() || (root.mode & 0o777) !== 0o555) return false;
+    const expected = new Map(manifest.files.map((file) => [file.path, file]));
+    const found = new Set<string>();
+    const visit = async (path: string, prefix: string): Promise<boolean> => {
+      const entries = await readdir(path, { withFileTypes: true });
+      for (const entry of entries) {
+        const relativePath = prefix.length === 0 ? entry.name : `${prefix}/${entry.name}`;
+        const absolutePath = join(path, entry.name);
+        const metadata = await lstat(absolutePath);
+        if (entry.isSymbolicLink() || metadata.isSymbolicLink()) return false;
+        if (entry.isDirectory() && metadata.isDirectory()) {
+          if ((metadata.mode & 0o777) !== 0o555 || !(await visit(absolutePath, relativePath))) {
+            return false;
+          }
+          continue;
+        }
+        if (!entry.isFile() || !metadata.isFile() || metadata.nlink !== 1) return false;
+        const row = expected.get(relativePath);
+        if (
+          row === undefined ||
+          found.has(relativePath) ||
+          (metadata.mode & 0o777) !== (row.executable ? 0o555 : 0o444)
+        ) {
+          return false;
+        }
+        const bytes = await readSafeFile(
+          absolutePath,
+          "snapshot_unsupported_entry",
+          "snapshot_stale",
+        );
+        if (bytes.byteLength !== row.byteLength || hash(bytes) !== row.sha256) return false;
+        found.add(relativePath);
+      }
+      return true;
+    };
+    return (await visit(directory, "")) && found.size === expected.size;
+  } catch {
+    return false;
+  }
 }
 
 function gitEnvironment(): Readonly<Record<string, string>> {
@@ -370,10 +443,87 @@ export class RepositoryCheckSnapshotService {
     };
   }
 
+  async capture(
+    input: { readonly catalogSha256: string; readonly head: string },
+    signal?: AbortSignal,
+  ): Promise<CapturedRepositorySnapshot> {
+    const root = await this.#root();
+    if ((await this.#head(signal)) !== input.head) {
+      throw new RepositoryCheckSnapshotError("snapshot_stale", "HEAD changed before capture.");
+    }
+    const currentCatalog = await readSafeFile(
+      join(root, catalogPath),
+      "catalog_unsafe_file",
+      "catalog_stale",
+    );
+    if (hash(currentCatalog) !== input.catalogSha256) {
+      throw new RepositoryCheckSnapshotError(
+        "catalog_stale",
+        "The catalog changed before snapshot capture.",
+      );
+    }
+    const entries = await this.#tracked(signal);
+    const captured = new Map<string, Uint8Array>();
+    const files: RepositorySnapshotFile[] = [];
+    let totalBytes = 0;
+    for (const entry of entries) {
+      if (signal?.aborted === true) {
+        throw new RepositoryCheckSnapshotError("snapshot_stale", "Snapshot capture was cancelled.");
+      }
+      const bytes = await readSafeFile(
+        join(root, entry.path),
+        "snapshot_unsupported_entry",
+        "snapshot_stale",
+      );
+      totalBytes += bytes.byteLength;
+      if (bytes.byteLength > 1_048_576 || totalBytes > 8_388_608) {
+        throw new RepositoryCheckSnapshotError(
+          "snapshot_budget_exceeded",
+          "The tracked snapshot byte budget is exceeded.",
+        );
+      }
+      captured.set(entry.path, bytes);
+      files.push({
+        byteLength: bytes.byteLength,
+        executable: entry.executable,
+        path: entry.path,
+        sha256: hash(bytes),
+      });
+    }
+    for (const entry of entries) {
+      const reread = await readSafeFile(
+        join(root, entry.path),
+        "snapshot_unsupported_entry",
+        "snapshot_stale",
+      );
+      if (hash(reread) !== hash(captured.get(entry.path) ?? new Uint8Array())) {
+        throw new RepositoryCheckSnapshotError(
+          "snapshot_stale",
+          "Tracked bytes changed during snapshot capture.",
+        );
+      }
+    }
+    if ((await this.#head(signal)) !== input.head) {
+      throw new RepositoryCheckSnapshotError("snapshot_stale", "HEAD changed during capture.");
+    }
+    const body = {
+      byteLength: totalBytes,
+      fileCount: files.length,
+      files,
+      manifestVersion: 1 as const,
+    };
+    const decoded = decodeRepositorySnapshotManifest({ ...body, digest: manifestDigest(body) });
+    if (!decoded.ok) {
+      throw new RepositoryCheckSnapshotError("snapshot_invalid_manifest", decoded.error.message);
+    }
+    return { manifest: decoded.value };
+  }
+
   async stage(
     input: {
       readonly catalogSha256: string;
       readonly effectId: string;
+      readonly expectedManifest?: RepositorySnapshotManifestV1;
       readonly head: string;
     },
     signal?: AbortSignal,
@@ -464,6 +614,15 @@ export class RepositoryCheckSnapshotService {
       if (!decoded.ok) {
         throw new RepositoryCheckSnapshotError("snapshot_invalid_manifest", decoded.error.message);
       }
+      if (
+        input.expectedManifest !== undefined &&
+        canonicalJson(decoded.value) !== canonicalJson(input.expectedManifest)
+      ) {
+        throw new RepositoryCheckSnapshotError(
+          "snapshot_stale",
+          "The tracked snapshot changed after approval.",
+        );
+      }
       const directories = new Set<string>([directory]);
       for (const file of files) {
         let current = dirname(join(directory, file.path));
@@ -477,13 +636,14 @@ export class RepositoryCheckSnapshotService {
       }
       return {
         cleanup: async () => {
-          await removeStaging(directory, false);
+          await removeStaging(directory);
         },
         directory,
         manifest: decoded.value,
+        validate: () => validateStagedDirectory(directory, decoded.value),
       };
     } catch (error) {
-      await removeStaging(directory, true);
+      await removeStaging(directory);
       throw error;
     }
   }

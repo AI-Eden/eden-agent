@@ -53,12 +53,43 @@ const readResult = {
   toolCallId: "tool-call-read-1",
 } as const;
 
+const repositoryCheckCall = {
+  arguments: { checkName: "test" },
+  name: "repository_check",
+  toolCallId: "tool-call-repository-check-1",
+} as const;
+
+const repositoryCheckResult = {
+  data: {
+    actionId: "action-repository-check-1",
+    checkName: "test",
+    cleanupStatus: "complete",
+    exitCode: 1,
+    imageIndexDigest: `sha256:${"c".repeat(64)}`,
+    inputManifestDigest: `sha256:${"d".repeat(64)}`,
+    outcome: "failed",
+    platformManifestDigest: `sha256:${"e".repeat(64)}`,
+    profileRevision: "r2-docker-profile-v1",
+    stderrSha256: `sha256:${"f".repeat(64)}`,
+    stdoutSha256: `sha256:${"0".repeat(64)}`,
+  },
+  name: "repository_check",
+  status: "completed",
+  toolCallId: "tool-call-repository-check-1",
+} as const;
+
 describe("repository tool contracts", () => {
   it("decodes closed bounded list/read calls and terminal semantic results", () => {
     assert.equal(decodeRepositoryToolCall(listCall).ok, true);
     assert.equal(decodeRepositoryToolCall(readCall).ok, true);
+    assert.equal(decodeRepositoryToolCall(repositoryCheckCall).ok, true);
     assert.equal(decodeRepositoryToolResult(listResult).ok, true);
     assert.equal(decodeRepositoryToolResult(readResult).ok, true);
+    assert.equal(decodeRepositoryToolResult(repositoryCheckResult).ok, true);
+    assert.equal(
+      decodeRepositoryToolResult({ ...repositoryCheckResult, rawStdout: "secret canary" }).ok,
+      false,
+    );
   });
 
   it("rejects absolute, traversal, oversized, half-complete, parallel, and forged result values", () => {
@@ -69,6 +100,8 @@ describe("repository tool contracts", () => {
       { ...readCall, arguments: { path: readCall.arguments.path } },
       [listCall, readCall],
       { ...listCall, shell: "find" },
+      { ...repositoryCheckCall, arguments: { checkName: "npm test" } },
+      { ...repositoryCheckCall, arguments: { checkName: "test", process: ["sh", "-c"] } },
     ]) {
       assert.equal(decodeRepositoryToolCall(call).ok, false);
     }

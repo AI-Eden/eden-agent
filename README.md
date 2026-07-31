@@ -17,11 +17,13 @@ explicit DeepSeek readiness, scoped instruction/context admission, bounded list/
 tools, a verified
 application-local ripgrep archive, and an Eden-owned real model/tool loop with durable attempt recovery.
 A model-produced final answer ends in review as `completed`; it cannot claim verifier-owned `succeeded`.
-The product still does not edit repository files, expose a shell, resume a historical run, or claim R2
-release support. Candidate `0c83048` passes the complete local gate and hosted Ubuntu, macOS, and Windows
-archive/process evidence. Public evidence head `abf5f01` reproduced the same archive hashes and completed
-an owner-authorized DeepSeek readiness plus pinned-ripgrep repository round trip under normal TLS. Kimi
-remains `not-run`, and this matching evidence is not a release-support claim.
+The later accepted safe-actuation packet adds one exact-approved AnchorEdit and runtime-owned Git review;
+it does not expose a shell or general filesystem authority. Candidate `3c23446` passed its hosted Ubuntu,
+macOS, and Windows implementation matrix. The current Docker repository-check packet has completed its
+local Slices 0-8 Build: one repository-declared named check can run after exact interactive approval in the
+fixed network-none, read-only, pull-never container profile. Its exact-SHA hosted Ubuntu candidate remains
+pending. Real macOS Docker Desktop, Windows Docker Desktop WSL2, independent external-user, Kimi, whole-R2,
+and release-support evidence remain `not-run` or incomplete as applicable.
 
 ## Intended product
 

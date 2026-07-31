@@ -137,3 +137,12 @@ matching run failed closed before tool dispatch; the final bounded run completed
 one pinned-ripgrep search, a sourced `completed` answer, and budget 3/16. Thirteen host evidence files plus
 the PTY transcript retained zero credential matches. Kimi remains `not-run`; this evidence closes the
 accepted provider-matching plan but does not expand release support.
+
+The Docker repository-check packet has completed Slices 5-8 locally on a fresh independent Linux amd64
+Engine 29.6.2 daemon with `userns-remap`, built-in seccomp, and private cgroup namespaces. The copied Bun
+archive completed the fixed initial-fail, correct-edit/pass, and wrong-edit/fail fixture scenarios against
+the exact immutable image with distinct snapshots, local-only raw output, zero provider network calls,
+receipt-before-cleanup ordering, and zero remaining containers. This pre-commit run is development
+evidence only. Hosted Ubuntu exact-SHA Docker evidence remains pending; real macOS Docker Desktop, Windows
+Docker Desktop WSL2, and independent external-user rows remain `not-run`. Whole R2 and release support are
+not closed.

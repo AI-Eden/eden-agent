@@ -190,6 +190,35 @@ describe("repository-check result, receipt, cleanup, and doctor contracts", () =
       }).ok,
       true,
     );
+    for (const wrapperReason of [
+      "wall_clock_exceeded",
+      "cancel_requested",
+      "oom_killed",
+      "stdout_overflow",
+      "stderr_overflow",
+      "docker_engine_failed",
+      "result_unavailable",
+    ] as const) {
+      strictEqual(
+        decodeRepositoryCheckResult({
+          ...result,
+          cleanup: cleanupFailed,
+          exitCode: null,
+          outcome: "cleanup_failed",
+          wrapperReason,
+        }).ok,
+        true,
+      );
+    }
+    strictEqual(
+      decodeRepositoryCheckResult({
+        ...result,
+        cleanup: cleanupFailed,
+        outcome: "cleanup_failed",
+        wrapperReason: "cleanup_failed",
+      }).ok,
+      false,
+    );
   });
 
   it("accepts a closed read-only doctor report and rejects remediation authority", () => {

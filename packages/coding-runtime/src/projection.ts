@@ -90,6 +90,24 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
           type: "phase.progress",
         });
         cursor += 1;
+        if (state.phase === "awaiting-approval" && view.repositoryCheck !== undefined) {
+          events.push({
+            ...base,
+            approval: approvalPresentation(state.action),
+            cursor,
+            eventId: `${record.eventId}:product:1`,
+            type: "approval.presented",
+          });
+          cursor += 1;
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:2`,
+            repositoryCheck: view.repositoryCheck,
+            type: "repository.check.updated",
+          });
+          cursor += 1;
+        }
         break;
       case "fake.model.tool-requested": {
         const activity = view.tools?.at(-1);
@@ -298,10 +316,43 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         break;
       }
       case "repository.check.lifecycle":
-      case "repository.check.completed":
-        throw new ProjectionError(
-          "Repository-check journal projection is not active before the lifecycle slice.",
-        );
+      case "repository.check.completed": {
+        if (view.repositoryCheck === undefined) {
+          throw new ProjectionError("Repository-check journal projection requires a product view.");
+        }
+        events.push({
+          ...base,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          repositoryCheck: view.repositoryCheck,
+          type: "repository.check.updated",
+        });
+        cursor += 1;
+        if (decoded.value.event.type === "repository.check.completed") {
+          const activity = view.tools?.at(-1);
+          if (activity !== undefined) {
+            events.push({
+              ...base,
+              activity,
+              cursor,
+              eventId: `${record.eventId}:product:1`,
+              type: "tool.updated",
+            });
+            cursor += 1;
+          }
+          if (state.phase === "terminal") {
+            events.push({
+              ...base,
+              cursor,
+              eventId: `${record.eventId}:product:2`,
+              outcome: requireTerminal(view),
+              type: "run.terminal",
+            });
+            cursor += 1;
+          }
+        }
+        break;
+      }
       case "run.cancelled":
       case "run.blocked":
         events.push({

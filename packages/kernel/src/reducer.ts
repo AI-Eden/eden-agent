@@ -40,6 +40,7 @@ function terminal(
       tool: state.tool,
       tools: state.tools,
       ...(state.safeReview === undefined ? {} : { safeReview: state.safeReview }),
+      ...(state.repositoryCheck === undefined ? {} : { repositoryCheck: state.repositoryCheck }),
       workspace: state.workspace,
     } as const;
   }
@@ -53,6 +54,7 @@ function terminal(
     terminalOutcome: outcome,
     tool: state.tool,
     ...(state.safeReview === undefined ? {} : { safeReview: state.safeReview }),
+    ...(state.repositoryCheck === undefined ? {} : { repositoryCheck: state.repositoryCheck }),
     workspace: state.workspace,
   } as const;
 }
@@ -96,10 +98,22 @@ function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
   if (effect.type === "anchor_edit.execute" && expected.type === "anchor_edit.execute") {
     return canonicalValue(effect.envelope) === canonicalValue(expected.envelope);
   }
+  if (effect.type === "repository_check.execute" && expected.type === "repository_check.execute") {
+    return canonicalValue(effect.envelope) === canonicalValue(expected.envelope);
+  }
   if (effect.type === "anchor_edit.prepare" && expected.type === "anchor_edit.prepare") {
     return (
       effect.expectedRevision === expected.expectedRevision &&
       effect.parentActionId === expected.parentActionId &&
+      effect.proposalRevision === expected.proposalRevision &&
+      canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall) &&
+      canonicalValue(effect.workspace) === canonicalValue(expected.workspace)
+    );
+  }
+  if (effect.type === "repository_check.prepare" && expected.type === "repository_check.prepare") {
+    return (
+      effect.executionEffectId === expected.executionEffectId &&
+      effect.expectedRevision === expected.expectedRevision &&
       effect.proposalRevision === expected.proposalRevision &&
       canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall) &&
       canonicalValue(effect.workspace) === canonicalValue(expected.workspace)
@@ -232,20 +246,38 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         const action = state.action;
         if ("model" in state) {
           if (event.decision === "deny") {
-            if (state.tool === null || state.tool.call.name !== "anchor_edit") {
+            if (
+              state.tool === null ||
+              (state.tool.call.name !== "anchor_edit" &&
+                state.tool.call.name !== "repository_check")
+            ) {
               return illegal(state, event);
             }
-            const result: RepositoryToolResult = {
-              data: {
-                parentActionId: action.actionId,
-                reason: "The user denied this exact action digest.",
-              },
-              name: "anchor_edit",
-              status: "denied",
-              toolCallId: state.tool.call.toolCallId,
-            };
+            const result: RepositoryToolResult =
+              state.tool.call.name === "repository_check"
+                ? {
+                    data: {
+                      checkName: state.tool.call.arguments.checkName,
+                      reason: "The user denied this exact action digest.",
+                    },
+                    name: "repository_check",
+                    status: "denied",
+                    toolCallId: state.tool.call.toolCallId,
+                  }
+                : {
+                    data: {
+                      parentActionId: action.actionId,
+                      reason: "The user denied this exact action digest.",
+                    },
+                    name: "anchor_edit",
+                    status: "denied",
+                    toolCallId: state.tool.call.toolCallId,
+                  };
             const tool = { call: state.tool.call, result };
-            if (action.safeActuation.parentActionId !== null) {
+            if (
+              state.tool.call.name === "anchor_edit" &&
+              action.safeActuation.parentActionId !== null
+            ) {
               return {
                 ok: true,
                 state: terminal(
@@ -353,7 +385,8 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         state.phase === "executing" &&
         "model" in state &&
         state.stage === "action-prepare-in-flight" &&
-        state.inFlightEffect?.type === "anchor_edit.prepare" &&
+        (state.inFlightEffect?.type === "anchor_edit.prepare" ||
+          state.inFlightEffect?.type === "repository_check.prepare") &&
         state.inFlightEffect.effectId === event.effectId;
       const directProposal =
         state.phase === "executing" &&
@@ -368,8 +401,10 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       }
       const safe = event.action.safeActuation;
       const envelope = safe.envelope;
-      const parentAction =
-        "model" in state
+      const repositoryCheck = envelope.kind === "repository_check_v1";
+      const parentAction = repositoryCheck
+        ? null
+        : "model" in state
           ? state.action
           : state.stage === "safe-reproposal-ready"
             ? state.action
@@ -384,7 +419,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         event.action.approvalId.length === 0 ||
         safe.policy.decision !== "ask" ||
         safe.approval.state !== "available" ||
-        safe.approval.expectedRevision !== state.revision + 10 ||
+        safe.approval.expectedRevision !== state.revision + (repositoryCheck ? 1 : 10) ||
         safe.approval.proposalRevision !== envelope.proposalRevision ||
         (replacingDenied
           ? safe.parentActionId !== parentAction.actionId ||
@@ -394,6 +429,29 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         return illegal(state, event);
       }
       if ("model" in state) {
+        if (repositoryCheck) {
+          if (state.inFlightEffect?.type !== "repository_check.prepare") {
+            return illegal(state, event);
+          }
+          return {
+            ok: true,
+            state: {
+              ...state,
+              action: event.action,
+              inFlightEffect: null,
+              phase: "awaiting-approval",
+              repositoryCheck: {
+                actionId: envelope.actionId,
+                effectId: state.inFlightEffect.executionEffectId,
+                lifecycle: [{ observedAt: safe.policy.evaluatedAt, state: "awaiting_approval" }],
+                receipt: null,
+                result: null,
+                state: "awaiting_approval",
+              },
+              revision: state.revision + 1,
+            },
+          };
+        }
         return {
           ok: true,
           state: {
@@ -521,7 +579,8 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       if (
         "model" in state &&
         state.stage === "action-prepare-ready" &&
-        event.effect.type === "anchor_edit.prepare"
+        (event.effect.type === "anchor_edit.prepare" ||
+          event.effect.type === "repository_check.prepare")
       ) {
         return {
           ok: true,
@@ -547,7 +606,8 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       }
       if (
         state.stage === "safe-action-ready" &&
-        event.effect.type === "anchor_edit.execute" &&
+        (event.effect.type === "anchor_edit.execute" ||
+          event.effect.type === "repository_check.execute") &&
         isSafeAction(state.action)
       ) {
         return {
@@ -620,9 +680,11 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         state.phase !== "executing" ||
         !(
           (state.stage === "safe-action-in-flight" &&
-            state.inFlightEffect?.type === "anchor_edit.execute") ||
+            (state.inFlightEffect?.type === "anchor_edit.execute" ||
+              state.inFlightEffect?.type === "repository_check.execute")) ||
           (state.stage === "action-prepare-in-flight" &&
-            state.inFlightEffect?.type === "anchor_edit.prepare") ||
+            (state.inFlightEffect?.type === "anchor_edit.prepare" ||
+              state.inFlightEffect?.type === "repository_check.prepare")) ||
           (state.stage === "eden-patch-in-flight" &&
             state.inFlightEffect?.type === "review.eden_patch.capture") ||
           ((state.stage === "git-baseline-in-flight" || state.stage === "git-current-in-flight") &&
@@ -808,8 +870,156 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       };
     }
     case "repository.check.lifecycle":
-    case "repository.check.completed":
-      return illegal(state, event);
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "safe-action-in-flight" ||
+        state.inFlightEffect?.type !== "repository_check.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        !isSafeAction(state.action) ||
+        state.action.actionId !== event.actionId ||
+        state.action.safeActuation.envelope.kind !== "repository_check_v1"
+      ) {
+        return illegal(state, event);
+      }
+      {
+        const order = [
+          "awaiting_approval",
+          "preparing",
+          "creating",
+          "created",
+          "running",
+          "exited",
+          "result_decoded",
+          "cleaning",
+          "review",
+        ] as const;
+        const previous = state.repositoryCheck?.state ?? "awaiting_approval";
+        if (
+          event.state === "awaiting_approval" ||
+          event.state === "review" ||
+          order.indexOf(event.state) < order.indexOf(previous) ||
+          (state.repositoryCheck?.lifecycle.length ?? 0) >= 15
+        ) {
+          return illegal(state, event);
+        }
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          repositoryCheck: {
+            actionId: event.actionId,
+            effectId: event.effectId,
+            lifecycle: [
+              ...(state.repositoryCheck?.lifecycle ?? []),
+              { observedAt: event.observedAt, state: event.state },
+            ],
+            receipt: null,
+            result: null,
+            state: event.state,
+          },
+          revision: state.revision + 1,
+        },
+      };
+    case "repository.check.completed": {
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "safe-action-in-flight" ||
+        state.inFlightEffect?.type !== "repository_check.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        !isSafeAction(state.action) ||
+        state.action.safeActuation.envelope.kind !== "repository_check_v1"
+      ) {
+        return illegal(state, event);
+      }
+      const action = state.action.safeActuation.envelope;
+      if (
+        event.result.actionId !== action.actionId ||
+        event.result.effectId !== event.effectId ||
+        event.result.checkName !== action.operation.checkName ||
+        event.result.inputManifestDigest !== action.repositorySnapshot.digest ||
+        event.result.imageIndexDigest !== action.toolchain.imageIndexDigest ||
+        event.result.platformManifestDigest !== action.toolchain.platformManifestDigest ||
+        event.result.profileRevision !== action.profile.profileRevision ||
+        event.receipt.actionId !== action.actionId ||
+        event.receipt.effectId !== event.effectId ||
+        event.receipt.receiptId !== event.result.receiptId ||
+        (event.result.outcome !== "cleanup_failed" &&
+          event.receipt.resultOutcome !== event.result.outcome)
+      ) {
+        return illegal(state, event);
+      }
+      if ("model" in state) {
+        if (state.tool?.call.name !== "repository_check") return illegal(state, event);
+        const result: RepositoryToolResult = {
+          data: {
+            actionId: event.result.actionId,
+            checkName: event.result.checkName,
+            cleanupStatus: event.result.cleanup.status,
+            exitCode: event.result.exitCode,
+            imageIndexDigest: event.result.imageIndexDigest,
+            inputManifestDigest: event.result.inputManifestDigest,
+            outcome: event.result.outcome,
+            platformManifestDigest: event.result.platformManifestDigest,
+            profileRevision: event.result.profileRevision,
+            stderrSha256: event.result.stderrSha256,
+            stdoutSha256: event.result.stdoutSha256,
+          },
+          name: "repository_check",
+          status: "completed",
+          toolCallId: state.tool.call.toolCallId,
+        };
+        const tool = { call: state.tool.call, result };
+        return {
+          ok: true,
+          state: {
+            ...state,
+            conversation: [...state.conversation, { ...tool, role: "tool" }],
+            inFlightEffect: null,
+            modelStep: state.modelStep + 1,
+            repositoryCheck: {
+              actionId: action.actionId,
+              effectId: event.effectId,
+              lifecycle: [
+                ...(state.repositoryCheck?.lifecycle ?? []),
+                { observedAt: event.result.cleanup.completedAt, state: "review" },
+              ],
+              receipt: event.receipt,
+              result: event.result,
+              state: "review",
+            },
+            revision: state.revision + 1,
+            stage: "model-ready",
+            tool,
+            tools: [...state.tools.slice(0, -1), tool],
+          },
+        };
+      }
+      return {
+        ok: true,
+        state: terminal(
+          {
+            ...state,
+            inFlightEffect: null,
+            repositoryCheck: {
+              actionId: action.actionId,
+              effectId: event.effectId,
+              lifecycle: [
+                ...(state.repositoryCheck?.lifecycle ?? []),
+                { observedAt: event.result.cleanup.completedAt, state: "review" },
+              ],
+              receipt: event.receipt,
+              result: event.result,
+              state: "review",
+            },
+          },
+          {
+            answer: `The named repository check completed with outcome ${event.result.outcome}.`,
+            state: "completed",
+          },
+        ),
+      };
+    }
     case "model.context.committed":
       if (
         state.phase !== "executing" ||
@@ -921,8 +1131,32 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           };
         }
         const tool = { call, result: null };
-        if (call.name === "anchor_edit") {
-          if (state.action !== null && state.action.safeActuation.parentActionId !== null) {
+        if (
+          call.name === "repository_check" &&
+          state.tools.some((exchange) => exchange.call.name === "repository_check")
+        ) {
+          return {
+            ok: true,
+            state: terminal(
+              { ...state, attempts },
+              {
+                error: {
+                  code: "repository_check_budget_exceeded",
+                  message: "Only one named repository check may be proposed in this run.",
+                  recoverability: "ask-user",
+                  suggestedActions: ["Start a new task for another named repository check."],
+                },
+                state: "blocked",
+              },
+            ),
+          };
+        }
+        if (call.name === "anchor_edit" || call.name === "repository_check") {
+          if (
+            call.name === "anchor_edit" &&
+            state.action !== null &&
+            state.action.safeActuation.parentActionId !== null
+          ) {
             return {
               ok: true,
               state: terminal(

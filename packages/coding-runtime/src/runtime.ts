@@ -1,3 +1,4 @@
+import { decodeRepositoryToolCall } from "@eden/contracts";
 import {
   decide,
   initialRunState,
@@ -16,9 +17,18 @@ export type ReconciliationResult =
   | { readonly status: "not-started" }
   | { readonly status: "unknown" };
 
+export type EffectObservationListener = (event: KernelEvent) => Promise<void>;
+
 export interface EffectHost {
-  execute(effect: KernelEffect, signal?: AbortSignal): Promise<KernelEvent>;
-  reconcile(effect: KernelEffect): Promise<ReconciliationResult>;
+  execute(
+    effect: KernelEffect,
+    signal?: AbortSignal,
+    observe?: EffectObservationListener,
+  ): Promise<KernelEvent>;
+  reconcile(
+    effect: KernelEffect,
+    observe?: EffectObservationListener,
+  ): Promise<ReconciliationResult>;
   executeModelAttempt?(
     effect: Extract<KernelEffect, { readonly type: "provider.model.step" }>,
     request: ModelStepRequestV1,
@@ -181,9 +191,11 @@ export class RuntimeEngine {
       this.currentState.phase !== "executing" ||
       !(
         (this.currentState.stage === "safe-action-in-flight" &&
-          this.currentState.inFlightEffect?.type === "anchor_edit.execute") ||
+          (this.currentState.inFlightEffect?.type === "anchor_edit.execute" ||
+            this.currentState.inFlightEffect?.type === "repository_check.execute")) ||
         (this.currentState.stage === "action-prepare-in-flight" &&
-          this.currentState.inFlightEffect?.type === "anchor_edit.prepare") ||
+          (this.currentState.inFlightEffect?.type === "anchor_edit.prepare" ||
+            this.currentState.inFlightEffect?.type === "repository_check.prepare")) ||
         (this.currentState.stage === "eden-patch-in-flight" &&
           this.currentState.inFlightEffect?.type === "review.eden_patch.capture") ||
         ((this.currentState.stage === "git-baseline-in-flight" ||
@@ -215,7 +227,8 @@ export class RuntimeEngine {
       await this.settleModelEffect(effect, signal);
       return;
     }
-    const reconciled = await this.host.reconcile(effect);
+    const observe: EffectObservationListener = (event) => this.commit(event, effect.effectId);
+    const reconciled = await this.host.reconcile(effect, observe);
     switch (reconciled.status) {
       case "completed":
         await this.commit(reconciled.observation, effect.effectId);
@@ -223,6 +236,7 @@ export class RuntimeEngine {
       case "not-started": {
         if (
           (effect.type === "anchor_edit.prepare" ||
+            effect.type === "repository_check.prepare" ||
             effect.type === "review.git_snapshot.capture" ||
             effect.type === "review.git_check.capture") &&
           this.currentState.phase === "executing" &&
@@ -247,13 +261,15 @@ export class RuntimeEngine {
         if (
           effect.type === "anchor_edit.execute" ||
           effect.type === "anchor_edit.prepare" ||
+          effect.type === "repository_check.execute" ||
+          effect.type === "repository_check.prepare" ||
           effect.type === "review.eden_patch.capture" ||
           effect.type === "review.git_snapshot.capture" ||
           effect.type === "review.git_check.capture"
         ) {
           await this.markDispatchStarted();
         }
-        const observation = await this.host.execute(effect, signal);
+        const observation = await this.host.execute(effect, signal, observe);
         await this.commit(observation, effect.effectId);
         return;
       }
@@ -340,7 +356,13 @@ export class RuntimeEngine {
                     content: item.content,
                     privateContinuity: item.privateContinuity,
                     role: "assistant" as const,
-                    toolCalls: item.toolCalls,
+                    toolCalls: item.toolCalls.map((call) => {
+                      const decoded = decodeRepositoryToolCall(call);
+                      if (!decoded.ok) {
+                        throw new Error("The durable repository tool call is invalid.");
+                      }
+                      return decoded.value;
+                    }),
                   };
                 case "tool":
                   return {
@@ -360,6 +382,7 @@ export class RuntimeEngine {
             "search_repository",
             "git_status",
             "anchor_edit",
+            "repository_check",
           ],
           maxOutputTokens: effect.maxOutputTokens,
           version: 1,

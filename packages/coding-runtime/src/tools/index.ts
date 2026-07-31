@@ -1097,9 +1097,10 @@ export class RepositoryToolService {
       let result: RepositoryToolResult;
       switch (decoded.value.name) {
         case "anchor_edit":
+        case "repository_check":
           throw toolError(
             "action_proposal_not_executable",
-            "AnchorEdit proposals require policy and approval before an effect exists.",
+            "Safe-action proposals require policy and approval before an effect exists.",
           );
         case "list_files":
           result = await this.listFiles(decoded.value, signal);
@@ -1130,8 +1131,8 @@ export class RepositoryToolService {
 
   async execute(call: unknown, signal?: AbortSignal): Promise<ToolResult> {
     const productData = await this.executeProduct(call, signal);
-    if (productData.status === "denied") {
-      throw new Error("The repository tool adapter cannot produce an approval denial.");
+    if (productData.status === "denied" || productData.status === "completed") {
+      throw new Error("The repository tool adapter cannot produce an approval result.");
     }
     const modelContent =
       productData.status === "failed"

@@ -2,6 +2,7 @@ import { deepStrictEqual, strictEqual } from "node:assert";
 import { describe, it } from "node:test";
 
 import type { ActionEnvelopeV1, AnchorEditOperation } from "@eden/contracts";
+import { repositoryCheckActionFixture } from "../../contracts/test/repository-check-fixture.ts";
 
 import {
   canonicalActionBytes,
@@ -73,6 +74,21 @@ describe("safe-actuation authority", () => {
       actionDigest: safeActionDigest(envelope),
       reason: "Tracked UTF-8 modifications require one exact approval.",
       evaluatedAt: "2026-07-28T09:00:00.000Z",
+    });
+  });
+
+  it("always asks for the exact closed repository-check envelope", () => {
+    const decision = evaluateSafeActuationPolicy(
+      repositoryCheckActionFixture,
+      "2026-08-01T09:00:00.000Z",
+    );
+    deepStrictEqual(decision, {
+      actionDigest: safeActionDigest(repositoryCheckActionFixture),
+      decision: "ask",
+      evaluatedAt: "2026-08-01T09:00:00.000Z",
+      reason: "The exact named repository check requires one single-use approval.",
+      ruleId: "r2.repository-check.named-docker-v1",
+      ruleSetRevision: "r2-docker-repository-check-v1",
     });
   });
 

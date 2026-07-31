@@ -1,6 +1,22 @@
+import { createHash } from "node:crypto";
+
+import { repositoryCheckActionFixture } from "../packages/contracts/test/repository-check-fixture.ts";
+
 const kibibyte = 1024;
 const mebibyte = 1024 * kibibyte;
 const sha256 = (character) => `sha256:${character.repeat(64)}`;
+const hashBytes = (value) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
+
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
 
 export const r2DockerContractBudgets = Object.freeze({
   actionRecordFillRatio: 0.8,
@@ -26,12 +42,15 @@ function maximumManifest() {
     path: `src/${index.toString().padStart(2, "0")}-${"p".repeat(225)}.js`,
     sha256: sha256("a"),
   }));
-  return {
+  const body = {
     byteLength: r2DockerContractBudgets.snapshotBytes,
-    digest: sha256("b"),
     fileCount: r2DockerContractBudgets.files,
     files,
     manifestVersion: 1,
+  };
+  return {
+    ...body,
+    digest: hashBytes(`eden.repository-snapshot.v1\0${canonicalJson(body)}`),
   };
 }
 
@@ -48,36 +67,18 @@ function maximumProcess() {
 
 export function createDockerSlice0Fixtures() {
   const manifest = maximumManifest();
+  const process = maximumProcess();
+  const catalog = {
+    checks: [{ name: "test", process }],
+    version: 1,
+  };
   const action = {
+    ...repositoryCheckActionFixture,
     actionId: "action-r2-docker-budget",
-    actionVersion: 1,
-    authority: {
-      environmentClass: "closed_non_secret",
-      executionMode: "docker_container",
-      isolation: "linux_container",
-      network: "none",
-      policyVersion: 1,
-      ruleSetRevision: "r2-docker-repository-check-v1",
-    },
-    baseSnapshots: [],
-    budgets: {
-      cpuCount: 1,
-      fileDescriptors: 256,
-      fileSizeBytes: 16 * mebibyte,
-      memoryBytes: 256 * mebibyte,
-      outputBytes: r2DockerContractBudgets.stdoutBytes + r2DockerContractBudgets.stderrBytes,
-      pids: 64,
-      stagingBytes: r2DockerContractBudgets.snapshotBytes,
-      stopGraceMs: 2_000,
-      timeoutMs: 30_000,
-      tmpfsBytes: 16 * mebibyte,
-    },
-    cwd: ".",
-    kind: "repository_check_v1",
     lifetime: { kind: "single_use_proposal_revision", revision: 1 },
     operation: {
       catalog: {
-        byteLength: r2DockerContractBudgets.catalogBytes,
+        byteLength: Buffer.byteLength(JSON.stringify(catalog), "utf8"),
         dirty: true,
         head: "c".repeat(40),
         path: ".eden/checks/catalog.json",
@@ -85,34 +86,13 @@ export function createDockerSlice0Fixtures() {
         sha256: sha256("d"),
       },
       checkName: "test",
-      process: maximumProcess(),
+      process,
       type: "repository_check_v1",
-    },
-    profile: {
-      environment: {
-        CI: "1",
-        HOME: "/tmp/eden-home",
-        LANG: "C.UTF-8",
-        PATH: "/usr/local/bin:/usr/bin:/bin",
-      },
-      network: "none",
-      revision: "r2-docker-profile-v1",
-      rootFilesystem: "read_only",
-      workspaceMount: "read_only",
     },
     proposalRevision: 1,
     repositorySnapshot: manifest,
     runId: "run-r2-docker-budget",
-    scope: { capability: "repository.execute.named_check", paths: ["."] },
-    toolchain: {
-      imageIndexDigest: sha256("e"),
-      nodeMajor: 24,
-      platformManifestDigest: sha256("f"),
-      requestedPlatform: "linux/amd64",
-      toolchainId: "eden-node24-check-v1",
-      wrapperContentHash: sha256("1"),
-      wrapperProtocolVersion: 1,
-    },
+    staging: { identity: sha256("9") },
     workspace: {
       canonicalRootHash: sha256("2"),
       workspaceId: "workspace-r2-docker-budget",
@@ -121,7 +101,17 @@ export function createDockerSlice0Fixtures() {
   const result = {
     actionId: action.actionId,
     checkName: "test",
-    cleanup: { container: "removed", staging: "removed" },
+    cleanup: {
+      actionId: action.actionId,
+      cleanupVersion: 1,
+      completedAt: "2026-07-30T00:00:31.000Z",
+      container: { id: "a".repeat(64), state: "removed" },
+      effectId: "effect-r2-docker-budget",
+      error: null,
+      receiptId: "receipt-r2-docker-budget",
+      staging: { identity: action.staging.identity, state: "removed" },
+      status: "complete",
+    },
     effectId: "effect-r2-docker-budget",
     endedAt: "2026-07-30T00:00:30.000Z",
     exitCode: 0,
@@ -129,23 +119,19 @@ export function createDockerSlice0Fixtures() {
     inputManifestDigest: manifest.digest,
     outcome: "passed",
     platformManifestDigest: action.toolchain.platformManifestDigest,
-    profileRevision: action.profile.revision,
+    profileRevision: action.profile.profileRevision,
     receiptId: "receipt-r2-docker-budget",
     resultVersion: 1,
     startedAt: "2026-07-30T00:00:00.000Z",
     stderr: Buffer.alloc(r2DockerContractBudgets.stderrBytes, "e").toString("base64"),
     stderrByteLength: r2DockerContractBudgets.stderrBytes,
     stderrEncoding: "base64",
-    stderrSha256: sha256("3"),
+    stderrSha256: hashBytes(Buffer.alloc(r2DockerContractBudgets.stderrBytes, "e")),
     stdout: Buffer.alloc(r2DockerContractBudgets.stdoutBytes, "o").toString("base64"),
     stdoutByteLength: r2DockerContractBudgets.stdoutBytes,
     stdoutEncoding: "base64",
-    stdoutSha256: sha256("4"),
+    stdoutSha256: hashBytes(Buffer.alloc(r2DockerContractBudgets.stdoutBytes, "o")),
     wrapperReason: "process_exited",
-  };
-  const catalog = {
-    checks: [{ name: "test", process: maximumProcess() }],
-    version: 1,
   };
   return { action, catalog, manifest, result };
 }

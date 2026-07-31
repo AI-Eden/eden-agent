@@ -103,6 +103,36 @@ const repositoryCheckAction = {
     tmpfsBytes: 16_777_216,
   },
   cwd: ".",
+  dockerCompatibility: {
+    client: { apiVersion: "1.51", version: "29.6.2" },
+    compatibilityVersion: 1,
+    context: { endpointSha256: sha256("b"), name: "eden-safe" },
+    daemon: {
+      apiVersion: "1.51",
+      architecture: "amd64",
+      minimumApiVersion: "1.24",
+      osType: "linux",
+      version: "29.6.2",
+    },
+    features: {
+      cgroupNamespace: true,
+      cpuCfsPeriod: true,
+      cpuCfsQuota: true,
+      memoryLimit: true,
+      pidsLimit: true,
+      seccomp: true,
+      swapLimit: true,
+      userNamespace: true,
+    },
+    image: {
+      architecture: "amd64",
+      configDigest: sha256("c"),
+      indexDigest: toolchainManifest.imageIndexDigest,
+      manifestDigest: sha256("4"),
+      manifestEvidence: "local_descriptor",
+      operatingSystem: "linux",
+    },
+  },
   kind: "repository_check_v1",
   lifetime: { kind: "single_use_proposal_revision", revision: 7 },
   mounts: {
@@ -298,6 +328,32 @@ describe("repository-check snapshot, toolchain, and action contracts", () => {
         toolchain: {
           ...repositoryCheckAction.toolchain,
           platformManifestDigest: toolchainManifest.platforms[1]?.manifestDigest,
+        },
+      }).ok,
+      false,
+    );
+    strictEqual(
+      decodeActionEnvelope({
+        ...repositoryCheckAction,
+        dockerCompatibility: {
+          ...repositoryCheckAction.dockerCompatibility,
+          context: {
+            ...repositoryCheckAction.dockerCompatibility.context,
+            endpoint: "unix:///var/run/docker.sock",
+          },
+        },
+      }).ok,
+      false,
+    );
+    strictEqual(
+      decodeActionEnvelope({
+        ...repositoryCheckAction,
+        dockerCompatibility: {
+          ...repositoryCheckAction.dockerCompatibility,
+          image: {
+            ...repositoryCheckAction.dockerCompatibility.image,
+            manifestDigest: sha256("5"),
+          },
         },
       }).ok,
       false,

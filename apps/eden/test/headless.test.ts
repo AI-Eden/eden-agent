@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import type { InProcessAgentClient } from "@eden/coding-runtime/agent-client";
 import { decodeProductEvent } from "@eden/contracts";
 
 import { runHeadless } from "../src/headless.ts";
@@ -83,6 +84,63 @@ test("workspace trust cannot bypass fake-action approval", async () => {
     receipts[0],
     `${Buffer.from(`${runDirectories[0]}:fake-model`).toString("base64url")}.json`,
   );
+});
+
+test("headless repository-check execution stops at exact approval without dispatch", async () => {
+  const captured = output();
+  const directories = await fixture();
+  const submitted: string[] = [];
+  const client = {
+    async close() {},
+    async submit(command: { readonly type: string }) {
+      submitted.push(command.type);
+      return {
+        approval: {
+          approvalId: "approval-repository-check-1",
+          authority: { dockerCompatibility: {} },
+        },
+        phase: "awaiting-approval",
+        retry: null,
+        revision: 7,
+        runId: "run-repository-check-1",
+        terminalOutcome: null,
+      };
+    },
+    async *subscribe() {
+      yield {
+        approval: {
+          actionId: "action-repository-check-1",
+          approvalId: "approval-repository-check-1",
+          canonicalDisplay: "RepositoryCheck test",
+          cwd: ".",
+          digest: "sha256:repository-check-1",
+          reason: "The exact named repository check requires one single-use approval.",
+          scope: "repository check test",
+        },
+        cursor: 1,
+        eventId: "event-repository-check-1",
+        protocolVersion: 1,
+        revision: 7,
+        runId: "run-repository-check-1",
+        type: "approval.presented",
+      } as const;
+    },
+  } as unknown as InProcessAgentClient;
+
+  const exitCode = await runHeadless(
+    { approveFakeAction: false, task: "Run the named repository check", trustWorkspace: false },
+    {
+      cwd: directories.workspaceDirectory,
+      io: captured.io,
+      openClient: async () => client,
+      stateDirectory: directories.stateDirectory,
+    },
+  );
+
+  strictEqual(exitCode, 2);
+  strictEqual(JSON.parse(captured.stderr.join("")).code, "repository_check_approval_required");
+  strictEqual(captured.stdout.join("").includes("approval.presented"), true);
+  strictEqual(submitted.join(","), "run.start");
 });
 
 test("both grants succeed and persisted trust is reused without revision drift", async () => {

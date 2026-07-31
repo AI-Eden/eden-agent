@@ -190,6 +190,8 @@ async function observationFor(
     }
     case "anchor_edit.execute":
     case "anchor_edit.prepare":
+    case "repository_check.execute":
+    case "repository_check.prepare":
     case "review.eden_patch.capture":
     case "review.git_snapshot.capture":
     case "review.git_check.capture":
@@ -231,6 +233,15 @@ function observationMatches(effect: KernelEffect, observation: KernelEvent): boo
         observation.type === "anchor_edit.completed" && observation.effectId === effect.effectId
       );
     case "anchor_edit.prepare":
+      return (
+        observation.type === "safe.action.proposed" && observation.effectId === effect.effectId
+      );
+    case "repository_check.execute":
+      return (
+        observation.type === "repository.check.completed" &&
+        observation.effectId === effect.effectId
+      );
+    case "repository_check.prepare":
       return (
         observation.type === "safe.action.proposed" && observation.effectId === effect.effectId
       );

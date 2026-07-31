@@ -78,6 +78,10 @@ describe("tracked repository-check catalog and immutable snapshot staging", () =
     strictEqual((await stat(join(staged.directory, "package.json"))).mode & 0o777, 0o444);
     await rejects(access(join(staged.directory, "untracked-secret.txt")));
     strictEqual(staged.directory.startsWith(workspace), false);
+    strictEqual(await staged.validate(), true);
+    await chmod(join(staged.directory, "package.json"), 0o644);
+    strictEqual(await staged.validate(), false);
+    await chmod(join(staged.directory, "package.json"), 0o444);
 
     await staged.cleanup();
     await rejects(access(staged.directory));

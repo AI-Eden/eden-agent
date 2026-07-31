@@ -99,6 +99,7 @@ const toolName = Type.Union([
   Type.Literal("read_file"),
   Type.Literal("search_repository"),
   Type.Literal("git_status"),
+  Type.Literal("repository_check"),
 ]);
 const conversationItem = Type.Union([
   Type.Object(
@@ -132,7 +133,7 @@ export const ModelStepRequestV1Schema = Type.Object(
   {
     attemptId: identifier(),
     conversation: Type.Array(conversationItem, { maxItems: 272, minItems: 1 }),
-    enabledTools: Type.Array(toolName, { maxItems: 5 }),
+    enabledTools: Type.Array(toolName, { maxItems: 6 }),
     maxOutputTokens: Type.Integer({ maximum: 8_192, minimum: 1 }),
     version: Type.Literal(1),
   },

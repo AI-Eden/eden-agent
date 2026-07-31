@@ -81,6 +81,7 @@ export type InProcessAgentClientOptions = {
   readonly runId?: RunId;
   readonly repositoryTools?: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
   readonly realProviderRuns?: boolean | "when-configured";
+  readonly repositoryCheckDockerContext?: string;
   readonly stateDirectory: string;
 };
 
@@ -134,6 +135,7 @@ async function openSession(
   modelStepDriver: ModelStepDriver | undefined,
   onVisibleText: ModelVisibleTextListener | undefined,
   repositoryTools: Omit<RepositoryToolServiceOptions, "workspaceRoot">,
+  repositoryCheckDockerContext: string | undefined,
   existing: boolean,
 ): Promise<RunSession> {
   try {
@@ -158,6 +160,7 @@ async function openSession(
       !existing,
       modelDriver,
       repositoryTools,
+      repositoryCheckDockerContext,
       modelStepDriver,
       onVisibleText,
     );
@@ -190,6 +193,7 @@ export class InProcessAgentClient implements AgentClient {
   private readonly profiles: ProviderProfileStore | null;
   private readonly readiness: ProviderReadinessService | null;
   private readonly repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot">;
+  private readonly repositoryCheckDockerContext: string | undefined;
   private repositoryReviewCache: RepositoryCapabilityReview | null = null;
   private repositoryTools: Promise<RepositoryToolService> | undefined;
   private readonly stateDirectory: string;
@@ -226,6 +230,7 @@ export class InProcessAgentClient implements AgentClient {
     this.profiles = profiles;
     this.readiness = readiness;
     this.repositoryToolOptions = options.repositoryTools ?? {};
+    this.repositoryCheckDockerContext = options.repositoryCheckDockerContext;
     this.stateDirectory = stateDirectory;
     this.trust = trust;
     this.session = session;
@@ -319,6 +324,7 @@ export class InProcessAgentClient implements AgentClient {
                 )(existingResolved),
             undefined,
             options.repositoryTools ?? {},
+            options.repositoryCheckDockerContext,
             true,
           );
     if (
@@ -434,7 +440,8 @@ export class InProcessAgentClient implements AgentClient {
       state.phase !== "executing" ||
       !("model" in state) ||
       state.stage !== "model-ready" ||
-      state.tool?.result?.status !== "succeeded"
+      state.tool?.result == null ||
+      (state.tool.result.status !== "succeeded" && state.tool.result.status !== "completed")
     ) {
       return;
     }
@@ -451,6 +458,8 @@ export class InProcessAgentClient implements AgentClient {
           return result.data.entries.length === 0
             ? ["."]
             : result.data.entries.map((entry) => entry.path);
+        case "repository_check":
+          return ["."];
       }
     })();
     const targets = [...new Set(paths)].slice(0, 256).map((relativePath) => ({
@@ -953,6 +962,7 @@ export class InProcessAgentClient implements AgentClient {
             resolvedProfile === null ? undefined : this.createModelProvider(resolvedProfile),
             (delta) => this.publishModelDelta(runId, delta),
             this.repositoryToolOptions,
+            this.repositoryCheckDockerContext,
             false,
           );
           const event: KernelEvent = {

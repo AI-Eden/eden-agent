@@ -31,7 +31,12 @@ function ToolCard({
   readonly compact: boolean;
   readonly expanded: boolean;
 }) {
-  const path = activity.call.name === "git_status" ? "." : activity.call.arguments.path;
+  const path =
+    activity.call.name === "git_status"
+      ? "."
+      : activity.call.name === "repository_check"
+        ? `.eden/checks:${activity.call.arguments.checkName}`
+        : activity.call.arguments.path;
   const safePath = fitTerminalLine(path, Number.MAX_SAFE_INTEGER);
   const result = activity.result;
   return (
@@ -764,16 +769,123 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                             {props.view.approval.authority.proposalRevision}
                           </text>
                           <text>
-                            execution: trusted host · isolation{" "}
-                            {props.view.approval.authority.isolation} · network{" "}
+                            {props.view.approval.authority.executionMode ===
+                            "trusted_host_policy_only"
+                              ? "execution: trusted host"
+                              : "execution: docker container"}{" "}
+                            · isolation {props.view.approval.authority.isolation} · network{" "}
                             {props.view.approval.authority.network}
                           </text>
-                          {props.view.approval.authority.baseSnapshots.map((snapshot) => (
-                            <text key={snapshot.path}>
-                              base: {snapshot.path} · {snapshot.byteLength} bytes ·{" "}
-                              {snapshot.sha256}
-                            </text>
-                          ))}
+                          {"baseSnapshots" in props.view.approval.authority ? (
+                            props.view.approval.authority.baseSnapshots.map((snapshot) => (
+                              <text key={snapshot.path}>
+                                base: {snapshot.path} · {snapshot.byteLength} bytes ·{" "}
+                                {snapshot.sha256}
+                              </text>
+                            ))
+                          ) : (
+                            <>
+                              <text>
+                                check: {props.view.approval.authority.checkName} · process{" "}
+                                {props.view.approval.authority.process.executable}{" "}
+                                {props.view.approval.authority.process.arguments.join(" ")}
+                              </text>
+                              <text>
+                                context:{" "}
+                                {props.view.approval.authority.dockerCompatibility.context.name} ·
+                                endpoint hash{" "}
+                                {
+                                  props.view.approval.authority.dockerCompatibility.context
+                                    .endpointSha256
+                                }
+                              </text>
+                              <text>
+                                Docker client{" "}
+                                {props.view.approval.authority.dockerCompatibility.client.version}
+                                /API{" "}
+                                {
+                                  props.view.approval.authority.dockerCompatibility.client
+                                    .apiVersion
+                                }{" "}
+                                · daemon{" "}
+                                {props.view.approval.authority.dockerCompatibility.daemon.version}
+                                /API{" "}
+                                {
+                                  props.view.approval.authority.dockerCompatibility.daemon
+                                    .apiVersion
+                                }
+                              </text>
+                              <text>
+                                backend:{" "}
+                                {props.view.approval.authority.dockerCompatibility.daemon.osType}/
+                                {
+                                  props.view.approval.authority.dockerCompatibility.daemon
+                                    .architecture
+                                }{" "}
+                                · userns{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .userNamespace,
+                                )}{" "}
+                                · cgroupns{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .cgroupNamespace,
+                                )}{" "}
+                                · seccomp{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .seccomp,
+                                )}
+                              </text>
+                              <text>
+                                resources: memory{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .memoryLimit,
+                                )}{" "}
+                                · swap{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .swapLimit,
+                                )}{" "}
+                                · CPU period/quota{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .cpuCfsPeriod,
+                                )}
+                                /
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .cpuCfsQuota,
+                                )}{" "}
+                                · PIDs{" "}
+                                {String(
+                                  props.view.approval.authority.dockerCompatibility.features
+                                    .pidsLimit,
+                                )}
+                              </text>
+                              <text>
+                                snapshot:{" "}
+                                {props.view.approval.authority.repositorySnapshot.fileCount} files ·{" "}
+                                {props.view.approval.authority.repositorySnapshot.byteLength} bytes
+                                · {props.view.approval.authority.repositorySnapshot.digest}
+                              </text>
+                              <text>
+                                image index:{" "}
+                                {props.view.approval.authority.toolchain.imageIndexDigest}
+                              </text>
+                              <text>
+                                platform manifest:{" "}
+                                {props.view.approval.authority.toolchain.platformManifestDigest} ·
+                                config{" "}
+                                {
+                                  props.view.approval.authority.dockerCompatibility.image
+                                    .configDigest
+                                }
+                              </text>
+                            </>
+                          )}
                         </>
                       )}
                       <text>approve: a · deny: d</text>

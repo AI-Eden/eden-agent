@@ -261,6 +261,82 @@ export const RepositoryCheckToolchainIdentitySchema = Type.Refine(
       ?.manifestDigest === identity.platformManifestDigest,
 );
 
+const dockerVersionSchema = Type.String({
+  maxLength: 64,
+  minLength: 1,
+  pattern: "^[A-Za-z0-9][A-Za-z0-9.+_-]{0,63}$",
+});
+const dockerApiVersionSchema = Type.String({ pattern: "^[0-9]+\\.[0-9]+$" });
+const dockerArchitectureSchema = Type.Union([Type.Literal("amd64"), Type.Literal("arm64")]);
+
+export const RepositoryCheckDockerCompatibilityV1Schema = Type.Refine(
+  Type.Object(
+    {
+      client: Type.Object(
+        {
+          apiVersion: dockerApiVersionSchema,
+          version: dockerVersionSchema,
+        },
+        closed,
+      ),
+      compatibilityVersion: Type.Literal(1),
+      context: Type.Object(
+        {
+          endpointSha256: sha256Schema,
+          name: Type.String({
+            maxLength: 128,
+            minLength: 1,
+            pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          }),
+        },
+        closed,
+      ),
+      daemon: Type.Object(
+        {
+          apiVersion: dockerApiVersionSchema,
+          architecture: dockerArchitectureSchema,
+          minimumApiVersion: dockerApiVersionSchema,
+          osType: Type.Literal("linux"),
+          version: dockerVersionSchema,
+        },
+        closed,
+      ),
+      features: Type.Object(
+        {
+          cgroupNamespace: Type.Literal(true),
+          cpuCfsPeriod: Type.Literal(true),
+          cpuCfsQuota: Type.Literal(true),
+          memoryLimit: Type.Literal(true),
+          pidsLimit: Type.Literal(true),
+          seccomp: Type.Literal(true),
+          swapLimit: Type.Literal(true),
+          userNamespace: Type.Literal(true),
+        },
+        closed,
+      ),
+      image: Type.Object(
+        {
+          architecture: dockerArchitectureSchema,
+          configDigest: sha256Schema,
+          indexDigest: sha256Schema,
+          manifestDigest: sha256Schema,
+          manifestEvidence: Type.Union([
+            Type.Literal("frozen_config_mapping"),
+            Type.Literal("local_descriptor"),
+          ]),
+          operatingSystem: Type.Literal("linux"),
+        },
+        closed,
+      ),
+    },
+    closed,
+  ),
+  (compatibility) => compatibility.daemon.architecture === compatibility.image.architecture,
+);
+export type RepositoryCheckDockerCompatibilityV1 = Type.Static<
+  typeof RepositoryCheckDockerCompatibilityV1Schema
+>;
+
 export const RepositoryCheckProfileSchema = Type.Object(
   {
     autoRemove: Type.Literal(false),

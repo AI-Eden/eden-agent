@@ -2,13 +2,7 @@ import { deepStrictEqual, doesNotMatch, strictEqual } from "node:assert";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { helpText, parseArgs } from "../apps/eden/src/args.ts";
-import { decodeJournalRecord } from "../packages/coding-runtime/src/journal/index.ts";
-import {
-  decodeActionEnvelope,
-  decodeProductEvent,
-  decodeRepositoryToolCall,
-} from "../packages/contracts/src/index.ts";
-import { decodeKernelEvent } from "../packages/kernel/src/index.ts";
+import { decodeActionEnvelope, decodeRepositoryToolCall } from "../packages/contracts/src/index.ts";
 import {
   createDockerSlice0Fixtures,
   measureDockerSlice0Fixtures,
@@ -22,12 +16,12 @@ test("Docker repository-check fixtures fit the frozen journal budgets", () => {
   );
 
   deepStrictEqual(sizes, {
-    actionRecord: 29_931,
+    actionRecord: 31_897,
     argumentBytes: 3_926,
     catalog: 4_133,
     manifest: 23_734,
-    resultRecord: 44_965,
-    run: 82_622,
+    resultRecord: 45_348,
+    run: 84_971,
   });
   strictEqual(sizes.argumentBytes <= r2DockerContractBudgets.argumentBytes, true);
   strictEqual(sizes.catalog <= r2DockerContractBudgets.catalogBytes, true);
@@ -37,41 +31,36 @@ test("Docker repository-check fixtures fit the frozen journal budgets", () => {
   strictEqual(sizes.run < r2DockerContractBudgets.journalRunBytes, true);
 });
 
-test("current decoders fail closed for every unimplemented Docker authority shape", () => {
-  const { action, result } = createDockerSlice0Fixtures();
-  const productEvent = {
-    cursor: "cursor-r2-docker",
-    payload: result,
-    protocolVersion: 1,
-    runId: action.runId,
-    type: "repository_check.updated",
-  };
-  const kernelEvent = { action, type: "repository.check.proposed" };
-  const journalRecord = {
-    causationId: null,
-    correlationId: action.runId,
-    eventId: "event-r2-docker-0",
-    journalVersion: 1,
-    payload: { action },
-    recordedAt: "2026-07-30T00:00:00.000Z",
-    redaction: { fields: [], status: "not-required" },
-    runId: action.runId,
-    sequence: 0,
-    type: "repository.check.proposed",
-  };
-
-  strictEqual(decodeActionEnvelope(action).ok, false);
+test("current decoders accept only the implemented closed Docker authority shape", () => {
+  const { action } = createDockerSlice0Fixtures();
+  strictEqual(decodeActionEnvelope(action).ok, true);
   strictEqual(
     decodeRepositoryToolCall({
-      arguments: { name: "test" },
+      arguments: { checkName: "test" },
+      name: "repository_check",
+      toolCallId: "tool-r2-docker",
+    }).ok,
+    true,
+  );
+  strictEqual(decodeActionEnvelope({ ...action, dockerCompatibility: undefined }).ok, false);
+  strictEqual(
+    decodeActionEnvelope({
+      ...action,
+      dockerCompatibility: {
+        ...action.dockerCompatibility,
+        features: { ...action.dockerCompatibility.features, userNamespace: false },
+      },
+    }).ok,
+    false,
+  );
+  strictEqual(
+    decodeRepositoryToolCall({
+      arguments: { checkName: "test", executable: "/usr/local/bin/node" },
       name: "repository_check",
       toolCallId: "tool-r2-docker",
     }).ok,
     false,
   );
-  strictEqual(decodeProductEvent(productEvent).ok, false);
-  strictEqual(decodeKernelEvent(kernelEvent).ok, false);
-  strictEqual(decodeJournalRecord(journalRecord).ok, false);
 });
 
 test("current CLI exposes accepted explicit probe preview without a repository-check approval bypass", async () => {

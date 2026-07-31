@@ -8,6 +8,10 @@ function assertNever(value: never): never {
   throw new UnreachableKernelStateError(`Unexpected kernel state: ${JSON.stringify(value)}`);
 }
 
+function repositoryCheckEffectId(runId: string, modelStep: number): string {
+  return `repository-check-${runId.slice(4, 100)}-${modelStep}`;
+}
+
 export function decide(state: RunState): readonly KernelEffect[] {
   switch (state.phase) {
     case "idle":
@@ -45,10 +49,29 @@ export function decide(state: RunState): readonly KernelEffect[] {
               },
             ];
           case "action-prepare-ready": {
-            if (state.tool?.call.name !== "anchor_edit") {
+            if (
+              state.tool?.call.name !== "anchor_edit" &&
+              state.tool?.call.name !== "repository_check"
+            ) {
               throw new UnreachableKernelStateError(
-                "A ready AnchorEdit preparation requires one proposal call.",
+                "A ready safe-action preparation requires one proposal call.",
               );
+            }
+            if (state.tool.call.name === "repository_check") {
+              const executionEffectId = repositoryCheckEffectId(state.runId, state.modelStep);
+              return [
+                {
+                  effectId: `${executionEffectId}-prepare`,
+                  executionEffectId,
+                  expectedRevision: state.revision + 3,
+                  proposalRevision:
+                    (state.action?.safeActuation.envelope.proposalRevision ?? 0) + 1,
+                  runId: state.runId,
+                  toolCall: state.tool.call,
+                  type: "repository_check.prepare",
+                  workspace: state.workspace,
+                },
+              ];
             }
             const parent = state.action;
             return [
@@ -70,14 +93,23 @@ export function decide(state: RunState): readonly KernelEffect[] {
                 "A safe action effect requires an approved action.",
               );
             }
-            return [
-              {
-                effectId: `${state.runId}:anchor-edit:${state.action.actionId}`,
-                envelope: state.action.safeActuation.envelope,
-                runId: state.runId,
-                type: "anchor_edit.execute",
-              },
-            ];
+            return state.action.safeActuation.envelope.kind === "repository_check_v1"
+              ? [
+                  {
+                    effectId: repositoryCheckEffectId(state.runId, state.modelStep),
+                    envelope: state.action.safeActuation.envelope,
+                    runId: state.runId,
+                    type: "repository_check.execute" as const,
+                  },
+                ]
+              : [
+                  {
+                    effectId: `${state.runId}:anchor-edit:${state.action.actionId}`,
+                    envelope: state.action.safeActuation.envelope,
+                    runId: state.runId,
+                    type: "anchor_edit.execute" as const,
+                  },
+                ];
           case "eden-patch-ready":
             if (state.action === null) {
               throw new UnreachableKernelStateError("Eden patch capture requires an action.");

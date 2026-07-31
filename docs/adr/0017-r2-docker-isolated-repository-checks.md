@@ -4,6 +4,8 @@
 - Date: 2026-07-29
 - Accepted amendment: `docs/research/2026-07-31-r2-docker-diagnostic-probe-freeze-amendment.md`;
   owner approved 2026-07-31
+- Accepted amendment: `docs/research/2026-08-01-r2-docker-build-contract-gap-decision-brief.md`;
+  owner approved Option A on 2026-08-01
 
 ## Context
 
@@ -45,6 +47,14 @@ policy architecture. The action binds:
 - read-only workspace and root filesystem mounts plus the fixed temporary and result areas;
 - the closed non-secret environment, `network=none`, containment profile, and every execution budget;
 - policy and profile revisions, exact display, execution mode, and isolation truth.
+
+The accepted 2026-08-01 Option A amendment additionally binds one closed `dockerCompatibility` object to
+the canonical action and approval digest: safe context name and endpoint SHA-256, client version/API,
+daemon version/minimum API/API/Linux OS type/architecture, fixed namespace/security/resource booleans,
+and exact image index/platform-manifest/config identities. The raw endpoint is local-only. Preparation
+records the bounded object and dispatch re-observes every field before Docker mutation; any difference
+makes the approved action stale. If cleanup subsequently fails, the result exposes `cleanup_failed` while
+retaining the original closed wrapper reason and independent cleanup object state.
 
 Repository-code execution always evaluates to `ask` in this slice. Workspace trust, a catalog revision, a
 previous approval, or a passing earlier check never grants automatic execution. Approval is consumed

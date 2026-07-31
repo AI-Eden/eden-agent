@@ -15,6 +15,10 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
   deepStrictEqual(
     [
       "test:r2-budgets",
+      "test:r2-docker-contracts",
+      "test:r2-docker-evidence",
+      "test:r2-docker-fixture",
+      "test:r2-docker-recovery",
       "test:r2-native-archive",
       "test:r2-process",
       "test:r2-provider-fixtures",
@@ -35,6 +39,17 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
   match(workflow, /pnpm test:r2-secret-canaries/u);
   match(workflow, /pnpm test:r2-safe-actuation/u);
   match(workflow, /pnpm test:r2-budgets/u);
+  match(workflow, /ubuntu-docker-repository-check:/u);
+  match(workflow, /pnpm test:r2-docker-contracts/u);
+  match(workflow, /pnpm test:r2-docker-fixture/u);
+  match(workflow, /pnpm test:r2-docker-recovery/u);
+  match(workflow, /pnpm test:r2-docker-evidence/u);
+  match(workflow, /--userns-remap "\$r2_user"/u);
+  match(workflow, /--userland-proxy=false/u);
+  match(workflow, /ghcr\.io\/ai-eden\/eden-node24-check@sha256:8421694e/u);
+  match(workflow, /scripts\/r2-docker-repository-check-acceptance\.mjs/u);
+  match(workflow, /docker-repository-check\.json/u);
+  match(workflow, /process\.env\.GITHUB_SHA/u);
   match(workflow, /pnpm test:r2-native-archive/u);
   match(workflow, /scripts\/r2-safe-actuation-acceptance\.mjs/u);
   match(workflow, /r2-evidence\/safe-actuation\.json \$\{\{ github\.sha \}\}/u);

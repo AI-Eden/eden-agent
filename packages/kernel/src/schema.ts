@@ -3,7 +3,9 @@ import {
   ClosedCheckObservationSchema,
   PatchObservationSchema,
   PolicyDecisionSchema,
+  RepositoryCheckActionEnvelopeV1Schema,
   RepositoryCheckLifecycleStateSchema,
+  RepositoryCheckOutcomeSchema,
   RepositoryCheckReceiptV1Schema,
   RepositoryCheckResultV1Schema,
 } from "@eden/contracts";
@@ -192,12 +194,24 @@ const AnchorEditToolCallSchema = Type.Refine(
   (call) =>
     new TextEncoder().encode(JSON.stringify(call.arguments.replacements)).byteLength <= 16_384,
 );
+const RepositoryCheckToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      { checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }) },
+      closed,
+    ),
+    name: Type.Literal("repository_check"),
+    toolCallId: identifier(),
+  },
+  closed,
+);
 const RepositoryToolCallSchema = Type.Union([
   ListFilesToolCallSchema,
   ReadFileToolCallSchema,
   SearchRepositoryToolCallSchema,
   GitStatusToolCallSchema,
   AnchorEditToolCallSchema,
+  RepositoryCheckToolCallSchema,
 ]);
 const ListFilesEntrySchema = Type.Union([
   Type.Object(
@@ -359,6 +373,7 @@ const RepositoryToolFailureSchema = Type.Object(
       Type.Literal("search_repository"),
       Type.Literal("git_status"),
       Type.Literal("anchor_edit"),
+      Type.Literal("repository_check"),
     ]),
     status: Type.Literal("failed"),
     toolCallId: identifier(),
@@ -374,12 +389,57 @@ const AnchorEditDeniedResultSchema = Type.Object(
   },
   closed,
 );
+const RepositoryCheckCompletedResultSchema = Type.Object(
+  {
+    data: Type.Object(
+      {
+        actionId: identifier(),
+        checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }),
+        cleanupStatus: Type.Union([
+          Type.Literal("complete"),
+          Type.Literal("failed"),
+          Type.Literal("unknown"),
+        ]),
+        exitCode: Type.Union([Type.Integer({ maximum: 255, minimum: 0 }), Type.Null()]),
+        imageIndexDigest: contentHash,
+        inputManifestDigest: contentHash,
+        outcome: RepositoryCheckOutcomeSchema,
+        platformManifestDigest: contentHash,
+        profileRevision: Type.Literal("r2-docker-profile-v1"),
+        stderrSha256: contentHash,
+        stdoutSha256: contentHash,
+      },
+      closed,
+    ),
+    name: Type.Literal("repository_check"),
+    status: Type.Literal("completed"),
+    toolCallId: identifier(),
+  },
+  closed,
+);
+const RepositoryCheckDeniedResultSchema = Type.Object(
+  {
+    data: Type.Object(
+      {
+        checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }),
+        reason: boundedText(),
+      },
+      closed,
+    ),
+    name: Type.Literal("repository_check"),
+    status: Type.Literal("denied"),
+    toolCallId: identifier(),
+  },
+  closed,
+);
 const RepositoryToolResultSchema = Type.Union([
   ListFilesToolSuccessSchema,
   ReadFileToolSuccessSchema,
   SearchRepositoryToolSuccessSchema,
   GitStatusToolSuccessSchema,
   AnchorEditDeniedResultSchema,
+  RepositoryCheckCompletedResultSchema,
+  RepositoryCheckDeniedResultSchema,
   RepositoryToolFailureSchema,
 ]);
 
@@ -493,6 +553,15 @@ const AnchorEditEffectSchema = Type.Object(
   },
   closed,
 );
+const RepositoryCheckEffectSchema = Type.Object(
+  {
+    effectId: identifier(),
+    envelope: RepositoryCheckActionEnvelopeV1Schema,
+    runId: identifier(),
+    type: Type.Literal("repository_check.execute"),
+  },
+  closed,
+);
 const EdenPatchCaptureEffectSchema = Type.Object(
   {
     actionId: identifier(),
@@ -548,6 +617,19 @@ const AnchorEditPrepareEffectSchema = Type.Object(
   },
   closed,
 );
+const RepositoryCheckPrepareEffectSchema = Type.Object(
+  {
+    effectId: identifier(),
+    executionEffectId: identifier(),
+    expectedRevision: Type.Integer({ minimum: 0 }),
+    proposalRevision: Type.Integer({ minimum: 0 }),
+    runId: identifier(),
+    toolCall: RepositoryCheckToolCallSchema,
+    type: Type.Literal("repository_check.prepare"),
+    workspace: RunWorkspaceSchema,
+  },
+  closed,
+);
 const ProviderModelEffectSchema = Type.Object(
   {
     effectId: identifier(),
@@ -569,7 +651,9 @@ export const KernelEffectSchema = Type.Union([
   ProviderModelEffectSchema,
   RepositoryToolEffectSchema,
   AnchorEditPrepareEffectSchema,
+  RepositoryCheckPrepareEffectSchema,
   AnchorEditEffectSchema,
+  RepositoryCheckEffectSchema,
   EdenPatchCaptureEffectSchema,
   GitSnapshotCaptureEffectSchema,
   GitCheckCaptureEffectSchema,

@@ -10,7 +10,15 @@ import type {
   SelectProviderProfileCommand,
 } from "./provider-profiles.ts";
 import { ProviderProfileSummarySchema } from "./provider-profiles.ts";
-import { RepositoryCheckProductViewV1Schema } from "./repository-check-result.ts";
+import {
+  RepositoryCheckBudgetsSchema,
+  RepositoryCheckDockerCompatibilityV1Schema,
+  RepositoryCheckProcessSchema,
+} from "./repository-check.ts";
+import {
+  RepositoryCheckOutcomeSchema,
+  RepositoryCheckProductViewV1Schema,
+} from "./repository-check-result.ts";
 
 export const productProtocolVersion = 1 as const;
 export const ProductProtocolVersionSchema = Type.Literal(productProtocolVersion);
@@ -45,6 +53,7 @@ export type EventCursor = Type.Static<typeof EventCursorSchema>;
 const boundedText = () => Type.String({ maxLength: 4_096, minLength: 1 });
 const shortText = () => Type.String({ maxLength: 512, minLength: 1 });
 const closed = { additionalProperties: false } as const;
+const approvalSha256Schema = Type.String({ pattern: "^sha256:[a-f0-9]{64}$" });
 
 export const ProductErrorSchema = Type.Object(
   {
@@ -162,6 +171,65 @@ export const ActionSummarySchema = Type.Object(
 );
 export type ActionSummary = Type.Static<typeof ActionSummarySchema>;
 
+const TrustedHostApprovalAuthoritySchema = Type.Object(
+  {
+    baseSnapshots: Type.Array(
+      Type.Object(
+        {
+          byteLength: Type.Integer({ maximum: 1_048_576, minimum: 0 }),
+          path: Type.String({ maxLength: 4_096, minLength: 1 }),
+          sha256: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+        },
+        closed,
+      ),
+      { maxItems: 1 },
+    ),
+    executionMode: Type.Literal("trusted_host_policy_only"),
+    isolation: Type.Literal("none"),
+    lifetime: Type.Literal("single_use_proposal_revision"),
+    network: Type.Literal("not_requested"),
+    policyRuleId: Type.String(identifierOptions),
+    policyRuleSetRevision: Type.String(identifierOptions),
+    proposalRevision: RevisionSchema,
+  },
+  closed,
+);
+
+const RepositoryCheckApprovalAuthoritySchema = Type.Object(
+  {
+    budgets: RepositoryCheckBudgetsSchema,
+    catalogSha256: approvalSha256Schema,
+    checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }),
+    dockerCompatibility: RepositoryCheckDockerCompatibilityV1Schema,
+    executionMode: Type.Literal("docker_container"),
+    isolation: Type.Literal("linux_container"),
+    lifetime: Type.Literal("single_use_proposal_revision"),
+    network: Type.Literal("none"),
+    policyRuleId: Type.String(identifierOptions),
+    policyRuleSetRevision: Type.Literal("r2-docker-repository-check-v1"),
+    process: RepositoryCheckProcessSchema,
+    proposalRevision: RevisionSchema,
+    repositorySnapshot: Type.Object(
+      {
+        byteLength: Type.Integer({ maximum: 8_388_608, minimum: 0 }),
+        digest: approvalSha256Schema,
+        fileCount: Type.Integer({ maximum: 64, minimum: 1 }),
+      },
+      closed,
+    ),
+    toolchain: Type.Object(
+      {
+        imageIndexDigest: approvalSha256Schema,
+        platformManifestDigest: approvalSha256Schema,
+        profileRevision: Type.Literal("r2-docker-profile-v1"),
+        requestedPlatform: Type.Union([Type.Literal("linux/amd64"), Type.Literal("linux/arm64")]),
+      },
+      closed,
+    ),
+  },
+  closed,
+);
+
 export const ApprovalPresentationSchema = Type.Object(
   {
     approvalId: ApprovalIdSchema,
@@ -172,29 +240,7 @@ export const ApprovalPresentationSchema = Type.Object(
     scope: boundedText(),
     digest: Type.String({ maxLength: 512, minLength: 1 }),
     authority: Type.Optional(
-      Type.Object(
-        {
-          baseSnapshots: Type.Array(
-            Type.Object(
-              {
-                byteLength: Type.Integer({ maximum: 1_048_576, minimum: 0 }),
-                path: Type.String({ maxLength: 4_096, minLength: 1 }),
-                sha256: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
-              },
-              closed,
-            ),
-            { maxItems: 1 },
-          ),
-          executionMode: Type.Literal("trusted_host_policy_only"),
-          isolation: Type.Literal("none"),
-          lifetime: Type.Literal("single_use_proposal_revision"),
-          network: Type.Literal("not_requested"),
-          policyRuleId: Type.String(identifierOptions),
-          policyRuleSetRevision: Type.String(identifierOptions),
-          proposalRevision: RevisionSchema,
-        },
-        closed,
-      ),
+      Type.Union([TrustedHostApprovalAuthoritySchema, RepositoryCheckApprovalAuthoritySchema]),
     ),
   },
   closed,
@@ -364,12 +410,24 @@ export const AnchorEditToolCallSchema = Type.Refine(
   (call) =>
     new TextEncoder().encode(JSON.stringify(call.arguments.replacements)).byteLength <= 16_384,
 );
+export const RepositoryCheckToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      { checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }) },
+      closed,
+    ),
+    name: Type.Literal("repository_check"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
 export const RepositoryToolCallSchema = Type.Union([
   ListFilesToolCallSchema,
   ReadFileToolCallSchema,
   SearchRepositoryToolCallSchema,
   GitStatusToolCallSchema,
   AnchorEditToolCallSchema,
+  RepositoryCheckToolCallSchema,
 ]);
 export type RepositoryToolCall = Type.Static<typeof RepositoryToolCallSchema>;
 
@@ -533,6 +591,7 @@ export const RepositoryToolFailureSchema = Type.Object(
       Type.Literal("search_repository"),
       Type.Literal("git_status"),
       Type.Literal("anchor_edit"),
+      Type.Literal("repository_check"),
     ]),
     status: Type.Literal("failed"),
     toolCallId: Type.String(identifierOptions),
@@ -554,12 +613,57 @@ export const AnchorEditDeniedResultSchema = Type.Object(
   },
   closed,
 );
+export const RepositoryCheckCompletedResultSchema = Type.Object(
+  {
+    data: Type.Object(
+      {
+        actionId: ActionIdSchema,
+        checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }),
+        cleanupStatus: Type.Union([
+          Type.Literal("complete"),
+          Type.Literal("failed"),
+          Type.Literal("unknown"),
+        ]),
+        exitCode: Type.Union([Type.Integer({ maximum: 255, minimum: 0 }), Type.Null()]),
+        imageIndexDigest: contentHashSchema,
+        inputManifestDigest: contentHashSchema,
+        outcome: RepositoryCheckOutcomeSchema,
+        platformManifestDigest: contentHashSchema,
+        profileRevision: Type.Literal("r2-docker-profile-v1"),
+        stderrSha256: contentHashSchema,
+        stdoutSha256: contentHashSchema,
+      },
+      closed,
+    ),
+    name: Type.Literal("repository_check"),
+    status: Type.Literal("completed"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const RepositoryCheckDeniedResultSchema = Type.Object(
+  {
+    data: Type.Object(
+      {
+        checkName: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }),
+        reason: boundedText(),
+      },
+      closed,
+    ),
+    name: Type.Literal("repository_check"),
+    status: Type.Literal("denied"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
 export const RepositoryToolResultSchema = Type.Union([
   ListFilesToolSuccessSchema,
   ReadFileToolSuccessSchema,
   SearchRepositoryToolSuccessSchema,
   GitStatusToolSuccessSchema,
   AnchorEditDeniedResultSchema,
+  RepositoryCheckCompletedResultSchema,
+  RepositoryCheckDeniedResultSchema,
   RepositoryToolFailureSchema,
 ]);
 export type RepositoryToolResult = Type.Static<typeof RepositoryToolResultSchema>;

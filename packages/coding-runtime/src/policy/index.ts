@@ -162,7 +162,27 @@ export function evaluateSafeActuationPolicy(
 ): PolicyDecision {
   const decoded = decodeActionEnvelope(envelope);
   const digest = decoded.ok ? safeActionDigest(decoded.value) : "0".repeat(64);
-  if (!decoded.ok || decoded.value.authority.ruleSetRevision !== safeActuationRuleSetRevision) {
+  if (!decoded.ok) {
+    return {
+      decision: "deny",
+      ruleId: "r2.default-deny",
+      ruleSetRevision: safeActuationRuleSetRevision,
+      actionDigest: digest,
+      reason: "The action does not match the accepted safe-actuation rule set.",
+      evaluatedAt,
+    };
+  }
+  if (decoded.value.kind === "repository_check_v1") {
+    return {
+      decision: "ask",
+      ruleId: "r2.repository-check.named-docker-v1",
+      ruleSetRevision: "r2-docker-repository-check-v1",
+      actionDigest: digest,
+      reason: "The exact named repository check requires one single-use approval.",
+      evaluatedAt,
+    };
+  }
+  if (decoded.value.authority.ruleSetRevision !== safeActuationRuleSetRevision) {
     return {
       decision: "deny",
       ruleId: "r2.default-deny",
@@ -179,16 +199,6 @@ export function evaluateSafeActuationPolicy(
       ruleSetRevision: safeActuationRuleSetRevision,
       actionDigest: digest,
       reason: "Tracked UTF-8 modifications require one exact approval.",
-      evaluatedAt,
-    };
-  }
-  if (decoded.value.kind === "repository_check_v1") {
-    return {
-      decision: "deny",
-      ruleId: "r2.default-deny",
-      ruleSetRevision: safeActuationRuleSetRevision,
-      actionDigest: digest,
-      reason: "The repository-check rule set is not active in the host safe-actuation policy.",
       evaluatedAt,
     };
   }

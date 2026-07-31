@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "name": "test",
+      "process": {
+        "executable": "/usr/local/bin/node",
+        "arguments": ["--test", "test/add.test.js"],
+        "cwd": "."
+      }
+    }
+  ]
+}

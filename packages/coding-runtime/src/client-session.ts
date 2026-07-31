@@ -5,9 +5,14 @@ import type { ModelDriver } from "@eden/providers/fake";
 import type { ModelStepDriver, ModelVisibleTextListener } from "@eden/providers/model-step";
 
 import { AnchorEditService } from "./anchor-edit.ts";
+import { DockerCliDoctorPort } from "./docker-doctor.ts";
 import { FakeToolHost } from "./fake-tool-host.ts";
 import { GitReviewService } from "./git-review.ts";
 import { FileJournal } from "./journal/index.ts";
+import { NativeProcessRunner } from "./native-process.ts";
+import { RepositoryCheckEffectHost } from "./repository-check-effect-host.ts";
+import { DockerCliRepositoryCheckPort } from "./repository-check-runner.ts";
+import { RepositoryCheckSnapshotService } from "./repository-check-snapshot.ts";
 import { RunEffectHost } from "./run-effect-host.ts";
 import { type RuntimeClock, RuntimeEngine, type RuntimeIdSource } from "./runtime.ts";
 import { SafeActuationEffectHost } from "./safe-actuation-host.ts";
@@ -77,6 +82,7 @@ export async function openRunSession(
   create: boolean,
   modelDriver?: ModelDriver,
   repositoryToolOptions: Omit<RepositoryToolServiceOptions, "workspaceRoot"> = {},
+  repositoryCheckDockerContext?: string,
   modelStepDriver?: ModelStepDriver,
   onVisibleText?: ModelVisibleTextListener,
 ): Promise<RunSession> {
@@ -115,6 +121,35 @@ export async function openRunSession(
           workspaceRoot: cwd,
         }),
       ),
+      new RepositoryCheckEffectHost({
+        clock: () => clock.now().toISOString(),
+        doctor: new DockerCliDoctorPort({
+          cwd,
+          ...(repositoryCheckDockerContext === undefined
+            ? {}
+            : { dockerContext: repositoryCheckDockerContext }),
+          nativeProcess: repositoryToolOptions.nativeProcess ?? new NativeProcessRunner(),
+        }),
+        execution: new DockerCliRepositoryCheckPort({
+          cwd,
+          ...(repositoryCheckDockerContext === undefined
+            ? {}
+            : { dockerContext: repositoryCheckDockerContext }),
+          nativeProcess: repositoryToolOptions.nativeProcess ?? new NativeProcessRunner(),
+        }),
+        id: () => `receipt-${idSource.next()}`,
+        snapshot: new RepositoryCheckSnapshotService({
+          ...(repositoryToolOptions.gitExecutable === undefined
+            ? {}
+            : { gitExecutable: repositoryToolOptions.gitExecutable }),
+          ...(repositoryToolOptions.nativeProcess === undefined
+            ? {}
+            : { nativeProcess: repositoryToolOptions.nativeProcess }),
+          stateDirectory,
+          workspaceRoot: cwd,
+        }),
+        stateDirectory,
+      }),
     ),
     clock,
     idSource,

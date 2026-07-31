@@ -34,20 +34,46 @@ function isSafeAction(action: Action): action is SafeActuationAction {
 }
 
 export function approvalPresentation(action: Action) {
-  const authority = isSafeAction(action)
-    ? {
-        baseSnapshots: action.safeActuation.envelope.baseSnapshots.map((snapshot) => ({
-          ...snapshot,
-        })),
-        executionMode: "trusted_host_policy_only" as const,
-        isolation: "none" as const,
-        lifetime: "single_use_proposal_revision" as const,
-        network: "not_requested" as const,
-        policyRuleId: action.safeActuation.policy.ruleId,
-        policyRuleSetRevision: action.safeActuation.policy.ruleSetRevision,
-        proposalRevision: action.safeActuation.envelope.proposalRevision,
-      }
-    : undefined;
+  const authority = !isSafeAction(action)
+    ? undefined
+    : action.safeActuation.envelope.kind === "repository_check_v1"
+      ? {
+          budgets: action.safeActuation.envelope.budgets,
+          catalogSha256: action.safeActuation.envelope.operation.catalog.sha256,
+          checkName: action.safeActuation.envelope.operation.checkName,
+          dockerCompatibility: action.safeActuation.envelope.dockerCompatibility,
+          executionMode: "docker_container" as const,
+          isolation: "linux_container" as const,
+          lifetime: "single_use_proposal_revision" as const,
+          network: "none" as const,
+          policyRuleId: action.safeActuation.policy.ruleId,
+          policyRuleSetRevision: "r2-docker-repository-check-v1" as const,
+          process: action.safeActuation.envelope.operation.process,
+          proposalRevision: action.safeActuation.envelope.proposalRevision,
+          repositorySnapshot: {
+            byteLength: action.safeActuation.envelope.repositorySnapshot.byteLength,
+            digest: action.safeActuation.envelope.repositorySnapshot.digest,
+            fileCount: action.safeActuation.envelope.repositorySnapshot.fileCount,
+          },
+          toolchain: {
+            imageIndexDigest: action.safeActuation.envelope.toolchain.imageIndexDigest,
+            platformManifestDigest: action.safeActuation.envelope.toolchain.platformManifestDigest,
+            profileRevision: action.safeActuation.envelope.toolchain.profileRevision,
+            requestedPlatform: action.safeActuation.envelope.toolchain.requestedPlatform,
+          },
+        }
+      : {
+          baseSnapshots: action.safeActuation.envelope.baseSnapshots.map((snapshot) => ({
+            ...snapshot,
+          })),
+          executionMode: "trusted_host_policy_only" as const,
+          isolation: "none" as const,
+          lifetime: "single_use_proposal_revision" as const,
+          network: "not_requested" as const,
+          policyRuleId: action.safeActuation.policy.ruleId,
+          policyRuleSetRevision: action.safeActuation.policy.ruleSetRevision,
+          proposalRevision: action.safeActuation.envelope.proposalRevision,
+        };
   return {
     actionId: action.actionId,
     approvalId: action.approvalId,
@@ -412,6 +438,55 @@ function providerProjection(state: Exclude<RunState, { readonly phase: "idle" }>
   };
 }
 
+function repositoryCheckProjection(
+  state: Exclude<RunState, { readonly phase: "idle" }>,
+): ProductView["repositoryCheck"] {
+  if (
+    state.repositoryCheck === undefined ||
+    state.action === null ||
+    !isSafeAction(state.action) ||
+    state.action.safeActuation.envelope.kind !== "repository_check_v1"
+  ) {
+    return undefined;
+  }
+  const action = state.action.safeActuation.envelope;
+  return {
+    actionId: action.actionId,
+    checkName: action.operation.checkName,
+    effectId: state.repositoryCheck.effectId,
+    input: {
+      catalogSha256: action.operation.catalog.sha256,
+      imageIndexDigest: action.toolchain.imageIndexDigest,
+      manifestDigest: action.repositorySnapshot.digest,
+      platformManifestDigest: action.toolchain.platformManifestDigest,
+      profileRevision: action.profile.profileRevision,
+    },
+    isolation: {
+      network: "none",
+      rootFilesystem: "read_only",
+      workspaceMount: "read_only",
+    },
+    lifecycle: state.repositoryCheck.lifecycle.map((entry) => ({ ...entry })),
+    limitations: [
+      "Repository output is untrusted local evidence, not verifier success.",
+      "No network, package installation, repair, or automatic recheck is authorized.",
+      "The Docker daemon and host kernel remain outside the container trust boundary.",
+    ],
+    nextActions:
+      state.repositoryCheck.state === "awaiting_approval"
+        ? ["Approve this exact digest once or deny it."]
+        : state.repositoryCheck.state === "review"
+          ? ["Review the local output, receipt, and cleanup truth."]
+          : ["Wait for the exact repository-check lifecycle to advance."],
+    process: action.operation.process,
+    projectionVersion: 1,
+    receipt: state.repositoryCheck.receipt,
+    result: state.repositoryCheck.result,
+    runId: state.runId,
+    state: state.repositoryCheck.state,
+  };
+}
+
 function budget(state: Exclude<RunState, { readonly phase: "idle" }>) {
   if ("model" in state) {
     return {
@@ -435,6 +510,9 @@ export function projectView(state: RunState): ProductView {
   const safeAction = state.action !== null && isSafeAction(state.action) ? state.action : null;
   const tools = productTools(state);
   const review = productReview(state);
+  const repositoryCheck = repositoryCheckProjection(state);
+  const repositoryAction =
+    safeAction?.safeActuation.envelope.kind === "repository_check_v1" ? safeAction : null;
   return {
     approval: awaitingApproval
       ? {
@@ -442,7 +520,9 @@ export function projectView(state: RunState): ProductView {
           recoveryAction:
             safeAction === null
               ? "Approve the exact fake action or deny it."
-              : "Approve this exact digest once, or deny it and request one narrower proposal.",
+              : repositoryAction !== null
+                ? "Approve this exact named-check digest once, or deny it without execution."
+                : "Approve this exact digest once, or deny it and request one narrower proposal.",
         }
       : null,
     budget: budget(state),
@@ -453,7 +533,9 @@ export function projectView(state: RunState): ProductView {
       ? [
           safeAction === null
             ? "Approve or deny the deterministic fake action."
-            : "Approve or deny the exact AnchorEdit digest.",
+            : repositoryAction !== null
+              ? "Approve or deny the exact repository-check digest."
+              : "Approve or deny the exact AnchorEdit digest.",
         ]
       : awaitingRetry
         ? ["Explicitly retry from the last committed conversation turn or cancel the run."]
@@ -474,13 +556,16 @@ export function projectView(state: RunState): ProductView {
     progress: progress(state),
     protocolVersion: 1,
     residualRisk:
-      safeAction !== null
-        ? "Trusted-host policy only; no OS isolation or verifier success is claimed."
-        : succeeded
-          ? "This run exercised only deterministic fake boundaries."
-          : null,
+      repositoryAction !== null
+        ? "Container isolation constrains repository code; the Docker daemon and host kernel remain trusted."
+        : safeAction !== null
+          ? "Trusted-host policy only; no OS isolation or verifier success is claimed."
+          : succeeded
+            ? "This run exercised only deterministic fake boundaries."
+            : null,
     revision: state.revision,
     ...(review === undefined ? {} : { review }),
+    ...(repositoryCheck === undefined ? {} : { repositoryCheck }),
     runId: state.runId,
     terminalOutcome,
     ...(tools === undefined ? {} : { tools }),

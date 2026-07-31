@@ -49,6 +49,8 @@ const eventType = Type.Union([
   Type.Literal("model.step.completed"),
   Type.Literal("model.retry.requested"),
   Type.Literal("repository.tool.completed"),
+  Type.Literal("repository.check.lifecycle"),
+  Type.Literal("repository.check.completed"),
   Type.Literal("fake.action.completed"),
   Type.Literal("verification.completed"),
   Type.Literal("run.cancelled"),

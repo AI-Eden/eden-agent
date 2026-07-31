@@ -12,6 +12,7 @@ import {
 } from "./protocol.ts";
 import {
   RepositoryCheckBudgetsSchema,
+  RepositoryCheckDockerCompatibilityV1Schema,
   RepositoryCheckMountsSchema,
   RepositoryCheckOperationSchema,
   RepositoryCheckProfileSchema,
@@ -191,6 +192,7 @@ export const RepositoryCheckActionEnvelopeV1Schema = Type.Refine(
       ),
       baseSnapshots: Type.Array(FileSnapshotSchema, { maxItems: 0 }),
       budgets: RepositoryCheckBudgetsSchema,
+      dockerCompatibility: RepositoryCheckDockerCompatibilityV1Schema,
       kind: Type.Literal("repository_check_v1"),
       mounts: RepositoryCheckMountsSchema,
       operation: RepositoryCheckOperationSchema,
@@ -212,6 +214,11 @@ export const RepositoryCheckActionEnvelopeV1Schema = Type.Refine(
     envelope.proposalRevision === envelope.lifetime.revision &&
     envelope.operation.catalog.head.length >= 40 &&
     envelope.toolchain.profileRevision === envelope.profile.profileRevision &&
+    envelope.dockerCompatibility.daemon.architecture ===
+      envelope.toolchain.requestedPlatform.slice("linux/".length) &&
+    envelope.dockerCompatibility.image.indexDigest === envelope.toolchain.imageIndexDigest &&
+    envelope.dockerCompatibility.image.manifestDigest ===
+      envelope.toolchain.platformManifestDigest &&
     utf8.encode(JSON.stringify(envelope)).byteLength <= 65_536,
 );
 export type RepositoryCheckActionEnvelopeV1 = Type.Static<
