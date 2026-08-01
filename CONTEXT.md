@@ -40,11 +40,14 @@ Slice 4 is complete. On 2026-08-01 the owner approved the narrow Option A contra
 Docker compatibility observations into the canonical repository-check action. Slices 5-8 are now locally
 complete. The implementation, fixed failing fixture, deterministic provider boundary, packaged three-
 scenario TUI driver, and closed evidence validator pass on the fresh independent `userns-remap` daemon.
-Slice 9's implementation candidate is complete at exact public candidate
-`99d47d4bd6f5a6ab92797f85e15214f68d88b18e`. Hosted R2 run
-[`30696710370`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710370) passed the authoritative
+Slice 9's implementation candidate is complete at exact reviewed code commit
+`8c37f7939e384eaada13582a8f0ac71668eb9a98`. A completion audit superseded the earlier candidate after
+finding dispatch-journal/recovery and cancellation gaps: dispatch is now journaled after durable create
+and before start, pre-create failure is proven retryable, and cancellation performs stop/kill fallback
+before recording a cancelled receipt and completing cleanup. Hosted R2 run
+[`30698539397`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539397) passed the authoritative
 Ubuntu x64 Docker lane plus the Ubuntu, macOS, and Windows non-Docker acceptance lanes; companion R1 run
-[`30696710375`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710375) also passed all three hosted
+[`30698539398`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539398) also passed all three hosted
 platforms.
 Slice 0 preserved the
 safe-actuation surface, exact package hashes, Docker no-authority guards, and measured journal budget
@@ -307,14 +310,17 @@ Focused deterministic tests, the full workspace suite, typecheck, build, code, M
 are green for the Build packet. Slice 3 evidence remains in
 `docs/benchmark-results/2026-07-30-r2-docker-slice3-linux-x64.json`; the read-only Slice 4 record is
 `docs/benchmark-results/2026-07-30-r2-docker-slice4-linux-x64.json`; the amendment record is
-`docs/benchmark-results/2026-07-31-r2-docker-probe-freeze-amendment.json`. At exact public candidate
-`99d47d4bd6f5a6ab92797f85e15214f68d88b18e`, hosted R2 run
-[`30696710370`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710370) produced the passed
-`r2-docker-repository-check-Linux-X64` artifact. Its closed evidence records the immutable image index
-`sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`, all required rows passed,
-zero provider calls, and zero Docker objects after each scenario. This closes the implementation
-candidate only. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and independent external-user
-rows remain `not-run`; whole R2 and release support remain incomplete.
+`docs/benchmark-results/2026-07-31-r2-docker-probe-freeze-amendment.json`. At exact reviewed code commit
+`8c37f7939e384eaada13582a8f0ac71668eb9a98`, hosted R2 run
+[`30698539397`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539397) produced the passed
+`r2-docker-repository-check-Linux-X64` artifact. The downloaded artifact has SHA-256
+`a1cafe64fa9aa9a1c6fbe61d387645ac6d29215eea36c2caa82ce77b6598873e`; its closed evidence records the
+immutable image index `sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`,
+all 12 required rows passed across the fixed initial-fail, correct-edit/pass, and wrong-edit/fail
+scenarios, zero provider calls, zero duplicate executions, receipt-before-cleanup ordering, and zero
+Docker objects after each scenario. This closes the implementation candidate only. Real macOS Docker
+Desktop, Windows Docker Desktop WSL2, and independent external-user rows remain `not-run`; whole R2 and
+release support remain incomplete.
 
 ## Known open questions
 

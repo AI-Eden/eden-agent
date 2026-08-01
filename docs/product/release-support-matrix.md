@@ -140,13 +140,17 @@ accepted provider-matching plan but does not expand release support.
 
 The Docker repository-check implementation candidate is complete. Local preparation used a fresh
 independent Linux amd64 Engine 29.6.2 daemon with `userns-remap`, built-in seccomp, and private cgroup
-namespaces. At exact public candidate `99d47d4bd6f5a6ab92797f85e15214f68d88b18e`, hosted R2 run
-[`30696710370`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710370) passed the authoritative
-Ubuntu x64 Docker lane plus the Ubuntu, macOS, and Windows non-Docker acceptance lanes. The hosted Docker
-artifact records the fixed initial-fail, correct-edit/pass, and wrong-edit/fail fixture scenarios against
-immutable image index `sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`,
-with distinct snapshots, local-only raw output, zero provider calls, receipt-before-cleanup ordering, and
-zero remaining containers. Companion R1 run
-[`30696710375`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710375) passed all three hosted
+namespaces. A completion audit superseded the earlier candidate after dispatch-journal/recovery and
+cancellation gaps were repaired. At exact reviewed code commit
+`8c37f7939e384eaada13582a8f0ac71668eb9a98`, hosted R2 run
+[`30698539397`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539397) passed the authoritative
+Ubuntu x64 Docker lane plus the Ubuntu, macOS, and Windows non-Docker acceptance lanes. The downloaded
+Docker artifact has SHA-256 `a1cafe64fa9aa9a1c6fbe61d387645ac6d29215eea36c2caa82ce77b6598873e` and
+records all 12 required rows passed for the fixed initial-fail, correct-edit/pass, and wrong-edit/fail
+fixture scenarios against immutable image index
+`sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`, with distinct snapshots,
+local-only raw output, zero provider calls, zero duplicate executions, receipt-before-cleanup ordering,
+and zero remaining containers. Companion R1 run
+[`30698539398`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539398) passed all three hosted
 platforms. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and independent external-user rows
 remain `not-run`. Whole R2 and release support are not closed.

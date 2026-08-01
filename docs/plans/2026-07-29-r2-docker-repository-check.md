@@ -845,16 +845,23 @@ stale image/platform identity, unsupported namespace truth, credential capture, 
 incomplete cleanup, and secret exposure.
 
 The pre-commit local driver used source baseline `71e0a19b14784af3ed8fde7b01098417a8d504a0`; it is
-development evidence, not the Slice 9 exact-SHA artifact. The implementation candidate is now complete at
-exact public candidate `99d47d4bd6f5a6ab92797f85e15214f68d88b18e`. Hosted R2 run
-[`30696710370`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710370) passed the authoritative
-Ubuntu x64 Docker lane and the Ubuntu, macOS, and Windows non-Docker acceptance lanes. Its
-`r2-docker-repository-check-Linux-X64` artifact records that exact source SHA, immutable image index
-`sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`, all required rows passed,
-zero provider calls, and zero Docker objects after every scenario. Companion R1 run
-[`30696710375`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710375) passed all three hosted
-platforms. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and the independent external-user
-journey remain `not-run`, so whole R2 and release support remain open.
+development evidence, not the Slice 9 exact-SHA artifact. A completion audit superseded the earlier
+candidate after finding two contract gaps. The final reviewed code commit
+`8c37f7939e384eaada13582a8f0ac71668eb9a98` journals dispatch after durable create and before start,
+proves that pre-create failure remains retryable, and handles cancellation through stop/kill fallback,
+cancelled receipt recording, and complete cleanup. Hosted R2 run
+[`30698539397`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539397) passed the authoritative
+Ubuntu x64 Docker lane and the Ubuntu, macOS, and Windows non-Docker acceptance lanes. Its downloaded
+`r2-docker-repository-check-Linux-X64` artifact has SHA-256
+`a1cafe64fa9aa9a1c6fbe61d387645ac6d29215eea36c2caa82ce77b6598873e` and records that exact source SHA,
+immutable image index `sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`,
+all 12 required rows passed across all three fixed scenarios, zero provider calls, zero duplicate
+executions, receipt-before-cleanup ordering, and zero Docker objects after every scenario. Companion R1
+run [`30698539398`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539398) passed all three hosted
+platforms, and terminal-framework run
+[`30698539403`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539403) also passed. Real macOS
+Docker Desktop, Windows Docker Desktop WSL2, and the independent external-user journey remain `not-run`,
+so whole R2 and release support remain open.
 
 **Likely files:**
 
