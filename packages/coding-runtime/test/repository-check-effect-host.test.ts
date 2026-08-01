@@ -220,6 +220,19 @@ class PassingExecutionPort implements RepositoryCheckExecutionPort {
   }
 }
 
+class PreCreateCrashPort extends PassingExecutionPort {
+  #interrupt = true;
+
+  override async locate(plan: RepositoryCheckExecutionPlan) {
+    if (this.#interrupt) {
+      this.#interrupt = false;
+      this.calls.push("locate");
+      throw new Error("simulated_pre_create_crash");
+    }
+    return super.locate(plan);
+  }
+}
+
 test("repository-check effect prepares without staging and executes one exact lifecycle", async (context) => {
   if (skipWithoutPosix(context)) return;
   const { root, stateDirectory, workspace } = await fixture();
@@ -247,6 +260,7 @@ test("repository-check effect prepares without staging and executes one exact li
       "missing",
     );
     const lifecycle: KernelEvent[] = [];
+    let dispatchStarted = false;
     const completed = await host.execute(
       {
         effectId: "repository-check-run-effect-1",
@@ -257,6 +271,11 @@ test("repository-check effect prepares without staging and executes one exact li
       undefined,
       async (event) => {
         lifecycle.push(event);
+      },
+      {
+        markDispatchStarted: async () => {
+          dispatchStarted = true;
+        },
       },
     );
     strictEqual(completed.type, "repository.check.completed");
@@ -270,6 +289,46 @@ test("repository-check effect prepares without staging and executes one exact li
       execution.calls.filter((call) => call === "create"),
       ["create"],
     );
+    strictEqual(dispatchStarted, true);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+test("repository-check recovery retries after a proven pre-create crash", async (context) => {
+  if (skipWithoutPosix(context)) return;
+  const { root, stateDirectory, workspace } = await fixture();
+  const execution = new PreCreateCrashPort();
+  const host = new RepositoryCheckEffectHost({
+    doctor: { inspect: async () => readyObservation },
+    execution,
+    snapshot: new RepositoryCheckSnapshotService({ stateDirectory, workspaceRoot: workspace }),
+    stateDirectory,
+  });
+  try {
+    const proposed = await host.execute(prepareEffect(workspace));
+    strictEqual(proposed.type, "safe.action.proposed");
+    if (proposed.type !== "safe.action.proposed") return;
+    const effect = {
+      effectId: "repository-check-run-effect-1",
+      envelope: proposed.action.safeActuation.envelope as RepositoryCheckActionEnvelopeV1,
+      runId: "run-effect-1",
+      type: "repository_check.execute" as const,
+    };
+    strictEqual((await host.execute(effect)).type, "run.blocked");
+    const recovered = await host.reconcile(effect);
+    const mutatedBeforeRetry =
+      execution.calls.includes("create") || execution.calls.includes("start");
+    strictEqual(
+      (
+        await host.execute(effect, undefined, undefined, {
+          markDispatchStarted: async () => undefined,
+        })
+      ).type,
+      "repository.check.completed",
+    );
+    deepStrictEqual(recovered, { status: "not-started" });
+    strictEqual(mutatedBeforeRetry, false);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

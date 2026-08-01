@@ -121,7 +121,7 @@ export interface RepositoryCheckExecutionPort {
     signal?: AbortSignal,
   ): Promise<
     | { readonly exitCode: number; readonly status: "exited" }
-    | { readonly status: "timeout" | "unknown" }
+    | { readonly status: "cancelled" | "timeout" | "unknown" }
   >;
 }
 
@@ -179,6 +179,7 @@ export interface RepositoryCheckExecutionState {
 export type RepositoryCheckExecutionEnvironment = {
   readonly clock: () => string;
   readonly id: () => string;
+  readonly markDispatchStarted: () => Promise<void>;
   readonly observe?: (state: RepositoryCheckLifecycleState) => Promise<void>;
   readonly port: RepositoryCheckExecutionPort;
   readonly state: RepositoryCheckExecutionState;
@@ -706,8 +707,10 @@ async function completeContainer(
   signal?: AbortSignal,
 ): Promise<ExecuteRepositoryCheckResult> {
   let current = container;
+  let continuationSignal = signal;
   if (current.state === "created") {
     await environment.observe?.("created");
+    await environment.markDispatchStarted();
     if (!(await environment.port.start(current.id, signal))) {
       return { code: "repository_check_start_unknown", ok: false };
     }
@@ -716,20 +719,31 @@ async function completeContainer(
   if (current.state === "running") {
     await environment.observe?.("running");
     const waited = await environment.port.wait(current.id, plan.action.budgets.timeoutMs, signal);
-    if (waited.status === "timeout") {
+    if (waited.status === "cancelled" || waited.status === "timeout") {
+      if (waited.status === "cancelled") continuationSignal = undefined;
       const stopped = await environment.port.stop(
         current.id,
         plan.action.budgets.stopGraceMs,
-        signal,
+        continuationSignal,
       );
-      if (!stopped && !(await environment.port.kill(current.id, signal))) {
-        return { code: "repository_check_timeout_unknown", ok: false };
+      if (!stopped && !(await environment.port.kill(current.id, continuationSignal))) {
+        return {
+          code:
+            waited.status === "cancelled"
+              ? "repository_check_cancellation_unknown"
+              : "repository_check_timeout_unknown",
+          ok: false,
+        };
       }
     } else if (waited.status === "unknown") {
       return { code: "repository_check_wait_unknown", ok: false };
     }
   }
-  const inspected = await environment.port.inspect(plan, environment.state.paths, signal);
+  const inspected = await environment.port.inspect(
+    plan,
+    environment.state.paths,
+    continuationSignal,
+  );
   if (
     inspected.status !== "found" ||
     inspected.inspection.id !== current.id ||
@@ -773,7 +787,7 @@ async function completeContainer(
   if (!receipt.ok) return { code: "repository_check_receipt_invalid", ok: false };
   const durable = { internalResult: internal, receipt: receipt.value };
   await environment.state.recordReceipt(durable);
-  return finalizeReceipt(plan, durable, environment, signal);
+  return finalizeReceipt(plan, durable, environment, continuationSignal);
 }
 
 async function executePlannedRepositoryCheck(
@@ -1103,9 +1117,10 @@ export class DockerCliRepositoryCheckPort implements RepositoryCheckExecutionPor
     signal?: AbortSignal,
   ): Promise<
     | { readonly exitCode: number; readonly status: "exited" }
-    | { readonly status: "timeout" | "unknown" }
+    | { readonly status: "cancelled" | "timeout" | "unknown" }
   > {
     const observation = await this.#run(["wait", id], 4_096, timeoutMs + 2_000, signal);
+    if (observation.status === "aborted") return { status: "cancelled" };
     if (observation.status === "timed-out") return { status: "timeout" };
     if (!succeeded(observation) || observation.stderr.byteLength !== 0) {
       return { status: "unknown" };

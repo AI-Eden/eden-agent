@@ -34,7 +34,13 @@ import {
   prepareRepositoryCheckExecutionState,
 } from "./repository-check-state.ts";
 import { repositoryCheckToolchainManifest } from "./repository-check-toolchain.ts";
-import type { EffectHost, EffectObservationListener, ReconciliationResult } from "./runtime.ts";
+import type {
+  EffectExecutionControl,
+  EffectHost,
+  EffectObservationListener,
+  EffectReconciliationContext,
+  ReconciliationResult,
+} from "./runtime.ts";
 
 type PrepareEffect = Extract<KernelEffect, { readonly type: "repository_check.prepare" }>;
 type ExecuteEffect = Extract<KernelEffect, { readonly type: "repository_check.execute" }>;
@@ -111,13 +117,14 @@ export class RepositoryCheckEffectHost implements EffectHost {
     effect: KernelEffect,
     signal?: AbortSignal,
     observe?: EffectObservationListener,
+    control?: EffectExecutionControl,
   ): Promise<KernelEvent> {
     try {
       if (effect.type === "repository_check.prepare") {
         return await this.#prepare(effect, signal);
       }
       if (effect.type === "repository_check.execute") {
-        return await this.#execute(effect, signal, observe);
+        return await this.#execute(effect, signal, observe, control);
       }
       throw new Error(`Unsupported repository-check effect: ${effect.type}`);
     } catch (error) {
@@ -348,6 +355,7 @@ export class RepositoryCheckEffectHost implements EffectHost {
     effect: ExecuteEffect,
     signal?: AbortSignal,
     observe?: EffectObservationListener,
+    control?: EffectExecutionControl,
   ): Promise<KernelEvent> {
     const planned = createRepositoryCheckExecutionPlan(effect.envelope, effect.effectId);
     if (!planned.ok) {
@@ -430,6 +438,9 @@ export class RepositoryCheckEffectHost implements EffectHost {
       {
         clock: this.#clock,
         id: this.#id,
+        markDispatchStarted:
+          control?.markDispatchStarted ??
+          (() => Promise.reject(new Error("repository_check_dispatch_journal_unavailable"))),
         observe: (state) => this.#emitLifecycle(effect, state, observe),
         port: this.#execution,
         state: opened.state,
@@ -447,6 +458,7 @@ export class RepositoryCheckEffectHost implements EffectHost {
   async reconcile(
     effect: KernelEffect,
     observe?: EffectObservationListener,
+    context?: EffectReconciliationContext,
   ): Promise<ReconciliationResult> {
     if (effect.type === "repository_check.prepare") return { status: "not-started" };
     if (effect.type !== "repository_check.execute") return { status: "unknown" };
@@ -463,10 +475,15 @@ export class RepositoryCheckEffectHost implements EffectHost {
       return { status: "unknown" };
     }
     return recoverRepositoryCheck(
-      { action: effect.envelope, dispatchStarted: true, effectId: effect.effectId },
+      {
+        action: effect.envelope,
+        dispatchStarted: context?.dispatchStarted ?? false,
+        effectId: effect.effectId,
+      },
       {
         clock: this.#clock,
         id: this.#id,
+        markDispatchStarted: async () => undefined,
         observe: (state) => this.#emitLifecycle(effect, state, observe),
         port: this.#execution,
         state: opened.state,

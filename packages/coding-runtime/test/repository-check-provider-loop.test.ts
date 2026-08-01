@@ -19,6 +19,7 @@ import {
 import { projectJournal } from "../src/projection.ts";
 import { repositoryCheckStagingIdentity } from "../src/repository-check-identity.ts";
 import {
+  type EffectExecutionControl,
   type EffectHost,
   type EffectObservationListener,
   type ReconciliationResult,
@@ -37,6 +38,15 @@ const rawOutputBase64 = rawOutput.toString("base64");
 const hash = (value: Uint8Array | string) =>
   `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
+function payloadField(payload: unknown, name: string): unknown {
+  return payload !== null &&
+    typeof payload === "object" &&
+    !Array.isArray(payload) &&
+    name in payload
+    ? (payload as Record<string, unknown>)[name]
+    : undefined;
+}
+
 class RepositoryCheckLoopHost implements EffectHost {
   readonly modelRequests: ModelStepRequestV1[] = [];
   modelCalls = 0;
@@ -45,6 +55,7 @@ class RepositoryCheckLoopHost implements EffectHost {
     effect: KernelEffect,
     _signal?: AbortSignal,
     observe?: EffectObservationListener,
+    control?: EffectExecutionControl,
   ): Promise<KernelEvent> {
     if (effect.type === "repository_check.prepare") {
       const envelope: RepositoryCheckActionEnvelopeV1 = {
@@ -113,6 +124,7 @@ class RepositoryCheckLoopHost implements EffectHost {
           state,
           type: "repository.check.lifecycle",
         });
+        if (state === "created") await control?.markDispatchStarted();
       }
       const receiptId = "receipt-repository-check-loop-1";
       const labels = {
@@ -294,7 +306,28 @@ test("repository-check provider loop consumes one approval and withholds raw out
       JSON.stringify(host.modelRequests[1]).includes("RAW-REPOSITORY-OUTPUT-CANARY"),
       false,
     );
-    const projection = projectJournal(await journal.readAll());
+    const records = await journal.readAll();
+    const createdIndex = records.findIndex(
+      (record) =>
+        record.type === "repository.check.lifecycle" &&
+        payloadField(record.payload, "state") === "created",
+    );
+    const executionEffectId = payloadField(records[createdIndex]?.payload, "effectId");
+    const dispatchIndex = records.findIndex(
+      (record) =>
+        record.type === "effect.dispatch.started" &&
+        payloadField(record.payload, "effectId") === executionEffectId,
+    );
+    const runningIndex = records.findIndex(
+      (record) =>
+        record.type === "repository.check.lifecycle" &&
+        payloadField(record.payload, "state") === "running",
+    );
+    strictEqual(
+      createdIndex >= 0 && createdIndex < dispatchIndex && dispatchIndex < runningIndex,
+      true,
+    );
+    const projection = projectJournal(records);
     strictEqual(projection.view.repositoryCheck?.state, "review");
     strictEqual(projection.view.repositoryCheck?.result?.stdout, rawOutputBase64);
     strictEqual(

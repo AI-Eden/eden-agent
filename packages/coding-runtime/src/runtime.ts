@@ -19,15 +19,25 @@ export type ReconciliationResult =
 
 export type EffectObservationListener = (event: KernelEvent) => Promise<void>;
 
+export type EffectExecutionControl = {
+  readonly markDispatchStarted: () => Promise<void>;
+};
+
+export type EffectReconciliationContext = {
+  readonly dispatchStarted: boolean;
+};
+
 export interface EffectHost {
   execute(
     effect: KernelEffect,
     signal?: AbortSignal,
     observe?: EffectObservationListener,
+    control?: EffectExecutionControl,
   ): Promise<KernelEvent>;
   reconcile(
     effect: KernelEffect,
     observe?: EffectObservationListener,
+    context?: EffectReconciliationContext,
   ): Promise<ReconciliationResult>;
   executeModelAttempt?(
     effect: Extract<KernelEffect, { readonly type: "provider.model.step" }>,
@@ -228,7 +238,10 @@ export class RuntimeEngine {
       return;
     }
     const observe: EffectObservationListener = (event) => this.commit(event, effect.effectId);
-    const reconciled = await this.host.reconcile(effect, observe);
+    const reconciled = await this.host.reconcile(effect, observe, {
+      dispatchStarted:
+        "dispatchStarted" in this.currentState && this.currentState.dispatchStarted === true,
+    });
     switch (reconciled.status) {
       case "completed":
         await this.commit(reconciled.observation, effect.effectId);
@@ -261,7 +274,6 @@ export class RuntimeEngine {
         if (
           effect.type === "anchor_edit.execute" ||
           effect.type === "anchor_edit.prepare" ||
-          effect.type === "repository_check.execute" ||
           effect.type === "repository_check.prepare" ||
           effect.type === "review.eden_patch.capture" ||
           effect.type === "review.git_snapshot.capture" ||
@@ -269,7 +281,9 @@ export class RuntimeEngine {
         ) {
           await this.markDispatchStarted();
         }
-        const observation = await this.host.execute(effect, signal, observe);
+        const observation = await this.host.execute(effect, signal, observe, {
+          markDispatchStarted: () => this.markDispatchStarted(),
+        });
         await this.commit(observation, effect.effectId);
         return;
       }

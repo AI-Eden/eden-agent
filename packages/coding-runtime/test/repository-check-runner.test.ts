@@ -256,6 +256,19 @@ test("Docker create uses the exact mounts, containment, and pull-never argv", as
   );
 });
 
+test("Docker wait preserves an aborted client request as cancellation", async () => {
+  const port = new DockerCliRepositoryCheckPort({
+    cwd: "/repository",
+    nativeProcess: {
+      async run() {
+        return { status: "aborted" as const };
+      },
+    },
+  });
+
+  deepStrictEqual(await port.wait("a".repeat(64), 30_000), { status: "cancelled" });
+});
+
 function scriptedEnvironment(options: {
   readonly cleanupOk?: boolean;
   readonly createOk?: boolean;
@@ -264,11 +277,13 @@ function scriptedEnvironment(options: {
   readonly initial: "absent" | "created" | "exited" | "running";
   readonly internalResult?: RepositoryCheckInternalResultV1 | null;
   readonly locateUnknown?: boolean;
+  readonly onWait?: () => void;
   readonly oomKilled?: boolean;
   readonly removeOk?: boolean;
   readonly startOk?: boolean;
   readonly stateValid?: boolean;
-  readonly wait?: "exited" | "timeout" | "unknown";
+  readonly stopOk?: boolean;
+  readonly wait?: "cancelled" | "exited" | "timeout" | "unknown";
 }) {
   const calls: string[] = [];
   const containerId = "a".repeat(64);
@@ -295,8 +310,8 @@ function scriptedEnvironment(options: {
             status: "found" as const,
           };
     },
-    async kill() {
-      calls.push("kill");
+    async kill(_id, signal) {
+      calls.push(`kill:${signal?.aborted === true ? "aborted" : "active"}`);
       state = "exited";
       return true;
     },
@@ -323,13 +338,16 @@ function scriptedEnvironment(options: {
       state = "running";
       return true;
     },
-    async stop() {
-      calls.push("stop");
+    async stop(_id, _graceMs, signal) {
+      calls.push(`stop:${signal?.aborted === true ? "aborted" : "active"}`);
+      if (options.stopOk === false) return false;
       state = "exited";
       return true;
     },
     async wait(id) {
       calls.push(`wait:${id}`);
+      options.onWait?.();
+      if (options.wait === "cancelled") return { status: "cancelled" as const };
       if (options.wait === "timeout") return { status: "timeout" as const };
       if (options.wait === "unknown") return { status: "unknown" as const };
       state = "exited";
@@ -337,6 +355,7 @@ function scriptedEnvironment(options: {
     },
   };
   let durableReceipt: Parameters<RepositoryCheckExecutionState["recordReceipt"]>[0] | null = null;
+  let dispatchStarted = options.dispatchStarted ?? false;
   const executionState: RepositoryCheckExecutionState = {
     paths: {
       control: "/state/control.json",
@@ -372,6 +391,11 @@ function scriptedEnvironment(options: {
   const environment = {
     clock: () => "2026-08-01T03:00:02.000Z",
     id: () => "receipt-repository-check-1",
+    async markDispatchStarted() {
+      if (dispatchStarted) return;
+      calls.push("dispatch-started");
+      dispatchStarted = true;
+    },
     port,
     state: executionState,
   };
@@ -405,6 +429,7 @@ test("repository-check runner records a failing child receipt before cleanup whe
     "locate",
     "create",
     "inspect",
+    "dispatch-started",
     `start:${"a".repeat(64)}`,
     `wait:${"a".repeat(64)}`,
     "inspect",
@@ -415,6 +440,66 @@ test("repository-check runner records a failing child receipt before cleanup whe
     `remove:${"a".repeat(64)}`,
     "cleanup-staging",
   ]);
+});
+
+test("repository-check cancellation stops the exact container and records a cancelled receipt", async () => {
+  const controller = new AbortController();
+  const cancelledInternal: RepositoryCheckInternalResultV1 = {
+    ...repositoryCheckInternalResultFixture,
+    exitCode: null,
+    outcome: "cancelled",
+    wrapperReason: "cancel_requested",
+  };
+  const scripted = scriptedEnvironment({
+    initial: "running",
+    internalResult: cancelledInternal,
+    onWait: () => controller.abort(),
+    wait: "cancelled",
+  });
+
+  const result = await executeRepositoryCheck(
+    { action: repositoryCheckActionFixture, effectId },
+    scripted.environment,
+    controller.signal,
+  );
+
+  strictEqual(result.ok, true);
+  if (!result.ok) return;
+  strictEqual(result.event.result.outcome, "cancelled");
+  strictEqual(result.event.receipt.resultOutcome, "cancelled");
+  strictEqual(scripted.calls.includes("stop:active"), true);
+  strictEqual(
+    scripted.calls.some((call) => call.startsWith("kill:")),
+    false,
+  );
+});
+
+test("repository-check cancellation kills the exact container when graceful stop fails", async () => {
+  const controller = new AbortController();
+  const scripted = scriptedEnvironment({
+    initial: "running",
+    internalResult: {
+      ...repositoryCheckInternalResultFixture,
+      exitCode: null,
+      outcome: "cancelled",
+      wrapperReason: "cancel_requested",
+    },
+    onWait: () => controller.abort(),
+    stopOk: false,
+    wait: "cancelled",
+  });
+
+  const result = await executeRepositoryCheck(
+    { action: repositoryCheckActionFixture, effectId },
+    scripted.environment,
+    controller.signal,
+  );
+
+  strictEqual(result.ok, true);
+  if (!result.ok) return;
+  strictEqual(result.event.result.outcome, "cancelled");
+  strictEqual(scripted.calls.includes("stop:active"), true);
+  strictEqual(scripted.calls.includes("kill:active"), true);
 });
 
 test("created recovery requires durable dispatch and never duplicates create", async () => {

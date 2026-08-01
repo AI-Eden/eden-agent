@@ -3,7 +3,13 @@ import type { ModelStepRequestV1 } from "@eden/providers/model-step";
 
 import type { FakeToolHost } from "./fake-tool-host.ts";
 import type { RepositoryCheckEffectHost } from "./repository-check-effect-host.ts";
-import type { EffectHost, EffectObservationListener, ReconciliationResult } from "./runtime.ts";
+import type {
+  EffectExecutionControl,
+  EffectHost,
+  EffectObservationListener,
+  EffectReconciliationContext,
+  ReconciliationResult,
+} from "./runtime.ts";
 import type { SafeActuationEffectHost } from "./safe-actuation-host.ts";
 
 export class RunEffectHost implements EffectHost {
@@ -25,12 +31,13 @@ export class RunEffectHost implements EffectHost {
     effect: KernelEffect,
     signal?: AbortSignal,
     observe?: EffectObservationListener,
+    control?: EffectExecutionControl,
   ): Promise<KernelEvent> {
     if (
       this.#repositoryCheck !== undefined &&
       (effect.type === "repository_check.prepare" || effect.type === "repository_check.execute")
     ) {
-      return this.#repositoryCheck.execute(effect, signal, observe);
+      return this.#repositoryCheck.execute(effect, signal, observe, control);
     }
     return effect.type === "anchor_edit.prepare" ||
       effect.type === "anchor_edit.execute" ||
@@ -44,12 +51,13 @@ export class RunEffectHost implements EffectHost {
   reconcile(
     effect: KernelEffect,
     observe?: EffectObservationListener,
+    context?: EffectReconciliationContext,
   ): Promise<ReconciliationResult> {
     if (
       this.#repositoryCheck !== undefined &&
       (effect.type === "repository_check.prepare" || effect.type === "repository_check.execute")
     ) {
-      return this.#repositoryCheck.reconcile(effect, observe);
+      return this.#repositoryCheck.reconcile(effect, observe, context);
     }
     return effect.type === "anchor_edit.prepare" ||
       effect.type === "anchor_edit.execute" ||

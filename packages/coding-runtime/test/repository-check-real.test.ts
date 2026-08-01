@@ -226,6 +226,7 @@ test("repository-check runner completes one exact real Docker object and cleanup
       {
         clock: () => new Date().toISOString(),
         id: () => "receipt-repository-check-real",
+        markDispatchStarted: async () => undefined,
         port,
         state,
       },
