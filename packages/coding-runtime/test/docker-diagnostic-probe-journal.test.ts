@@ -2,7 +2,7 @@ import { deepStrictEqual, rejects, strictEqual } from "node:assert";
 import { chmod, link, lstat, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { test } from "node:test";
+import { type TestContext, test } from "node:test";
 import { decodeDockerDiagnosticProbeEvent } from "@eden/contracts";
 import {
   dockerDiagnosticProbeActionDigestFixture,
@@ -19,6 +19,14 @@ import {
   DockerDiagnosticProbeJournalError,
   projectDockerDiagnosticProbeJournal,
 } from "../src/index.ts";
+
+const windowsTest = process.platform === "win32" ? test : test.skip;
+
+function skipWithoutPosix(context: TestContext): boolean {
+  if (process.platform !== "win32") return false;
+  context.skip("requires POSIX filesystem permission semantics");
+  return true;
+}
 
 async function stateDirectory(): Promise<string> {
   return join(await mkdtemp(join(tmpdir(), "eden-docker-probe-journal-")), "state");
@@ -73,7 +81,40 @@ function event(
   } as const;
 }
 
-test("private diagnostic journal accepts only the exact durable lifecycle prefix", async () => {
+windowsTest("native Windows keeps the POSIX diagnostic journal fail-closed", async () => {
+  const journal = new DockerDiagnosticProbeJournal({ stateDirectory: await stateDirectory() });
+  await rejects(
+    journal.append(event("docker.probe.action.prepared")),
+    (error: unknown) =>
+      error instanceof DockerDiagnosticProbeJournalError &&
+      error.code === "journal_permissions_invalid",
+  );
+});
+
+test("diagnostic journal projection remains platform-neutral", () => {
+  const records = [
+    event("docker.probe.action.prepared"),
+    event("docker.probe.approval.consumed"),
+    event("docker.probe.effect.intent"),
+  ].map((record, index) => ({ ...record, journalVersion: 1 as const, sequence: index + 1 }));
+
+  deepStrictEqual(projectDockerDiagnosticProbeJournal(records), {
+    actionDigest: dockerDiagnosticProbeActionDigestFixture,
+    actionId: "action-docker-probe-1",
+    cleanup: null,
+    effectId: "effect-docker-probe-1",
+    lastLifecycleState: "effect_intent",
+    probeId: "probe-example-1",
+    recovery: null,
+    receipt: null,
+    revision: 1,
+    status: "unresolved",
+    terminalDraft: null,
+  });
+});
+
+test("private diagnostic journal accepts only the exact durable lifecycle prefix", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const state = await stateDirectory();
   const journal = new DockerDiagnosticProbeJournal({ stateDirectory: state });
 
@@ -119,7 +160,8 @@ test("private diagnostic journal accepts only the exact durable lifecycle prefix
   );
 });
 
-test("the first durable record preserves the stable effect identity before effect intent", async () => {
+test("the first durable record preserves the stable effect identity before effect intent", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const journal = new DockerDiagnosticProbeJournal({
     stateDirectory: await stateDirectory(),
   });
@@ -151,7 +193,8 @@ test("the first durable record preserves the stable effect identity before effec
   strictEqual(recovery.event.lastLifecycleState, "action_prepared");
 });
 
-test("action-prepared recovery closes as not-started without container facts", async () => {
+test("action-prepared recovery closes as not-started without container facts", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const journal = new DockerDiagnosticProbeJournal({
     stateDirectory: await stateDirectory(),
   });
@@ -207,7 +250,8 @@ test("action-prepared recovery closes as not-started without container facts", a
   );
 });
 
-test("later lifecycle records cannot replace the first durable effect identity", async () => {
+test("later lifecycle records cannot replace the first durable effect identity", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const journal = new DockerDiagnosticProbeJournal({
     stateDirectory: await stateDirectory(),
   });
@@ -226,7 +270,8 @@ test("later lifecycle records cannot replace the first durable effect identity",
   );
 });
 
-test("diagnostic journal blocks permissive, linked, malformed, and concurrently locked state", async () => {
+test("diagnostic journal blocks permissive, linked, malformed, and concurrently locked state", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const permissiveState = await stateDirectory();
   const permissive = new DockerDiagnosticProbeJournal({ stateDirectory: permissiveState });
   await permissive.append(event("docker.probe.action.prepared"));
@@ -272,7 +317,8 @@ test("diagnostic journal blocks permissive, linked, malformed, and concurrently 
   await nextLease.release();
 });
 
-test("complete journal replays receipt-before-cleanup into one resolved projection", async () => {
+test("complete journal replays receipt-before-cleanup into one resolved projection", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const journal = new DockerDiagnosticProbeJournal({
     stateDirectory: await stateDirectory(),
   });

@@ -74,10 +74,16 @@ describe("tracked repository-check catalog and immutable snapshot staging", () =
       await readFile(join(staged.directory, "scripts", "check.mjs"), "utf8"),
       "process.exit(0);\n",
     );
-    strictEqual((await stat(join(staged.directory, "scripts", "check.mjs"))).mode & 0o777, 0o555);
-    strictEqual((await stat(join(staged.directory, "package.json"))).mode & 0o777, 0o444);
     await rejects(access(join(staged.directory, "untracked-secret.txt")));
     strictEqual(staged.directory.startsWith(workspace), false);
+    if (process.platform === "win32") {
+      strictEqual(await staged.validate(), false);
+      await staged.cleanup();
+      await rejects(access(staged.directory));
+      return;
+    }
+    strictEqual((await stat(join(staged.directory, "scripts", "check.mjs"))).mode & 0o777, 0o555);
+    strictEqual((await stat(join(staged.directory, "package.json"))).mode & 0o777, 0o444);
     strictEqual(await staged.validate(), true);
     await chmod(join(staged.directory, "package.json"), 0o644);
     strictEqual(await staged.validate(), false);

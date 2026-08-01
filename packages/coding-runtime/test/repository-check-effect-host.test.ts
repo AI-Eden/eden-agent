@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { type TestContext, test } from "node:test";
 
 import type { RepositoryCheckActionEnvelopeV1 } from "@eden/contracts";
 import type { KernelEffect, KernelEvent } from "@eden/kernel";
@@ -16,6 +16,14 @@ import type {
   RepositoryCheckExecutionPort,
 } from "../src/repository-check-runner.ts";
 import { RepositoryCheckSnapshotService } from "../src/repository-check-snapshot.ts";
+
+const windowsTest = process.platform === "win32" ? test : test.skip;
+
+function skipWithoutPosix(context: TestContext): boolean {
+  if (process.platform !== "win32") return false;
+  context.skip("requires POSIX filesystem permission semantics");
+  return true;
+}
 
 const readyObservation = {
   client: {
@@ -212,7 +220,8 @@ class PassingExecutionPort implements RepositoryCheckExecutionPort {
   }
 }
 
-test("repository-check effect prepares without staging and executes one exact lifecycle", async () => {
+test("repository-check effect prepares without staging and executes one exact lifecycle", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const { root, stateDirectory, workspace } = await fixture();
   const execution = new PassingExecutionPort();
   const doctor: DockerDoctorPort = { inspect: async () => readyObservation };
@@ -261,6 +270,32 @@ test("repository-check effect prepares without staging and executes one exact li
       execution.calls.filter((call) => call === "create"),
       ["create"],
     );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+windowsTest("repository-check effect fails closed before native Windows execution", async () => {
+  const { root, stateDirectory, workspace } = await fixture();
+  const execution = new PassingExecutionPort();
+  const host = new RepositoryCheckEffectHost({
+    doctor: { inspect: async () => readyObservation },
+    execution,
+    snapshot: new RepositoryCheckSnapshotService({ stateDirectory, workspaceRoot: workspace }),
+    stateDirectory,
+  });
+  try {
+    const proposed = await host.execute(prepareEffect(workspace));
+    strictEqual(proposed.type, "safe.action.proposed");
+    if (proposed.type !== "safe.action.proposed") return;
+    const blocked = await host.execute({
+      effectId: "repository-check-run-effect-1",
+      envelope: proposed.action.safeActuation.envelope as RepositoryCheckActionEnvelopeV1,
+      runId: "run-effect-1",
+      type: "repository_check.execute",
+    });
+    strictEqual(blocked.type, "run.blocked");
+    deepStrictEqual(execution.calls, []);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

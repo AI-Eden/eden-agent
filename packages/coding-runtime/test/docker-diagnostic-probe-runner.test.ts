@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { type TestContext, test } from "node:test";
 
 import {
   decodeDockerDiagnosticProbeAction,
@@ -30,6 +30,12 @@ import {
   prepareDockerDiagnosticProbeApproval,
   recoverDockerDiagnosticProbe,
 } from "../src/index.ts";
+
+function skipWithoutPosix(context: TestContext): boolean {
+  if (process.platform !== "win32") return false;
+  context.skip("requires POSIX filesystem permission semantics");
+  return true;
+}
 
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -607,7 +613,8 @@ async function appendRecoveryReceiptPrefix(
   });
 }
 
-test("approved transaction records receipt before exact cleanup and resolves one effect", async () => {
+test("approved transaction records receipt before exact cleanup and resolves one effect", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const prepared = prepareDockerDiagnosticProbeApproval({
     identity: {
       actionId: "action-docker-probe-transaction",
@@ -768,7 +775,8 @@ test("approved transaction records receipt before exact cleanup and resolves one
   );
 });
 
-test("active recovery closes action-prepared as not-started without Docker I/O", async () => {
+test("active recovery closes action-prepared as not-started without Docker I/O", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -822,7 +830,8 @@ test("active recovery closes action-prepared as not-started without Docker I/O",
   );
 });
 
-test("active recovery closes a proven pre-create absence without creating a container", async () => {
+test("active recovery closes a proven pre-create absence without creating a container", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -924,7 +933,8 @@ test("active recovery closes a proven pre-create absence without creating a cont
   );
 });
 
-test("active recovery fails closed when exact-name discovery is ambiguous", async () => {
+test("active recovery fails closed when exact-name discovery is ambiguous", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -976,7 +986,8 @@ test("active recovery fails closed when exact-name discovery is ambiguous", asyn
   strictEqual((await journal.load()).at(-1)?.type, "docker.probe.effect.intent");
 });
 
-test("active recovery starts one exact created container without creating a duplicate", async () => {
+test("active recovery starts one exact created container without creating a duplicate", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1135,7 +1146,8 @@ test("active recovery starts one exact created container without creating a dupl
   );
 });
 
-test("active recovery adopts an exact created object after an effect-intent crash", async () => {
+test("active recovery adopts an exact created object after an effect-intent crash", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1244,7 +1256,8 @@ test("active recovery adopts an exact created object after an effect-intent cras
   );
 });
 
-test("active recovery observes one running container without starting or creating another", async () => {
+test("active recovery observes one running container without starting or creating another", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1330,7 +1343,8 @@ test("active recovery observes one running container without starting or creatin
   deepStrictEqual(calls, ["inspect", "wait", "inspect", "logs", "remove"]);
 });
 
-test("active recovery stops the exact running container after the frozen wait timeout", async () => {
+test("active recovery stops the exact running container after the frozen wait timeout", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1420,7 +1434,8 @@ test("active recovery stops the exact running container after the frozen wait ti
   deepStrictEqual(calls, ["inspect", "wait", "stop", "inspect", "logs", "remove"]);
 });
 
-test("active recovery kills the exact container only after frozen stop fails", async () => {
+test("active recovery kills the exact container only after frozen stop fails", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1505,7 +1520,8 @@ test("active recovery kills the exact container only after frozen stop fails", a
   deepStrictEqual(calls, ["inspect", "wait", "stop", "kill", "inspect", "logs", "remove"]);
 });
 
-test("active recovery reconstructs an exited result without start or wait", async () => {
+test("active recovery reconstructs an exited result without start or wait", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1581,7 +1597,8 @@ test("active recovery reconstructs an exited result without start or wait", asyn
   deepStrictEqual(calls, ["inspect", "logs", "remove"]);
 });
 
-test("active recovery completes cleanup from a durable receipt draft without rereading logs", async () => {
+test("active recovery completes cleanup from a durable receipt draft without rereading logs", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1685,7 +1702,8 @@ test("active recovery completes cleanup from a durable receipt draft without rer
   deepStrictEqual(calls, ["locate", "inspect", "remove"]);
 });
 
-test("active recovery records absent cleanup after remove succeeded before its journal fact", async () => {
+test("active recovery records absent cleanup after remove succeeded before its journal fact", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1741,7 +1759,8 @@ test("active recovery records absent cleanup after remove succeeded before its j
   deepStrictEqual(calls, ["locate"]);
 });
 
-test("active recovery appends terminal after durable cleanup without Docker I/O", async () => {
+test("active recovery appends terminal after durable cleanup without Docker I/O", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
@@ -1836,7 +1855,8 @@ test("active recovery appends terminal after durable cleanup without Docker I/O"
   strictEqual((await journal.load()).at(-1)?.type, "docker.probe.terminal");
 });
 
-test("active recovery builds terminal lifecycle from only the latest durable session", async () => {
+test("active recovery builds terminal lifecycle from only the latest durable session", async (context) => {
+  if (skipWithoutPosix(context)) return;
   const stateDirectory = join(
     await mkdtemp(join(tmpdir(), "eden-docker-probe-recovery-")),
     "state",
