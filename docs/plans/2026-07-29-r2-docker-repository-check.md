@@ -1,6 +1,7 @@
 # R2 Docker Repository Check Plan
 
-- Status: Accepted; Slices 0-8 locally complete; Slice 9 implementation-candidate CI is pending
+- Status: Accepted; Slices 0-8 complete; Slice 9 implementation candidate complete; real-host and
+  independent external-user evidence remains open
 - Date: 2026-07-29
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `0ed7873bf4c134b77a4c00e96dbaf182007f031b`
@@ -844,10 +845,16 @@ stale image/platform identity, unsupported namespace truth, credential capture, 
 incomplete cleanup, and secret exposure.
 
 The pre-commit local driver used source baseline `71e0a19b14784af3ed8fde7b01098417a8d504a0`; it is
-development evidence, not the Slice 9 exact-SHA artifact. Full tests, typecheck, build, Biome, Markdown,
-and diff gates are green. Slice 9 must still publish the implementation commit and obtain a green hosted
-Ubuntu x64 Docker artifact at that exact SHA. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and
-the independent external-user journey remain `not-run`, so whole R2 and release support remain open.
+development evidence, not the Slice 9 exact-SHA artifact. The implementation candidate is now complete at
+exact public candidate `99d47d4bd6f5a6ab92797f85e15214f68d88b18e`. Hosted R2 run
+[`30696710370`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710370) passed the authoritative
+Ubuntu x64 Docker lane and the Ubuntu, macOS, and Windows non-Docker acceptance lanes. Its
+`r2-docker-repository-check-Linux-X64` artifact records that exact source SHA, immutable image index
+`sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`, all required rows passed,
+zero provider calls, and zero Docker objects after every scenario. Companion R1 run
+[`30696710375`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710375) passed all three hosted
+platforms. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and the independent external-user
+journey remain `not-run`, so whole R2 and release support remain open.
 
 **Likely files:**
 

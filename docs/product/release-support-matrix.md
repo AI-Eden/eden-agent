@@ -138,11 +138,15 @@ one pinned-ripgrep search, a sourced `completed` answer, and budget 3/16. Thirte
 the PTY transcript retained zero credential matches. Kimi remains `not-run`; this evidence closes the
 accepted provider-matching plan but does not expand release support.
 
-The Docker repository-check packet has completed Slices 5-8 locally on a fresh independent Linux amd64
-Engine 29.6.2 daemon with `userns-remap`, built-in seccomp, and private cgroup namespaces. The copied Bun
-archive completed the fixed initial-fail, correct-edit/pass, and wrong-edit/fail fixture scenarios against
-the exact immutable image with distinct snapshots, local-only raw output, zero provider network calls,
-receipt-before-cleanup ordering, and zero remaining containers. This pre-commit run is development
-evidence only. Hosted Ubuntu exact-SHA Docker evidence remains pending; real macOS Docker Desktop, Windows
-Docker Desktop WSL2, and independent external-user rows remain `not-run`. Whole R2 and release support are
-not closed.
+The Docker repository-check implementation candidate is complete. Local preparation used a fresh
+independent Linux amd64 Engine 29.6.2 daemon with `userns-remap`, built-in seccomp, and private cgroup
+namespaces. At exact public candidate `99d47d4bd6f5a6ab92797f85e15214f68d88b18e`, hosted R2 run
+[`30696710370`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710370) passed the authoritative
+Ubuntu x64 Docker lane plus the Ubuntu, macOS, and Windows non-Docker acceptance lanes. The hosted Docker
+artifact records the fixed initial-fail, correct-edit/pass, and wrong-edit/fail fixture scenarios against
+immutable image index `sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`,
+with distinct snapshots, local-only raw output, zero provider calls, receipt-before-cleanup ordering, and
+zero remaining containers. Companion R1 run
+[`30696710375`](https://github.com/AI-Eden/eden-agent/actions/runs/30696710375) passed all three hosted
+platforms. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and independent external-user rows
+remain `not-run`. Whole R2 and release support are not closed.
