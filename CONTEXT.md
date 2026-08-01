@@ -5,7 +5,9 @@
 R0 and R1 are complete, and both exit reviews are accepted. The owner accepted the R1 exit on 2026-07-17
 after the final exact-SHA local, hosted, artifact, and single-agent review evidence passed. The owner
 approved the first R2 provider/repository-understanding Freeze packet on 2026-07-19; Slices 0-8 and that
-accepted plan are complete. This is not R2 release support.
+accepted plan are complete. On 2026-08-01 the owner accepted ADR 0018's portfolio-first amendment. R2 is
+complete for the declared Linux/WSL2 reference platform, with hosted Ubuntu, macOS, and Windows
+portability regression. This is not release support.
 
 The next R2 safe-actuation Explore frontier became empty on 2026-07-28 after the owner approved the
 recommended branches and confirmed shared understanding. The owner then accepted the complete Freeze
@@ -241,11 +243,11 @@ containerd were then stopped, and the exact temporary socket/data/binary/archive
 Exact owner authority permitted the one GHCR publication and temporary registry credential. Remote
 readback matched the frozen index, amd64/arm64 manifests, and configs byte-for-byte. The temporary Docker
 login and temporary `write:packages` scope were removed and verified immediately after publication. The
-application-owned toolchain manifest now records those reviewed identities locally, but remains
-uncommitted; repository-check execution therefore remains blocked pending repository commit authority
-and the later dispatch slices. Check dispatch must still never build, pull, import, log in, or install.
-Missing real macOS Docker Desktop, Windows Docker Desktop WSL2, or independent external-user evidence
-remains `not-run`, keeps whole R2 incomplete, and never becomes release-support evidence.
+application-owned toolchain manifest records those reviewed identities, and the accepted runner keeps
+check dispatch pull-never: it never builds, pulls, imports, logs in, or installs. Real macOS Docker
+Desktop, real Windows Docker Desktop WSL2, and independent external-user evidence remain optional
+`not-run` rows. They cannot become platform-support evidence until exercised, but they no longer block the
+R2 reference-platform milestone under ADR 0018.
 
 The read-only Doctor now projects the same 12 closed rows through plain and JSON surfaces using only
 bounded Docker version, context, info, exact-image inspect, and exact-label container-list reads. Its
@@ -318,9 +320,10 @@ are green for the Build packet. Slice 3 evidence remains in
 immutable image index `sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`,
 all 12 required rows passed across the fixed initial-fail, correct-edit/pass, and wrong-edit/fail
 scenarios, zero provider calls, zero duplicate executions, receipt-before-cleanup ordering, and zero
-Docker objects after each scenario. This closes the implementation candidate only. Real macOS Docker
-Desktop, Windows Docker Desktop WSL2, and independent external-user rows remain `not-run`; whole R2 and
-release support remain incomplete.
+Docker objects after each scenario. Together with the accepted provider, safe-actuation, fresh Linux/WSL2
+backend, and hosted cross-platform regression evidence, this closes R2 for the declared reference
+platform under ADR 0018. Real macOS Docker Desktop, real Windows Docker Desktop WSL2, and independent
+external-user rows remain optional `not-run` evidence. Release support remains incomplete and unclaimed.
 
 ## Known open questions
 

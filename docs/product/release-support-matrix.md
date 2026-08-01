@@ -19,27 +19,30 @@ R1 requires clean-machine installation for the selected development distribution
 
 Unsupported guarantees, especially native sandbox parity, must be visible in the product and release notes.
 
-## Accepted R2 Docker repository-check evidence gates
+## Accepted R2 reference-platform evidence gates
 
-The accepted 2026-07-29 Freeze packet separates implementation evidence from whole-R2 and release claims:
+The accepted 2026-07-29 Freeze packet and ADR 0018 separate the Linux/WSL2 reference-platform milestone
+from optional platform evidence and release claims:
 
-| Lane | Docker execution | Required claim |
+| Lane | Docker execution | Evidence role |
 | --- | --- | --- |
-| Hosted Ubuntu x64 | authoritative automated fixture, recovery, containment, package, and TUI/headless rows | implementation candidate |
-| Hosted macOS arm64 | no nested Docker claim; contracts, package, TUI, and negative doctor only | non-Docker regression |
-| Hosted Windows x64 | no Docker Desktop claim; contracts, package, TUI, and negative doctor only | non-Docker regression |
-| Real Linux/WSL2 | same exact-SHA automated Docker driver | matching backend evidence |
-| Real macOS Docker Desktop | Linux-container mode and same exact-SHA automated driver | required whole-R2 row |
-| Real Windows Docker Desktop WSL2 | Linux-container mode and same exact-SHA automated driver | required whole-R2 row |
-| Independent external user | pinned failing-test Quickstart with their own configured provider | required whole-R2 journey |
+| Hosted Ubuntu x64 | authoritative automated fixture, recovery, containment, package, and TUI/headless rows | required reference evidence |
+| Hosted macOS arm64 | no nested Docker claim; contracts, package, TUI, and negative doctor only | required non-Docker regression |
+| Hosted Windows x64 | no Docker Desktop claim; contracts, package, TUI, and negative doctor only | required non-Docker regression |
+| Real Linux/WSL2 | same exact-SHA automated Docker driver | required reference evidence |
+| Real macOS Docker Desktop | Linux-container mode and same exact-SHA automated driver | optional platform evidence |
+| Real Windows Docker Desktop WSL2 | Linux-container mode and same exact-SHA automated driver | optional platform evidence |
+| Independent external user | pinned failing-test Quickstart with their own configured provider | optional feedback evidence |
 
 Every Docker row records exact application SHA, archive hash, image index and resolved platform manifest,
 client/daemon/backend versions, platform, profile, fixture/input digest, lifecycle receipt, resource
 enforcement, and cleanup. Missing rows remain `not-run`; multi-architecture image or emulation evidence
 cannot substitute for a real Docker Desktop backend.
 
-An Ubuntu-green candidate does not close whole R2. Complete rows do not by themselves establish
-installation, upgrade, uninstall, signing, update, or release support.
+The required hosted and Linux/WSL2 rows close R2 for the declared reference platform. Missing optional
+rows remain `not-run`, do not establish the corresponding platform claim, and do not block this milestone.
+Complete rows do not by themselves establish installation, upgrade, uninstall, signing, update, or
+release support.
 
 ## Accepted R1 evidence
 
@@ -138,7 +141,7 @@ one pinned-ripgrep search, a sourced `completed` answer, and budget 3/16. Thirte
 the PTY transcript retained zero credential matches. Kimi remains `not-run`; this evidence closes the
 accepted provider-matching plan but does not expand release support.
 
-The Docker repository-check implementation candidate is complete. Local preparation used a fresh
+The R2 reference-platform milestone is complete. Local preparation used a fresh
 independent Linux amd64 Engine 29.6.2 daemon with `userns-remap`, built-in seccomp, and private cgroup
 namespaces. A completion audit superseded the earlier candidate after dispatch-journal/recovery and
 cancellation gaps were repaired. At exact reviewed code commit
@@ -152,5 +155,6 @@ fixture scenarios against immutable image index
 local-only raw output, zero provider calls, zero duplicate executions, receipt-before-cleanup ordering,
 and zero remaining containers. Companion R1 run
 [`30698539398`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539398) passed all three hosted
-platforms. Real macOS Docker Desktop, Windows Docker Desktop WSL2, and independent external-user rows
-remain `not-run`. Whole R2 and release support are not closed.
+platforms. Under ADR 0018 this evidence closes R2 on the declared Linux/WSL2 reference platform. Real
+macOS Docker Desktop, real Windows Docker Desktop WSL2, and independent external-user rows remain optional
+`not-run` evidence; corresponding platform support and release support are not closed or claimed.

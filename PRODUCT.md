@@ -42,6 +42,11 @@ check and a separate `eden doctor` prerequisite surface. Doctor is read-only by 
 Docker probe is a separately confirmed diagnostic action, not automatic setup or remediation. Headless
 clients receive the same check and approval facts but stop before interactive execution.
 
+R2 closes on a declared Linux/WSL2 reference platform under ADR 0018. Hosted macOS and Windows remain
+portability regression surfaces, not real Docker Desktop support. Real macOS Docker Desktop, real Windows
+Docker Desktop, and independent external-user evidence are optional and remain explicitly `not-run` until
+exercised. This milestone does not establish release support.
+
 ## Later surface
 
 Eden Studio is a cross-platform session control plane considered only after the local-service architecture gate. It adds multi-project navigation, dense review, notifications, keychain integration, installers, and updates. It must not duplicate the harness or become a code editor.
@@ -58,3 +63,7 @@ Eden Studio is a cross-platform session control plane considered only after the 
 ## Success measures
 
 Agent outcome and product quality are separate release dimensions. The project tracks verified task success, false-completion rate, recovery, installation success, time to first verified patch, crash-free sessions, approval consistency, responsive rendering, cross-platform smoke tests, and secret redaction.
+
+Portfolio milestones use reproducible evidence on their declared reference surface. Missing hardware or
+third-party availability does not block a roadmap milestone when the limitation remains explicit and no
+platform or release-support claim is inferred.

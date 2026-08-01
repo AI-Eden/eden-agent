@@ -1,12 +1,13 @@
 # R2 Docker Repository Check Plan
 
-- Status: Accepted; Slices 0-8 complete; Slice 9 implementation candidate complete; real-host and
-  independent external-user evidence remains open
+- Status: Accepted and complete under ADR 0018's Linux/WSL2 reference-platform closure; optional real
+  Docker Desktop and independent external-user evidence remains `not-run`
 - Date: 2026-07-29
 - Roadmap stage: R2, Usable Minimal Coding Product
 - Baseline: `0ed7873bf4c134b77a4c00e96dbaf182007f031b`
 - Decision brief: `docs/research/2026-07-29-r2-docker-repository-check-freeze-decision-brief.md`
-- Required ADR: `docs/adr/0017-r2-docker-isolated-repository-checks.md`
+- Required ADRs: `docs/adr/0017-r2-docker-isolated-repository-checks.md` and
+  `docs/adr/0018-r2-reference-platform-portfolio-closure.md`
 
 ## Goal and user-visible outcome
 
@@ -36,7 +37,8 @@ Build authorization does not automatically authorize:
 - an external-user session;
 - commit, push, merge, release, signing, installer, or package-manager publication.
 
-The image-publication and external-user evidence checkpoints require their own exact owner coordination.
+The image-publication and any optional external-user evidence checkpoints require their own exact owner
+coordination.
 Local Docker execution during an approved Build must use only test fixtures, the exact locally built or
 prepared image under review, no provider credential, and no external network unless separately authorized.
 
@@ -831,7 +833,7 @@ Docker, wrapper, journal, TUI/headless projection, and cleanup are real.
 execution, bounded review, and terminal restoration in the fixture. Crash at created/running/exited
 checkpoints reopens the exact run internally without duplicate execution.
 
-### Slice 9: Candidate, real-host matrix, and independent external-user gate
+### Slice 9: Candidate and reference-platform closure
 
 **Local Build evidence, 2026-08-01:** Slice 8 is locally complete. The copied Bun archive and a separately
 compiled deterministic harness exercised three real temporary Git repositories against the exact
@@ -860,8 +862,16 @@ executions, receipt-before-cleanup ordering, and zero Docker objects after every
 run [`30698539398`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539398) passed all three hosted
 platforms, and terminal-framework run
 [`30698539403`](https://github.com/AI-Eden/eden-agent/actions/runs/30698539403) also passed. Real macOS
-Docker Desktop, Windows Docker Desktop WSL2, and the independent external-user journey remain `not-run`,
-so whole R2 and release support remain open.
+Docker Desktop, real Windows Docker Desktop WSL2, and the independent external-user journey remain
+`not-run`.
+
+**Portfolio-first closure amendment, 2026-08-01:** The owner accepted ADR 0018 after confirming that Eden
+is a personal portfolio product and that mandatory unavailable hardware or third-party participation
+would turn the roadmap gate into a resource-availability gate. The reviewed implementation, exact-SHA
+hosted Ubuntu Docker artifact, owner-controlled fresh Linux/WSL2 `userns-remap` evidence, real provider
+matching, safe-actuation evidence, and hosted three-platform non-Docker regression close R2 on the declared
+Linux/WSL2 reference platform. The three missing rows above remain optional `not-run` evidence and do not
+support any corresponding platform or release claim.
 
 **Likely files:**
 
@@ -869,31 +879,32 @@ so whole R2 and release support remain open.
 - acceptance/evidence scripts;
 - `docs/product/release-support-matrix.md`, `CONTEXT.md`, and plan closeout facts.
 
-**Public seam:** exact-SHA package and evidence artifacts plus one independent external-user Quickstart.
+**Public seam:** exact-SHA package and machine-readable reference-platform evidence artifacts. An
+independent external-user Quickstart is optional future feedback evidence.
 
 **RED:** evidence aggregation rejects a missing required row, wrong SHA/image/platform manifest, unsupported
 backend, stale artifact, absent cleanup, secret canary, native-Windows inference, provider credential
 capture, or release-support overclaim.
 
 **Independent oracle:** exact commit and archive hashes; image index/platform manifests; host/backend/client/
-daemon versions; real Docker object state; fixture hashes; automated driver artifact; external-user
-commands/keystrokes and visible results; secret-canary absence.
+daemon versions; real Docker object state; fixture hashes; automated driver artifact; and secret-canary
+absence. Any optional external-user row additionally records commands, keystrokes, and visible results.
 
-**Permitted fakes:** deterministic provider/model driver for hosted and real-host automated rows. The
-external-user journey uses that user's own configured provider, but evidence records only profile identity
-and closed product observations, never credential value.
+**Permitted fakes:** deterministic provider/model driver for hosted and real-host automated rows. If an
+optional external-user journey is later run, it uses that user's own configured provider, but evidence
+records only profile identity and closed product observations, never credential value.
 
 **Matching surfaces and claim gates:**
 
-1. hosted Ubuntu x64: authoritative automated Docker lane;
-2. hosted macOS arm64 and Windows x64: contract/package/TUI/negative-doctor only;
-3. real Linux/WSL2 Engine or Desktop: matching Docker driver;
-4. real macOS arm64 Docker Desktop Linux containers: matching Docker driver;
-5. real Windows x64 Docker Desktop WSL2/Linux containers: matching Docker driver;
-6. one non-implementer external user: complete failing-test Quickstart.
+1. hosted Ubuntu x64: authoritative automated Docker lane, required;
+2. hosted macOS arm64 and Windows x64: contract/package/TUI/negative-doctor regression, required;
+3. owner-controlled fresh Linux/WSL2 Engine: containment and cleanup evidence, required;
+4. real macOS arm64 Docker Desktop Linux containers: optional platform evidence;
+5. real Windows x64 Docker Desktop WSL2/Linux containers: optional platform evidence;
+6. one non-implementer external user: optional feedback evidence.
 
-An Ubuntu-green exact-SHA may close the implementation candidate only. Missing real Mac, Windows/WSL2, or
-external-user evidence remains `not-run` and keeps whole R2 incomplete. No row creates release support.
+The first three surfaces close the R2 reference-platform milestone. Missing optional rows remain
+`not-run`, are never inferred, and do not create platform support. No row creates release support.
 
 ## Likely files and boundaries
 
@@ -970,9 +981,9 @@ execution into a pass.
 | Completion | basic observation in `completed`; no provider raw output, repair, Evidence Pack, or success |
 | Surfaces | equivalent TUI/headless facts; TUI approval/execution; headless structured stop |
 | Fixture | deterministic fail/correct-pass/wrong-fail oracle; no dependency install or network |
-| Platforms | Ubuntu Docker authoritative; real Mac and Windows/WSL2 matching; missing stays `not-run` |
-| External user | non-implementer completes pinned journey; own provider; no credential capture |
-| Claims | implementation candidate, whole R2, and release support remain separately stated |
+| Platforms | Ubuntu Docker plus fresh Linux/WSL2 authoritative; hosted Mac/Windows portability; optional real Desktop rows stay `not-run` |
+| External user | optional future feedback; own provider; no credential capture; missing does not block R2 |
+| Claims | R2 Linux/WSL2 reference-platform completion remains separate from platform and release support |
 
 ## Risks and mitigations
 
@@ -1042,3 +1053,7 @@ decision brief, ADR 0017, and the focused public contract updates as one Freeze 
 
 The owner separately authorized Build on 2026-07-30. Image publication, real provider use, external-user
 evidence, commit, push, and release remain separate authority boundaries.
+
+On 2026-08-01 the owner accepted ADR 0018 and its portfolio-first reference-platform closure amendment,
+then authorized the documentation, publication, and R2 closeout work. This amendment changes the exit
+evidence gate only; ADR 0017's runtime and trust contracts remain unchanged.

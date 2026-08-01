@@ -6,6 +6,9 @@
   owner approved 2026-07-31
 - Accepted amendment: `docs/research/2026-08-01-r2-docker-build-contract-gap-decision-brief.md`;
   owner approved Option A on 2026-08-01
+- Exit-evidence amendment: `docs/adr/0018-r2-reference-platform-portfolio-closure.md`; owner approved
+  2026-08-01. ADR 0018 changes the R2 closure gate only; this ADR's runtime and trust decisions remain
+  unchanged.
 
 ## Context
 
@@ -171,11 +174,13 @@ Slice 4 subsequently passed one real probe on the approved independent `userns-r
 recovery used the same exact created container without a second approval or duplicate create, all nine
 enforcement rows passed, receipt preceded exact cleanup, and the backend returned to zero containers.
 
-Hosted Ubuntu x64 is the authoritative automated Docker lane for the implementation candidate. Hosted
-macOS and Windows retain non-Docker contract, package, TUI, and negative-doctor evidence. Whole-R2 closure
-also requires the same automated matching driver on real macOS Docker Desktop and Windows Docker Desktop
-WSL2/Linux containers, plus one independent external-user failing-test journey. Missing rows remain
-`not-run`. Native Windows containers and broad release support are not implied.
+Hosted Ubuntu x64 is the authoritative automated Docker lane. Hosted macOS and Windows retain non-Docker
+contract, package, TUI, and negative-doctor evidence. ADR 0018 supersedes this ADR's original whole-R2
+exit gate: the required implementation and owner-controlled Linux/WSL2 evidence close the
+reference-platform milestone, while real macOS Docker Desktop, real Windows Docker Desktop WSL2/Linux
+containers,
+and an independent external-user journey remain optional `not-run` evidence. Native Windows containers,
+corresponding platform support, and broad release support are not implied.
 
 ## Rejected alternatives
 

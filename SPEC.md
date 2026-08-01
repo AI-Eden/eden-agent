@@ -14,19 +14,15 @@ and human approval.
 On 2026-07-29 the owner confirmed shared understanding for the next Docker-isolated repository-check
 direction and accepted ADR 0017, the focused contract changes, and
 `docs/plans/2026-07-29-r2-docker-repository-check.md` as one Freeze packet. They are accepted implementation
-input. Build was separately authorized on 2026-07-30. Slices 0-3 and the read-only half of Slice 4 are
-complete in an uncommitted worktree. The accepted probe amendment now has a deterministic runner and
-active recovery implementation. Authorized fresh-daemon/image preparation exposed a missing common
-backend-selection surface before probe execution, and the owner approved and Build implemented the
-narrow named-context correction. A second prepared attempt found
-that the compatible classic image store omits `.Descriptor`; the owner approved and Build implemented an
-exact config-digest platform-mapping fallback. A later attempt created but never started the exact
-container, then failed closed on immutable image environment representation. The owner approved and Build
-implemented an exact unique four-value environment set with order-independent inspection. A passing real
-probe then exposed one external Docker-label normalization defect. The focused fix made fixtures and the
-parser use the exact `eden.*` keys; active recovery subsequently started the same exact container without
-a second approval or duplicate create, passed all nine enforcement rows, recorded receipt before cleanup,
-and removed the container. Slice 4 is complete.
+input. Build was separately authorized on 2026-07-30, and the accepted plan is complete through its hosted
+Ubuntu implementation candidate. A completion audit repaired dispatch/recovery and cancellation gaps;
+exact reviewed code commit `8c37f7939e384eaada13582a8f0ac71668eb9a98` passed the authoritative Docker
+lane and all hosted non-Docker regression lanes.
+
+On 2026-08-01 the owner accepted ADR 0018's portfolio-first amendment. R2 is complete for the declared
+Linux/WSL2 reference platform. Real macOS Docker Desktop, real Windows Docker Desktop WSL2, and independent
+external-user evidence remain optional `not-run` rows and do not establish or block this roadmap
+milestone. Release support remains outside R2.
 
 ## User story
 
@@ -219,9 +215,10 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   probe may select one existing safe named context, which must bind both Doctor and execution calls.
 - A check remains a basic observation in non-success `completed` review. It cannot emit `succeeded`,
   start a repair loop, or produce an Evidence Pack.
-- Hosted Ubuntu x64 may establish an implementation candidate. Whole R2 still requires real macOS Docker
-  Desktop and Windows Docker Desktop WSL2/Linux-container automated rows plus one independent external-user
-  failing-test journey. Missing rows remain `not-run`; release support remains separate.
+- Hosted Ubuntu x64 plus the owner-controlled fresh Linux/WSL2 backend establish the R2 reference-platform
+  milestone. Hosted macOS and Windows establish non-Docker portability regression only. Real macOS Docker
+  Desktop, real Windows Docker Desktop WSL2, and independent external-user journeys are optional and remain
+  `not-run` until exercised; release support remains separate.
 
 The owner accepted this contract with the complete 2026-07-29 Freeze packet and separately authorized
 Build on 2026-07-30. The read-only Doctor and deterministic explicit-probe candidates are implemented

@@ -52,21 +52,22 @@ The accepted bounded first-slice contract has all of these constraints:
   second-invocation continuation protocol, or a general resume command;
 - hosted Ubuntu x64 is the authoritative automated Docker execution lane, while hosted macOS and Windows
   retain non-Docker contract, package, TUI, and negative-doctor coverage; exact real-host automated rows
-  are still required for macOS Docker Desktop and Windows Docker Desktop WSL2/Linux-container behavior,
-  and missing rows remain `not-run` rather than being inferred from image architecture;
+  for macOS Docker Desktop and Windows Docker Desktop WSL2/Linux-container behavior are optional platform
+  evidence, and missing rows remain `not-run` rather than being inferred from image architecture;
 - `eden doctor` is read-only by default; an explicit bounded Docker probe uses the already-present exact
   image, no repository input, no provider, no network, and a smaller fixed profile to test actual backend
   enforcement and exact cleanup, while neither mode pulls, builds, installs, configures the daemon, or
   performs automatic remediation;
 - the first exit fixture is an Eden-owned dependency-free Node repository with an independent deterministic
-  fail/pass oracle; CI uses a scripted non-provider driver, while one independent external user must also
-  complete the Quickstart journey on a real supported host with their own configured provider; and
+  fail/pass oracle; CI uses a scripted non-provider driver, while an independent external-user Quickstart
+  remains optional future feedback evidence with that user's own configured provider; and
 - the result is a basic check observation in non-success `completed` review. It is not a GoalSpec,
   verifier-owned `succeeded`, repair loop, Evidence Pack, or release-support claim.
 
-These are accepted Freeze constraints, not current implementation truth. Until separately authorized
-implementation and matching evidence exist, Docker and repository-code checks remain unavailable and
-`not-run`.
+The runtime and trust constraints above remain the accepted Freeze contract. ADR 0018 amends only the R2
+exit-evidence gate: the implementation and matching Linux/WSL2 evidence now exist, while optional real
+Docker Desktop and external-user rows remain `not-run`. This does not broaden execution authority,
+platform support, or release support.
 
 ## Deferred product problems
 

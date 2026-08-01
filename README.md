@@ -12,18 +12,19 @@ fake task, durable JSONL replay, and current-workspace read-only run history. It
 agent: the R1 runtime uses no provider credential, does not read or change repository files, executes no
 real process, has no network authority, and does not resume historical execution.
 
-The first accepted R2 Build plan is complete. The current public source adds host-side provider onboarding,
+R2 is complete for the declared Linux/WSL2 reference platform under ADR 0018. The current public source
+adds host-side provider onboarding,
 explicit DeepSeek readiness, scoped instruction/context admission, bounded list/read/search/Git-status
 tools, a verified
 application-local ripgrep archive, and an Eden-owned real model/tool loop with durable attempt recovery.
 A model-produced final answer ends in review as `completed`; it cannot claim verifier-owned `succeeded`.
 The later accepted safe-actuation packet adds one exact-approved AnchorEdit and runtime-owned Git review;
-it does not expose a shell or general filesystem authority. Candidate `3c23446` passed its hosted Ubuntu,
-macOS, and Windows implementation matrix. The current Docker repository-check packet has completed its
-local Slices 0-8 Build: one repository-declared named check can run after exact interactive approval in the
-fixed network-none, read-only, pull-never container profile. Its exact-SHA hosted Ubuntu candidate remains
-pending. Real macOS Docker Desktop, Windows Docker Desktop WSL2, independent external-user, Kimi, whole-R2,
-and release-support evidence remain `not-run` or incomplete as applicable.
+it does not expose a shell or general filesystem authority. One repository-declared named check can run
+after exact interactive approval in the fixed network-none, read-only, pull-never Docker profile. Exact
+reviewed candidate `8c37f79` passed the authoritative hosted Ubuntu Docker lane and hosted Ubuntu, macOS,
+and Windows non-Docker regression lanes. Real macOS Docker Desktop, real Windows Docker Desktop WSL2,
+independent external-user, and Kimi evidence remain optional or out-of-scope `not-run` rows as applicable;
+release support is not claimed.
 
 ## Intended product
 
