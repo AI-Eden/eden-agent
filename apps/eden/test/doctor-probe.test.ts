@@ -19,6 +19,8 @@ import {
   dockerDoctorObservationFixture,
 } from "./fixtures/docker-diagnostic-probe.ts";
 
+const posixTest = process.platform === "win32" ? test.skip : test;
+
 function output() {
   let stderr = "";
   let stdout = "";
@@ -146,7 +148,8 @@ test("integrated JSON preview performs one read-only preflight and creates no st
   );
 });
 
-test("unresolved JSON recovery projects the first effect identity without Docker inspection", async () => {
+// biome-ignore format: keep conditional node:test registration compatible with Bun
+posixTest("unresolved JSON recovery projects the first effect identity without Docker inspection", async () => {
   const stateDirectory = await missingState();
   const journal = new DockerDiagnosticProbeJournal({ stateDirectory });
   await journal.append({
@@ -199,7 +202,8 @@ test("unresolved JSON recovery projects the first effect identity without Docker
   strictEqual(await readFile(journal.path, "utf8"), before);
 });
 
-test("interactive recovery closes not-started before presenting a new exact proposal", async () => {
+// biome-ignore format: keep conditional node:test registration compatible with Bun
+posixTest("interactive recovery closes not-started before presenting a new exact proposal", async () => {
   const stateDirectory = await missingState();
   const journal = new DockerDiagnosticProbeJournal({ stateDirectory });
   await journal.append({
@@ -335,7 +339,8 @@ function inspection(
   );
 }
 
-test("interactive approval dispatches one exact transaction and exits zero only on terminal pass", async () => {
+// biome-ignore format: keep conditional node:test registration compatible with Bun
+posixTest("interactive approval dispatches one exact transaction and exits zero only on terminal pass", async () => {
   const stateDirectory = await missingState();
   const writes = output();
   const containerId = "5".repeat(64);
@@ -433,7 +438,8 @@ test("interactive approval dispatches one exact transaction and exits zero only 
   );
 });
 
-test("interactive not-started recovery can approve and execute one later proposal", async () => {
+// biome-ignore format: keep conditional node:test registration compatible with Bun
+posixTest("interactive not-started recovery can approve and execute one later proposal", async () => {
   const stateDirectory = await missingState();
   const journal = new DockerDiagnosticProbeJournal({ stateDirectory });
   await journal.append({
