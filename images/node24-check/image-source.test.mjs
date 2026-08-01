@@ -95,18 +95,28 @@ describe("Eden Node 24 image source", () => {
     strictEqual((await lstat(join(destination, "wrapper.mjs"))).isFile(), true);
   });
 
-  test("prepares one non-secret read-only workspace fixture and writable result file", async () => {
+  test("prepares one non-secret fixture and exact control request", async () => {
     const root = await mkdtemp(join(tmpdir(), "eden-image-fixture-test-"));
+    directories.push(root);
+    const paths = await prepareWrapperIntegrationFixture(join(root, "fixture"));
+    match(await readFile(join(paths.workspace, "check.mjs"), "utf8"), /fixture-stderr/u);
+    strictEqual((await stat(paths.result)).isFile(), true);
+    const control = JSON.parse(await readFile(paths.control, "utf8"));
+    strictEqual(control.process.executable, "/usr/local/bin/node");
+    strictEqual(control.process.cwd, ".");
+    deepStrictEqual(control.process.arguments, ["check.mjs"]);
+  });
+
+  test("applies exact POSIX read-only workspace and writable result modes", {
+    skip: process.platform === "win32",
+  }, async () => {
+    const root = await mkdtemp(join(tmpdir(), "eden-image-fixture-mode-test-"));
     directories.push(root);
     const paths = await prepareWrapperIntegrationFixture(join(root, "fixture"));
     strictEqual((await stat(paths.workspace)).mode & 0o777, 0o555);
     strictEqual((await stat(join(paths.workspace, "check.mjs"))).mode & 0o777, 0o444);
     strictEqual((await stat(paths.control)).mode & 0o777, 0o444);
     strictEqual((await stat(paths.result)).mode & 0o777, 0o666);
-    const control = JSON.parse(await readFile(paths.control, "utf8"));
-    strictEqual(control.process.executable, "/usr/local/bin/node");
-    strictEqual(control.process.cwd, ".");
-    deepStrictEqual(control.process.arguments, ["check.mjs"]);
   });
 
   test("records the isolated fixture and exact verified publication without broader authority", async () => {

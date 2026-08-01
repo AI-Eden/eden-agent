@@ -24,7 +24,6 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
   packaged-acceptance:
@@ -89,6 +88,10 @@ jobs:
           if-no-files-found: error
 
   ubuntu-docker-repository-check:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: read
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

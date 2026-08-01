@@ -40,13 +40,46 @@ function request(processArguments, overrides = {}) {
   };
 }
 
+function result(overrides = {}) {
+  const stdout = Buffer.from("ok");
+  const stderr = Buffer.alloc(0);
+  return {
+    actionId: "action-repository-check-1",
+    checkName: "test",
+    effectId: "effect-repository-check-1",
+    endedAt: "2026-07-30T00:00:01.000Z",
+    exitCode: 0,
+    inputManifestDigest: fixedDigest("1"),
+    outcome: "passed",
+    resultVersion: 1,
+    startedAt: "2026-07-30T00:00:00.000Z",
+    stderr: stderr.toString("base64"),
+    stderrByteLength: stderr.byteLength,
+    stderrEncoding: "base64",
+    stderrSha256: hash(stderr),
+    stdout: stdout.toString("base64"),
+    stdoutByteLength: stdout.byteLength,
+    stdoutEncoding: "base64",
+    stdoutSha256: hash(stdout),
+    wrapperProtocolVersion: 1,
+    wrapperReason: "process_exited",
+    ...overrides,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(workspaces.splice(0).map((path) => rm(path, { force: true, recursive: true })));
 });
 
 describe("Eden Node 24 repository-check wrapper", () => {
   test("accepts only the closed literal request and never accepts shell authority", () => {
-    const value = request(["--version"]);
+    const value = request(["--version"], {
+      process: {
+        arguments: ["--version"],
+        cwd: ".",
+        executable: "/usr/local/bin/node",
+      },
+    });
     deepStrictEqual(decodeWrapperRequest(value), value);
     for (const invalid of [
       { ...value, shell: true },
@@ -54,6 +87,10 @@ describe("Eden Node 24 repository-check wrapper", () => {
       { ...value, wrapperProtocolVersion: 2 },
       { ...value, budgets: { ...value.budgets, timeoutMs: 1 } },
       { ...value, process: { ...value.process, executable: "node" } },
+      {
+        ...value,
+        process: { ...value.process, executable: "C:\\Program Files\\nodejs\\node.exe" },
+      },
       { ...value, process: { ...value.process, cwd: "../outside" } },
       { ...value, process: { ...value.process, arguments: ["has\u0000nul"] } },
     ]) {
@@ -61,7 +98,9 @@ describe("Eden Node 24 repository-check wrapper", () => {
     }
   });
 
-  test("preserves arbitrary stdout and stderr bytes as canonical Base64", async () => {
+  const posixTest = process.platform === "win32" ? test.skip : test;
+
+  posixTest("preserves arbitrary stdout and stderr bytes as canonical Base64", async () => {
     const root = await workspace();
     const stdout = Uint8Array.of(0xff, 0x00, 0x80, 0x0a);
     const stderr = Uint8Array.of(0xfe, 0x01, 0x81);
@@ -86,7 +125,7 @@ describe("Eden Node 24 repository-check wrapper", () => {
     strictEqual(result.stderrSha256, hash(stderr));
   });
 
-  test("accepts the exact stream boundary and fails closed on one-byte overflow", async () => {
+  posixTest("accepts the exact stream boundary and fails closed on one-byte overflow", async () => {
     const root = await workspace();
     const exact = await runRepositoryCheck(
       request(["-e", "process.stdout.write(Buffer.alloc(16384, 120))"]),
@@ -108,7 +147,7 @@ describe("Eden Node 24 repository-check wrapper", () => {
     strictEqual(overflow.stderrByteLength, 0);
   });
 
-  test("distinguishes check failure, timeout, and cancellation", async () => {
+  posixTest("distinguishes check failure, timeout, and cancellation", async () => {
     const root = await workspace();
     const failed = await runRepositoryCheck(request(["-e", "process.exit(7)"]), {
       workspaceRoot: root,
@@ -136,7 +175,7 @@ describe("Eden Node 24 repository-check wrapper", () => {
     strictEqual(cancelled.wrapperReason, "cancel_requested");
   });
 
-  test("terminates the owned child process group after the fixed grace", async () => {
+  posixTest("terminates the owned child process group after the fixed grace", async () => {
     const root = await workspace();
     const source = [
       "const{spawn:s}=require('child_process'),{writeFileSync:w}=require('fs')",
@@ -159,19 +198,17 @@ describe("Eden Node 24 repository-check wrapper", () => {
     );
   });
 
-  test("writes one bounded closed internal result", async () => {
+  test("writes one bounded closed internal result without executing repository code", async () => {
     const root = await workspace();
     const path = join(root, "result.json");
     await writeFile(path, "");
-    const result = await runRepositoryCheck(request(["-e", "process.stdout.write('ok')"]), {
-      workspaceRoot: root,
-    });
-    await writeInternalResult(path, result);
+    const value = result();
+    await writeInternalResult(path, value);
     const bytes = await readFile(path);
     strictEqual(bytes.byteLength <= 65_536, true);
-    deepStrictEqual(JSON.parse(bytes.toString("utf8")), result);
+    deepStrictEqual(JSON.parse(bytes.toString("utf8")), value);
     await rejects(() =>
-      writeInternalResult(join(root, "invalid.json"), { ...result, unexpected: true }),
+      writeInternalResult(join(root, "invalid.json"), { ...value, unexpected: true }),
     );
   });
 });

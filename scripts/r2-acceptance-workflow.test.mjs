@@ -40,6 +40,15 @@ test("R2 acceptance owns named local gates and the three-platform packaged matri
   match(workflow, /pnpm test:r2-safe-actuation/u);
   match(workflow, /pnpm test:r2-budgets/u);
   match(workflow, /ubuntu-docker-repository-check:/u);
+  match(
+    workflow,
+    /if: github\.event_name != 'pull_request' \|\| github\.event\.pull_request\.head\.repo\.full_name == github\.repository/u,
+  );
+  strictEqual((workflow.match(/packages: read/gu) ?? []).length, 1);
+  match(
+    workflow,
+    /ubuntu-docker-repository-check:\n {4}if:.*\n {4}permissions:\n {6}contents: read\n {6}packages: read/u,
+  );
   match(workflow, /pnpm test:r2-docker-contracts/u);
   match(workflow, /pnpm test:r2-docker-fixture/u);
   match(workflow, /pnpm test:r2-docker-recovery/u);
