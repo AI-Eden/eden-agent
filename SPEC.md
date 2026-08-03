@@ -221,9 +221,9 @@ Provider keys never enter prompts, tool environments, UI events, journals, or di
   `not-run` until exercised; release support remains separate.
 
 The owner accepted this contract with the complete 2026-07-29 Freeze packet and separately authorized
-Build on 2026-07-30. The read-only Doctor and deterministic explicit-probe candidates are implemented
-locally, including safe named-context binding; repository-check dispatch and real probe execution remain
-unavailable.
+Build on 2026-07-30. The read-only Doctor, deterministic explicit-probe path, safe named-context binding,
+and repository-check dispatch are implemented and published. The owner-controlled real probe and the
+exact-SHA hosted Ubuntu repository-check journey passed on the declared Linux/WSL2 reference platform.
 
 ### Accepted diagnostic-probe amendment
 

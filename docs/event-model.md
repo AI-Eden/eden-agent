@@ -144,9 +144,9 @@ terminal. A proven pre-create absence closes through `docker.probe.recovery.clos
 same exact created/running/exited object; pure projection and JSON recovery perform no Docker I/O.
 
 The owner accepted the repository-check event families with ADR 0017 and separately authorized Build on
-2026-07-30. Their decoders exist but runtime reduction/dispatch remains inactive. The standalone probe
-event family, journal projection, deterministic runner, and exact active recovery are implemented in the
-local uncommitted candidate. The passing real probe reopened the same durable transaction, recovered the
+2026-07-30. Their decoders, runtime reduction and dispatch, journal projection, and product projection are
+implemented and published. The standalone probe event family, deterministic runner, and exact active
+recovery are also complete. The passing real probe reopened the same durable transaction, recovered the
 same exact container, recorded `container.created`, `dispatch.started`, receipt-before-cleanup, cleanup,
 and terminal facts in order, and performed no duplicate create or second approval.
 

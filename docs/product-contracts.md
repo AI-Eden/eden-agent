@@ -253,11 +253,10 @@ The probe action also binds the exact fixed `HOME`, `LANG`, `PATH`, and immutabl
 missing, duplicated, changed, inherited, or additional environment values block execution and recovery.
 
 The owner accepted the repository-check and read-only Doctor contracts with ADR 0017 and separately
-authorized Build on 2026-07-30. Read-only Doctor is implemented in the local uncommitted candidate;
-repository-check dispatch remains inactive. The standalone probe contracts, runner, and deterministic
-active recovery are implemented locally. The passing real probe recovered the same exact container from
-durable `effect_intent`, consumed no second approval, created no duplicate object, recorded its receipt
-before cleanup, and returned the daemon to zero containers.
+authorized Build on 2026-07-30. Read-only Doctor, repository-check dispatch, standalone probe contracts,
+the runner, and deterministic active recovery are implemented and published. The passing real probe
+recovered the same exact container from durable `effect_intent`, consumed no second approval, created no
+duplicate object, recorded its receipt before cleanup, and returned the daemon to zero containers.
 
 ## Run catalog and inspection
 

@@ -53,10 +53,11 @@ Ubuntu x64 Docker lane plus the Ubuntu, macOS, and Windows non-Docker acceptance
 platforms.
 Slice 0 preserved the
 safe-actuation surface, exact package hashes, Docker no-authority guards, and measured journal budget
-ledger. Slice 1 adds closed catalog, snapshot, toolchain, action, result, receipt, cleanup, doctor, kernel
-fact, ProductEvent, ProductView, and static TUI contracts. Repository-check dispatch remains default-denied
-and unimplemented. Slice 2 adds tracked catalog selection and immutable current-byte snapshot staging
-outside the workspace. The owner approved Slice 3's exact distroless Node 24 Debian 13 OCI identities,
+ledger. Slice 1 added closed catalog, snapshot, toolchain, action, result, receipt, cleanup, doctor, kernel
+fact, ProductEvent, ProductView, and static TUI contracts. Slice 2 added tracked catalog selection and
+immutable current-byte snapshot staging outside the workspace. Later slices activated the default-denied,
+always-ask repository-check dispatch path. The owner approved Slice 3's exact distroless Node 24 Debian 13
+OCI identities,
 the image-level `/usr/local/bin/node` alias, and canonical Base64 stream fields whose lengths and hashes
 cover decoded raw bytes. The one exact image publication is complete and its credential was removed;
 further image publication and real provider use remain
@@ -100,11 +101,12 @@ unauthorized.
 - The shared terminal packaging workflow is green on macOS 15, Ubuntu 24.04, and Windows 2025 in run
   29372727708 at `594e9f7`; historical R0 measurement versions remain frozen independently.
 
-## Current execution
+## Completed provider and repository-understanding execution
 
-Execute `docs/plans/2026-07-19-r2-provider-onboarding-repository-understanding.md`. Slice 0 reproduced the
+The accepted `docs/plans/2026-07-19-r2-provider-onboarding-repository-understanding.md` plan is complete.
+Slice 0 reproduced the
 unchanged R1 package and PTY surfaces, recorded the first Linux/WSL performance baseline, and closed the R2
-fixture budgets under the existing journal limits. Slice 1 adds strict host-side provider profiles, masked
+fixture budgets under the existing journal limits. Slice 1 added strict host-side provider profiles, masked
 renderer-neutral CRUD, direct-file reload and recovery, headless inspection, and onboarding at the three
 frozen viewports without making a provider request.
 Slice 2 is complete. The pinned official SDK, closed readiness/error projections, salted host fingerprint,
@@ -112,30 +114,30 @@ explicit possible-charge confirmation, local SSE fixtures, and TUI recovery are 
 DeepSeek V4 Pro row reached `completion_ready` after the adapter explicitly selected non-thinking mode; real
 invalid-key authentication and local network-reset recovery remained closed and redacted. Kimi is
 `not-run` because the owner has no subscription credential, so no Kimi support claim is made.
-Slice 3 adds complete root-to-leaf `AGENTS.md` snapshots, exact scope/hash/precedence/activation
+Slice 3 added complete root-to-leaf `AGENTS.md` snapshots, exact scope/hash/precedence/activation
 provenance, deterministic P0/P1/P2 admission, and closed pre-network blocks. Restricted workspaces do not
 read instructions. Trusted workspace review and TUI projections expose the context state and exact used
 sources without exposing instruction content.
-Slice 4 adds closed `list_files` and `read_file` calls, real bounded filesystem adapters, one fake-model
+Slice 4 added closed `list_files` and `read_file` calls, real bounded filesystem adapters, one fake-model
 tool round trip, durable tool observations, replay-only reconstruction, and requested/completed product
 activity. Paths remain inside the captured workspace identity; links, binary data, invalid UTF-8 offsets,
 limit overflow, cancellation, and stale workspace identity fail closed. The TUI shows complete bounded
 results, source/hash/continuation provenance, and read-only authority while preserving zero write or process
 authority.
-Slice 5 adds closed `search_repository` and `git_status` calls behind one bounded native-process port.
+Slice 5 added closed `search_repository` and `git_status` calls behind one bounded native-process port.
 Search verifies the application-local ripgrep 15.0.0 asset by SHA-256 and never falls back to `PATH`; Git
 status probes host Git 2.31.0 or newer and uses fixed porcelain-v2/NUL arguments with a scrubbed,
 non-interactive environment. The complete Bun archive now contains `eden`, `rg`,
 `THIRD_PARTY_NOTICES.txt`, and `eden-assets.json`. Local Node, Bun, copied-archive, missing-prerequisite,
 pagination, zero-write, cancellation, process-tree, TUI, and full-workspace evidence is green.
-Slice 6 connects the real OpenAI-compatible streamed model step to the same four closed repository tools.
+Slice 6 connected the real OpenAI-compatible streamed model step to the same four closed repository tools.
 The runtime owns the ordered conversation, stable attempt identities, four-step/four-tool budgets, exact or
 unknown usage, one automatic retry only for proven `not_started`, explicit retry after ambiguous attempts,
 and replay without provider or tool dispatch. Live deltas remain ephemeral; only closed terminal model
 observations and bounded context are durable. A model answer reaches `completed` review, never verifier-
 owned `succeeded`. The authorized local DeepSeek V4 Pro matching run completed one pinned-ripgrep tool round
 trip and returned a sourced answer; Kimi remains `not-run`.
-Slice 7 completes the conversation-centered responsive TUI integration. One focus graph owns keyboard
+Slice 7 completed the conversation-centered responsive TUI integration. One focus graph owns keyboard
 navigation, command palette/help, disabled and awaiting actions, and focus reconciliation across narrow,
 medium, and wide layouts. The full answer remains primary; context, tool, attempt, interruption, approval,
 and recovery evidence stay structured. Real Linux x64 WSL2 PTY evidence at exact public commit `8c679fd`
@@ -151,7 +153,7 @@ passing record is not a cross-platform or variance-free performance claim.
   single-agent diff/spec review has no unresolved code or contract finding; the retained first provider
   failure remains visible evidence.
 
-## Current implementation slice
+## Completed safe-actuation implementation slice
 
 The accepted `docs/plans/2026-07-28-r2-safe-actuation-and-review.md` is implemented through its bounded
 Slice 8 closure. One trusted-host, policy-contained, digest-approved, modify-only AnchorEdit path now
@@ -176,7 +178,7 @@ The slice ends in non-success `completed` review. Packaged crash-restart remains
 `not-run`. General shell, repository code execution, Docker execution, create/delete/rename, repair loops,
 verifier-owned success, release support, signing, and installers remain outside this Freeze packet.
 
-## Current Docker Build slice
+## Completed Docker Build slice
 
 The accepted Docker repository-check packet includes ADR 0017, the 2026-07-29 decision brief, focused
 PRODUCT/SPEC/architecture/event/product-contract/threat/UX/support changes, and the ordered test-first plan.
@@ -221,9 +223,10 @@ platforms. The same byte-identical OCI candidate was later published and verifie
 `ghcr.io/ai-eden/eden-node24-check@sha256:8421694e36135472ce9c40011ca9b8be22f1f2af643493d8fe6cb47954684d4f`;
 the display-only tag is `eden-node24-check-v1` and the package remains private.
 
-The real-image fixture did not run. Docker Desktop 4.45.0 / Engine 28.3.3 exposes built-in seccomp and a
-cgroup namespace but no user-namespace remap, while the accepted profile forbids sharing the backend host
-user namespace. No container was created and Build stopped rather than weakening the profile. The owner
+At the initial Slice 3 checkpoint, the real-image fixture had not run. Docker Desktop 4.45.0 / Engine
+28.3.3 exposed built-in seccomp and a cgroup namespace but no user-namespace remap, while the accepted
+profile forbids sharing the backend host user namespace. No container was created and Build stopped rather
+than weakening the profile. The owner
 selected the recommended compatible-backend branch: preserve Freeze and prefer Docker Desktop Enhanced
 Container Isolation, with a separate fresh `userns-remap` Docker Engine only if ECI is unavailable. WSL
 2.7.10 satisfies ECI's documented WSL 2.6-or-newer prerequisite, but ECI was unavailable. The owner
@@ -289,7 +292,8 @@ prepared, but the packaged production path could not bind both read-only preflig
 daemon without an unapproved raw-host, environment, wrapper, or default-context workaround. Execution
 stopped before approval or container create. The daemon, image, temporary credential scope/configuration,
 mount, and directory were removed. The approved safe named-context grammar and common adapter binding are
-now implemented deterministically; real probe evidence remains `not-run` pending fresh preparation.
+was then implemented deterministically; at that checkpoint real probe evidence was still `not-run` and
+required fresh preparation.
 
 The next authorized preparation used that named context, loaded the exact amd64 image, and stopped before
 approval because the fresh `userns-remap` daemon's classic `overlay2` store exposed no local
@@ -300,7 +304,7 @@ malformed or contradictory evidence never falls back. Doctor and post-approval p
 same rule without registry lookup or network. The second attempt also ended with zero containers and full
 daemon/image/context/credential/scope/directory cleanup.
 
-Slices 5-8 now add the exact pull-never repository-check runner, stable state/receipt/recovery, Option A
+Slices 5-8 added the exact pull-never repository-check runner, stable state/receipt/recovery, Option A
 compatibility binding and revalidation, always-ask policy and approval consumption, ordered kernel and
 product lifecycle, local-only untrusted output, TUI/headless authority projection, and a dependency-free
 failing fixture. The packaged driver completed initial-fail, correct-edit/pass, and wrong-edit/fail against
