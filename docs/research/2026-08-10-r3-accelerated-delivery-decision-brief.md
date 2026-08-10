@@ -2,10 +2,10 @@
 
 - Status: Accepted direction and Freeze packet on 2026-08-10; amended Freeze and Build approved on 2026-08-11; R3-A review recommends no acceptance after matching-provider failure
 - Date: 2026-08-10
-- Workflow phase: R3-A milestone checkpoint; deterministic and copied packaged evidence passed, one matching real-provider attempt failed at the explicit network retry boundary
+- Workflow phase: R3-A milestone checkpoint; deterministic and copied packaged evidence passed, one matching real-provider attempt failed, and the bounded offline failure-artifact/TLS repair is complete without a second network attempt
 - Roadmap stage: R3, Verified Goal Product — v0.1
 - Public baseline: `56a05e492a93f54c2a95d51c8eaec387e1283b2b`
-- Decision authority: the owner accepted the direction with R3-D changed to a non-blocking, time-boxed milestone, accepted the resulting Freeze packet, later accepted a bounded multi-call and durable-budget amendment after Slice 0 evidence invalidated the one-call/1 MiB assumptions, then separately approved the amended Freeze and authorized Build plus public-first commits and pushes. The owner accepted the deterministic candidate, authorized copied packaged TUI evidence, and authorized exactly one matching real-provider/network fixture; that network authority has been consumed. Any new provider attempt, package publication, release, or R3-D activation requires separate authority.
+- Decision authority: the owner accepted the direction with R3-D changed to a non-blocking, time-boxed milestone, accepted the resulting Freeze packet, later accepted a bounded multi-call and durable-budget amendment after Slice 0 evidence invalidated the one-call/1 MiB assumptions, then separately approved the amended Freeze and authorized Build plus public-first commits and pushes. The owner accepted the deterministic candidate, authorized copied packaged TUI evidence, and authorized exactly one matching real-provider/network fixture; that network authority has been consumed. The owner then accepted the recommendation to keep R3-A open and authorized only the bounded offline failure-artifact/TLS diagnosis. Any new provider attempt, package publication, release, or R3-D activation requires separate authority.
 
 ## Decision accepted
 

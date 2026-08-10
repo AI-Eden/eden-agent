@@ -21,6 +21,14 @@ import { terminalScreenText } from "./terminal-screen.mjs";
 const credentialName = "EDEN_R3_REAL_PROVIDER_KEY";
 const timeoutMs = 180_000;
 
+class RealProviderRetryBoundaryError extends Error {
+  constructor(code) {
+    super("The real provider stopped at an explicit product retry boundary.");
+    this.code = /^[a-z0-9_]{1,64}$/u.test(code) ? code : "unknown";
+    this.name = "RealProviderRetryBoundaryError";
+  }
+}
+
 function hashBytes(bytes) {
   return `sha256:${createHash("sha256").update(bytes).digest("hex")}`;
 }
@@ -45,6 +53,8 @@ function validateEvidence(evidence) {
     evidence.provider?.externalNetwork !== true ||
     evidence.provider.kind !== "real_openai_compatible" ||
     evidence.provider.secretCanaryExposed !== false ||
+    evidence.provider.tlsDisableEnvironmentForwarded !== false ||
+    evidence.provider.tlsVerification !== "normal" ||
     evidence.journey?.terminalOutcome !== "completed" ||
     evidence.journey.terminalRestoration !== "restored" ||
     evidence.journey.oracle?.testExitCode !== 0 ||
@@ -61,6 +71,80 @@ function validateEvidence(evidence) {
       "R3 real-provider evidence is incomplete, fake, secret-bearing, or overclaimed.",
     );
   }
+}
+
+function validateFailureEvidence(evidence) {
+  if (
+    evidence.status !== "failed" ||
+    !/^[a-f0-9]{40}$/u.test(evidence.sourceSha) ||
+    (evidence.package?.copied !== false && evidence.package?.copied !== true) ||
+    evidence.provider?.kind !== "real_openai_compatible" ||
+    typeof evidence.provider.externalNetworkAttempted !== "boolean" ||
+    evidence.provider.tlsVerification !== "normal" ||
+    (evidence.failure?.kind !== "acceptance_harness" &&
+      evidence.failure?.kind !== "product_retry_boundary") ||
+    !/^[a-z0-9_]{1,64}$/u.test(evidence.failure?.code ?? "") ||
+    !/^[a-z0-9_]{1,64}$/u.test(evidence.failure?.stage ?? "") ||
+    evidence.failure.retryPerformed !== false ||
+    evidence.safety?.credentialIncluded !== false ||
+    evidence.safety.rawProviderErrorIncluded !== false ||
+    evidence.safety.tlsDisableEnvironmentForwarded !== false ||
+    evidence.safety.transcriptIncluded !== false ||
+    evidence.passingEvidenceEmitted !== false ||
+    evidence.verifierSuccessClaimed !== false
+  ) {
+    throw new Error("R3 real-provider failure evidence is incomplete or secret-bearing.");
+  }
+}
+
+async function writeFailureEvidence({
+  baseUrl,
+  error,
+  externalNetworkAttempted,
+  failureStage,
+  model,
+  outputPath,
+  packageCopied,
+  sourceSha,
+  tlsDisableEnvironmentForwarded,
+}) {
+  const retryBoundary = error instanceof RealProviderRetryBoundaryError;
+  const evidence = {
+    failure: {
+      code: retryBoundary ? error.code : "harness_error",
+      diagnosticHash: hashBytes(Buffer.from(`${error?.name ?? "Error"}:${error?.message ?? ""}`)),
+      kind: retryBoundary ? "product_retry_boundary" : "acceptance_harness",
+      retryPerformed: false,
+      stage: failureStage,
+    },
+    package: { copied: packageCopied },
+    passingEvidenceEmitted: false,
+    platform: { architecture: process.arch, os: process.platform },
+    provider: {
+      externalNetworkAttempted,
+      kind: "real_openai_compatible",
+      model,
+      origin: new URL(baseUrl).origin,
+      profileId: "r3-real",
+      tlsVerification: "normal",
+    },
+    safety: {
+      credentialIncluded: false,
+      rawProviderErrorIncluded: false,
+      tlsDisableEnvironmentForwarded,
+      transcriptIncluded: false,
+    },
+    sourceSha,
+    status: "failed",
+    verifierSuccessClaimed: false,
+  };
+  validateFailureEvidence(evidence);
+  const failurePath = `${outputPath}.failure.json`;
+  await mkdir(resolve(failurePath, ".."), { recursive: true });
+  await writeFile(failurePath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
+  process.stderr.write(
+    `${JSON.stringify({ evidence: failurePath, failure: evidence.failure.code, status: "failed" })}\n`,
+  );
 }
 
 if (process.argv[2] === "--self-test") {
@@ -85,6 +169,8 @@ if (process.argv[2] === "--self-test") {
       externalNetwork: true,
       kind: "real_openai_compatible",
       secretCanaryExposed: false,
+      tlsDisableEnvironmentForwarded: false,
+      tlsVerification: "normal",
     },
     sourceSha: "a".repeat(40),
     status: "passed",
@@ -125,6 +211,12 @@ const sourceSha = process.argv[4] ?? "";
 const baseUrl = process.argv[5] ?? "https://api.deepseek.com";
 const model = process.argv[6] ?? "deepseek-v4-pro";
 const credential = process.env[credentialName];
+const childProcessEnvironment = { ...process.env };
+delete childProcessEnvironment.NODE_TLS_REJECT_UNAUTHORIZED;
+const tlsDisableEnvironmentForwarded = Object.hasOwn(
+  childProcessEnvironment,
+  "NODE_TLS_REJECT_UNAUTHORIZED",
+);
 if (!/^[a-f0-9]{40}$/u.test(sourceSha)) {
   throw new Error("R3 real-provider evidence requires one exact source SHA.");
 }
@@ -152,6 +244,9 @@ const { spawn } = requireFromHarness("node-pty");
 const { terminatePtyProcessGroup } = await import(
   "../spikes/terminal-framework/harness/dist/src/pty-cleanup.js"
 );
+let externalNetworkAttempted = false;
+let failureStage = "package_copy";
+let packageCopied = false;
 
 function run(command, arguments_, options = {}) {
   const result = spawnSync(command, arguments_, {
@@ -250,6 +345,8 @@ function exactApprovedCall(view) {
 
 try {
   await cp(source, archive, { recursive: true });
+  packageCopied = true;
+  failureStage = "package_validation";
   const manifest = JSON.parse(await readFile(join(archive, "eden-assets.json"), "utf8"));
   for (const [name, descriptor] of [
     ["eden", manifest.application],
@@ -266,6 +363,7 @@ try {
   await chmod(executable, 0o755);
   await chmod(join(archive, "rg"), 0o755);
   if (!(await stat(executable)).isFile()) throw new Error("Copied package executable is missing.");
+  failureStage = "fixture_setup";
   await mkdir(workspace);
   await mkdir(binDirectory);
   await copyFile(process.execPath, commandExecutable);
@@ -305,7 +403,7 @@ try {
   const parentReady = "__EDEN_R3_REAL_PARENT_READY__";
   const shellScript = `trap : INT; before=$(stty -g); ${quotePosix(executable)}; code=$?; after=$(stty -g); printf '__EDEN_R3_REAL_MODE_BEFORE__=%s\\n' "$before"; printf '__EDEN_R3_REAL_MODE_AFTER__=%s\\n' "$after"; printf '__EDEN_R3_REAL_CANDIDATE_EXIT__=%s\\n' "$code"; printf '${parentReady}\\n'; IFS= read -r token; printf 'EDEN_R3_REAL_RESTORED_%s\\n' "$token"; exit "$code"`;
   const environment = {
-    ...process.env,
+    ...childProcessEnvironment,
     [credentialName]: credential,
     EDEN_STATE_DIR: stateDirectory,
     EDEN_TUI_PROBE: "1",
@@ -335,6 +433,7 @@ try {
   let approvalCount = 0;
   const approvals = new Set();
   try {
+    failureStage = "tui_startup";
     await waitFor(
       () => transcript,
       (value) => value.includes("__EDEN_INPUT_READY__"),
@@ -349,6 +448,8 @@ try {
     await waitFor(screen, (value) => value.includes("profile: r3-real"), "saved real profile");
     terminal.write("c");
     await waitFor(screen, (value) => value.includes("confirm: y"), "real readiness confirmation");
+    failureStage = "provider_readiness";
+    externalNetworkAttempted = true;
     terminal.write("y");
     await waitFor(
       screen,
@@ -381,6 +482,7 @@ try {
     );
     terminal.write("\r");
 
+    failureStage = "coding_journey";
     finalView = await waitFor(
       () => {
         const catalog = run(executable, ["run", "list", "--json"], {
@@ -401,9 +503,7 @@ try {
       (view) => {
         if (view === null) return false;
         if (view.retry?.available === true) {
-          throw new Error(
-            `Real provider stopped at explicit retry boundary: ${view.retry.reason?.code ?? "unknown"}.`,
-          );
+          throw new RealProviderRetryBoundaryError(view.retry.reason?.code ?? "unknown");
         }
         if (view.approval !== null && !approvals.has(view.approval.approvalId)) {
           exactApprovedCall(view);
@@ -420,6 +520,7 @@ try {
         `Real-provider journey ended ${finalView.terminalOutcome?.state ?? "without outcome"}.`,
       );
     }
+    failureStage = "terminal_restoration";
     terminal.write("q");
     await waitFor(
       () => transcript,
@@ -493,11 +594,14 @@ try {
         model,
         profileId: "r3-real",
         secretCanaryExposed: false,
+        tlsDisableEnvironmentForwarded,
+        tlsVerification: "normal",
       },
       sourceSha,
       status: "passed",
       verifierSuccessClaimed: false,
     };
+    failureStage = "evidence_validation";
     validateEvidence(evidence);
     await mkdir(resolve(outputPath, ".."), { recursive: true });
     await writeFile(outputPath, `${JSON.stringify(evidence, null, 2)}\n`, "utf8");
@@ -506,6 +610,19 @@ try {
     data.dispose();
     if (!terminalExited) terminatePtyProcessGroup(terminal);
   }
+} catch (error) {
+  await writeFailureEvidence({
+    baseUrl,
+    error,
+    externalNetworkAttempted,
+    failureStage,
+    model,
+    outputPath,
+    packageCopied,
+    sourceSha,
+    tlsDisableEnvironmentForwarded,
+  });
+  process.exitCode = 1;
 } finally {
   await rm(root, { force: true, recursive: true });
 }

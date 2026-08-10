@@ -9,7 +9,7 @@
 - Required ADR: `docs/adr/0019-r3-resume-ready-vertical-delivery.md`
 - Blocking path: R3-A -> R3-B -> R3-C -> R3-E
 - Optional milestone: R3-D after R3-C, only with separate owner activation
-- Human checkpoint: owner review of the failed matching-provider row is required before any new provider attempt or R3-B work
+- Human checkpoint: fresh owner network authority and a passing repaired matching-provider row are required before R3-A acceptance or any R3-B work
 
 ## Authority and entry conditions
 
@@ -46,7 +46,9 @@ The deterministic implementation candidate closes Slices 0-5 at the local code b
 
 The local milestone gate includes `pnpm test`, `pnpm typecheck`, `pnpm build`, `pnpm code:check`, `pnpm markdown:check`, `git diff --check`, repository status/ref review, focused R3 contract/runtime/process/recovery tests, and the deterministic integrated journey. Candidate `092f9a107e93112b401a1c9e48dcad04ff064529` also passed the copied packaged TUI journey at `60x20`, `80x24`, and `100x30`; each run completed with 7 model attempts, 6 tool calls, 3 action proposals, a passing independent repository oracle, terminal restoration, no external network, and no verifier-success claim. Hosted R2 run [`31428717990`](https://github.com/AI-Eden/eden-agent/actions/runs/31428717990) passed Ubuntu, macOS, Windows, and Docker.
 
-The owner-authorized single matching real-provider attempt used the copied package, `https://api.deepseek.com`, `deepseek-v4-pro`, and normal TLS at the same candidate. It stopped before terminal completion at the explicit `network` retry boundary; the runtime performed no automatic retry and the driver emitted no passing JSON before cleaning its temporary directory. This row is failed rather than `not-run`. The completed milestone review therefore recommends no R3-A acceptance or closure. Before another review, retain a sanitized failure artifact, diagnose the normal-TLS network path without weakening certificate verification, obtain fresh owner authority, and pass the matching coding journey. Stop before R3-B.
+The owner-authorized single matching real-provider attempt used the copied package, `https://api.deepseek.com`, and `deepseek-v4-pro` at the same candidate. It stopped before terminal completion at the explicit `network` retry boundary; the runtime performed no automatic retry and the driver emitted no passing JSON before cleaning its temporary directory. Later offline diagnosis found that the old driver had forwarded `NODE_TLS_REJECT_UNAUTHORIZED=0`, so this attempt cannot establish normal TLS. The row is failed rather than `not-run`. The completed milestone review therefore recommends no R3-A acceptance or closure. Before another review, retain a sanitized failure artifact, diagnose the normal-TLS path without weakening certificate verification, obtain fresh owner authority, and pass the matching coding journey. Stop before R3-B.
+
+After accepting that recommendation, the owner authorized a bounded offline failure-artifact/TLS diagnosis. The repair makes every post-preflight failure write a schema-validated sanitized artifact before cleanup, uses a typed product retry-boundary error, excludes credential/raw-provider/transcript content, and removes inherited `NODE_TLS_REJECT_UNAUTHORIZED` from the copied-package child environment. Passing evidence must now prove `tlsVerification=normal` and that the disable variable was not forwarded. Offline inspection found the parent variable set to `0`, no proxy or custom-CA environment, and no source in the inspected shell/system startup files; it did not access the network and cannot recover the old SDK cause. This repair does not change the failed milestone result. A new provider/network fixture requires fresh owner authority and remains the only matching-row closure path.
 
 ## Current repository facts
 
