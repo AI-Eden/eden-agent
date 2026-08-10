@@ -408,6 +408,14 @@ try {
         terminal.write("t");
         await waitFor(screen, (value) => value.includes("trust: trusted"), `${label} trust`);
       }
+      if (screen().includes("Current-workspace history")) {
+        terminal.write("b");
+        await waitFor(
+          screen,
+          (value) => value.includes("Enter focuses task"),
+          `${label} workspace return`,
+        );
+      }
       for (
         let index = 0;
         index < 16 && !screen().includes("focus: workspace.composer");

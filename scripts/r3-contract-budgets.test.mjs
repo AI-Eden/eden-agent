@@ -1,6 +1,6 @@
 import { strictEqual } from "node:assert";
 import { createHash } from "node:crypto";
-import { chmod, copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -47,11 +47,11 @@ function modelCompleted(toolCalls, text = "x".repeat(4_096)) {
   };
 }
 
-async function copyCommandFixture(root) {
+async function createCommandFixture(root) {
   const directory = join(root, "bin");
-  const program = process.platform === "win32" ? "eden-node-fixture.exe" : "eden-node-fixture";
+  const program = "eden-command-fixture.js";
   await mkdir(directory);
-  await copyFile(process.execPath, join(directory, program));
+  await writeFile(join(directory, program), "process.exit(0);\n", "utf8");
   if (process.platform !== "win32") await chmod(join(directory, program), 0o755);
   return { directory, program };
 }
@@ -61,7 +61,7 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
   await mkdir(join(root, "src"));
-  const commandFixture = await copyCommandFixture(root);
+  const commandFixture = await createCommandFixture(root);
   try {
     const safe = new SafeActuationEffectHost(
       new AnchorEditService({ stateDirectory, workspaceRoot: root }),
@@ -215,7 +215,7 @@ test("the independently counted complete R3-A maximum fixture fits 2 MiB and 409
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
   await mkdir(join(root, "src"));
-  const commandFixture = await copyCommandFixture(root);
+  const commandFixture = await createCommandFixture(root);
   try {
     const safe = new SafeActuationEffectHost(
       new AnchorEditService({ stateDirectory, workspaceRoot: root }),
