@@ -2,6 +2,16 @@
 
 The workflow is deliberately small: explore, freeze, build, review, and finish. The repository owns project state, phase exits, and human checkpoints. Agent-native tools are sufficient for the default path; a focused local skill may supply one bounded capability inside a phase.
 
+## Proportionality and stopping
+
+- Treat the user-specified goal, accepted scope, current workflow phase, and stop condition as authoritative. Report a conflict instead of redefining the task.
+- Use the smallest existing mechanism that satisfies the accepted requirement. Add an abstraction, compatibility layer, artifact, gate, or broader validation only when required by the request, an accepted contract, a changed trust boundary, or an observed failing case.
+- Include an adjacent issue only when it blocks current acceptance, was caused by the current change, or would make the delivery internally inconsistent. Report other findings without investigating or fixing them.
+- Reuse evidence while its declared inputs and relevant repository state remain unchanged. Re-run only checks invalidated by a later relevant edit or explicitly required at Finish.
+- Stop when scoped acceptance passes and in-scope blockers are resolved. Proceed with safe in-scope reads, edits, and non-destructive checks; ask only for destructive or external action, material new cost, material ambiguity, or scope expansion.
+
+Use Git object IDs for commit and submodule identity. Add or persist a content hash only when an accepted integrity, approval, recovery, caching, or content-addressing contract names its consumer and failure mode. A hash mismatch is evidence to inspect, not an automatic reason to restart unrelated work.
+
 ## 1. Explore
 
 Use this phase when the problem or design space is still uncertain.
