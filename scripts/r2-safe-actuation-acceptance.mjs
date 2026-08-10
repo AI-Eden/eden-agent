@@ -297,8 +297,9 @@ async function runScenario(name) {
   const before = await readFile(join(workspace, "tracked.txt"));
   let transcript = "";
   const columns = name === "narrow-review" ? 60 : 120;
-  const rows = name === "narrow-review" ? 20 : 60;
-  const screen = () => terminalScreenText(transcript, columns, rows);
+  const initialRows = name === "narrow-review" ? 20 : 60;
+  let screenRows = initialRows;
+  const screen = () => terminalScreenText(transcript, columns, screenRows);
   const approvalSurface = {
     base: false,
     digest: false,
@@ -332,7 +333,7 @@ async function runScenario(name) {
       TERM: "xterm-256color",
     },
     name: "xterm-256color",
-    rows,
+    rows: initialRows,
   });
   const data = terminal.onData((chunk) => {
     transcript = `${transcript}${chunk}`.slice(-2 * 1_048_576);
@@ -442,6 +443,10 @@ async function runScenario(name) {
         },
         "narrow child proposal",
       );
+      const previousTranscript = session.transcript;
+      screenRows = 100;
+      terminal.resize(columns, screenRows);
+      await waitForTerminalActivity(session, previousTranscript, 2_000);
       for (let attempt = 0; attempt < 48; attempt += 1) {
         if (compactTerminal(screen()).includes("proposalrevision2")) break;
         terminal.write("\u001B[B");
