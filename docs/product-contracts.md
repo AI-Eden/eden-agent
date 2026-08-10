@@ -258,6 +258,34 @@ the runner, and deterministic active recovery are implemented and published. The
 recovered the same exact container from durable `effect_intent`, consumed no second approval, created no
 duplicate object, recorded its receipt before cleanup, and returned the daemon to zero containers.
 
+## Accepted R3 Freeze
+
+The R3 protocol adds only closed renderer-neutral commands, events, and views. Every new action continues to use canonical identity, default-deny policy, exact approval where required, durable effect facts, and action-specific recovery.
+
+### Usable coding activity
+
+`git_diff_v1` joins repository tool activity as a read-only semantic call with root-relative scope, continuation, current `HEAD`, source/status hashes, complete page identity, and bounded model/product content. It exposes no executable, argv, raw stdout/stderr, external diff driver, textconv, or environment.
+
+`write_file_v1` is a canonical action whose product presentation shows path, target and parent absence identity, complete content length/hash, fixed mode, scope, reason, policy, one-use lifetime, trusted-host truth, and 32 KiB limit. Its result is created, stale, denied, cancelled, failed, or unknown. Product review can show the complete Eden-created patch while keeping the untracked path distinct from the tracked Git patch.
+
+`run_command_v1` presents the resolved executable identity, literal argv, cwd, reason, scrubbed-environment class and identity, timeout, stdout/stderr and aggregate bounds, process-tree policy, `network=host_unrestricted`, `executionMode=trusted_host_policy_only`, `isolation=none`, policy decision, digest, and one-use lifetime. It has no shell text, stdin, environment values, broad approval flag, or isolation claim.
+
+Tool and action failures carry stable code, recoverability, bounded evidence identity, and suggested next actions. A recoverable result may return to model context within budget. `unknown` process recovery never does; it projects a user decision boundary.
+
+### Plan and Goal activity
+
+New commands create or revise a journal-local `PlanArtifactV1`, approve its exact revision, select execution context policy, approve one `GoalSpecV1`, request pause/cancel/resume, and resolve existing exact action approvals. No command can forge plan approval, goal approval, consumed authority, verifier observations, Evidence Pack identity, or terminal success.
+
+Product events project plan revision and approval, goal identity and budget, phase/checkpoint transitions, completion candidate, verification start/result, repair observation and remaining budget, Evidence Pack publication, and verifier terminal outcome. ProductView reconstructs the same facts from snapshot plus cursor events.
+
+`eden run resume <run-id>` is an interactive execution command distinct from `eden run show --json <run-id>`. `eden run resume --json <run-id>` emits NDJSON from the exact replayed run and stops at approval boundaries rather than accepting a broad preapproval flag. Neither form may continue an unavailable, wrong-workspace, terminal, ambiguous, stale, or policy-incompatible run.
+
+`EvidencePackV1` contains only durable verifier and runtime facts. Its public value includes artifact version, content hash and size, plan/goal identities, diff summary, check and artifact summaries, policy exceptions, budget use, environment/support metadata, and residual risk. Raw provider payloads, secrets, unrestricted command output, internal traces, and model-authored success prose are excluded.
+
+### Optional R3-D activity
+
+R3-D adds no contract until its separate owner activation. If activated under ADR 0019, its public boundary is exactly one read-only child lifecycle/result and two bounded web source activities. Absence of those variants is valid for R3-E and cannot be rendered as a hidden or disabled release requirement.
+
 ## Run catalog and inspection
 
 The pre-release protocol v1 adds closed, non-throwing decoders for these renderer-independent values:
@@ -351,6 +379,9 @@ Fixtures must prove that:
 - snapshots plus cursor events reconstruct the current view;
 - internal events cannot leak unredacted secrets;
 - clients cannot forge approval or terminal facts.
+- plan, goal, checkpoint, repair, Evidence Pack, and verifier fixtures reject renderer- or model-forged authority;
+- structured command fixtures reject shell text, environment injection, stale executable identity, broader network claims, and automatic retry after unknown dispatch;
+- new-file fixtures reject overwrite, missing-parent creation, link or parent drift, over-budget content, and untracked/attributed-patch conflation;
 - catalog entries decode as closed values, remain scoped to one canonical workspace, and expose corruption
   without hiding valid runs;
 - inspection values preserve exact summary/view identity and cannot become execution commands.

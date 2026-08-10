@@ -2,8 +2,7 @@
 
 ## Status
 
-Deferred beyond the accepted R2 execution boundary. This record does not approve a general shell tool,
-command grammar, sandbox claim, approval bypass, or implementation stage.
+ADR 0019 accepts one R3 shell-free structured process request as part of the approved Freeze packet. A shell-language tool, sandbox claim, approval bypass, unrestricted environment, background-control protocol, or broader implementation stage remains deferred.
 
 ## Current R2 boundary
 
@@ -23,11 +22,9 @@ digests, policy, approval, cancellation, receipts, trusted-host containment, and
 It executes no repository code. The Docker repository-check contract is separately frozen under ADR 0017
 but remains unimplemented.
 
-The owner-approved Freeze direction for that bounded Docker slice uses a repository-declared named
-check, not model-authored executable, arguments, or shell text. The selected catalog, image, and repository
-snapshot boundaries are frozen implementation input rather than current implementation truth. Their
-deferred alternatives are tracked separately in
-[Repository Check Contract Evolution](repository-check-contract-evolution.md).
+The accepted and implemented Docker slice uses a repository-declared named check, not model-authored executable, arguments, or shell text. Its catalog, image, snapshot, containment, lifecycle, and evidence boundaries remain distinct from the accepted but unimplemented R3 trusted-host structured process action. Their deferred alternatives are tracked separately in [Repository Check Contract Evolution](repository-check-contract-evolution.md).
+
+The accepted R3 `run_command_v1` selects the first viable architecture family below: a model supplies one program name and literal argv through a closed schema, while runtime code resolves the exact executable, owns the scrubbed environment, closes the canonical action, applies default-deny policy and exact approval, and dispatches with `shell: false`. It truthfully reports trusted-host policy containment, `isolation=none`, and `network=host_unrestricted`. ADR 0019 does not approve shell-language text or claim that structured argv constrains child effects.
 
 ## Deferred product problem
 
@@ -44,9 +41,7 @@ approval as separate controls and describe their guarantees separately.
 
 ## Current guarantees and non-claims
 
-R2 guarantees only the capabilities and fixed command shapes named by an accepted plan. The accepted
-safe-actuation packet freezes fixed Git diff/check, not a model-authored command; the guarantee changes
-only after implementation evidence passes.
+The implemented product guarantees only the R2 capabilities and fixed command shapes named by accepted plans. The accepted R3 structured process contract changes no product claim until Build is separately authorized and implementation evidence passes.
 
 R2 does not claim that:
 

@@ -47,6 +47,18 @@ portability regression surfaces, not real Docker Desktop support. Real macOS Doc
 Docker Desktop, and independent external-user evidence are optional and remain explicitly `not-run` until
 exercised. This milestone does not establish release support.
 
+## R3 resume-ready product direction
+
+The owner accepted the accelerated R3 direction and complete Freeze packet on 2026-08-10. The packet keeps five named milestones while making `R3-A -> R3-B -> R3-C -> R3-E` the blocking release path:
+
+- R3-A makes the existing real-provider loop usable for a bounded repository task with model-visible diff, exclusive new-file creation, shell-free controlled command execution, structured failures, and non-success `completed` review.
+- R3-B reconstructs the OpenTUI product shell around real runtime truth before Plan and Goal add more states.
+- R3-C adds Plan review and approval, GoalSpec, required checks, bounded repair, checkpointed resume, verifier-owned `succeeded`, and an Evidence Pack.
+- R3-D may add exactly one read-only ExploreAgent plus bounded web search and fetch after R3-C, but requires separate activation and does not block R3-E.
+- R3-E packages and documents the first verified patch journey on the declared reference platform.
+
+The first resume-ready claim requires a packaged owner-operated journey from public instructions in a fresh isolated environment. It must show a normal bounded coding loop, plan approval, a failed required check, repair within budget, verifier success, diff and Evidence Pack review, and one interruption/resume path. It does not require R3-D and does not imply broad release support.
+
 ## Later surface
 
 Eden Studio is a cross-platform session control plane considered only after the local-service architecture gate. It adds multi-project navigation, dense review, notifications, keychain integration, installers, and updates. It must not duplicate the harness or become a code editor.
@@ -59,6 +71,8 @@ Eden Studio is a cross-platform session control plane considered only after the 
 - Exposing a local daemon directly to the public internet.
 - Treating raw reasoning or token streaming as product transparency.
 - Maximizing tool or subagent count.
+- Treating a shell-free structured process request as a general shell or sandbox.
+- Requiring ExploreAgent or web tools for the first resume-ready release.
 
 ## Success measures
 

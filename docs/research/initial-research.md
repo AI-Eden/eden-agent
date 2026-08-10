@@ -4,7 +4,7 @@
 
 This document records the research thesis that led to eden-agent's product and architecture direction. It is independent background, not a normative specification. Accepted ADRs, `SPEC.md`, and `PRODUCT.md` take precedence.
 
-> Proposed delivery update: R0-R2 delivery evidence and the portfolio schedule motivate an R3-plus sequencing calibration. The proposal is recorded in [R3 Accelerated Delivery Decision Brief](2026-08-10-r3-accelerated-delivery-decision-brief.md); it does not supersede this baseline or authorize implementation before owner acceptance and Freeze.
+> Accepted delivery update: R0-R2 delivery evidence and the portfolio schedule motivated the R3-plus sequencing calibration recorded in [R3 Accelerated Delivery Decision Brief](2026-08-10-r3-accelerated-delivery-decision-brief.md). The owner accepted the direction with R3-D non-blocking and approved the corresponding Freeze packet; Build remains separately unauthorized.
 
 The research asks a portfolio-driven question: what should a solo, open-source coding-agent project own and demonstrate if its author wants to show both harness engineering and independent product ability?
 
@@ -209,7 +209,7 @@ Do not port the kernel, orchestration, or policy engine. Candidate native primit
 
 ## Delivery roadmap
 
-> This section records the initial R0-R7 roadmap. R0-R2 history is not rewritten after delivery; the proposed R3-plus calibration is documented separately in the [R3 Accelerated Delivery Decision Brief](2026-08-10-r3-accelerated-delivery-decision-brief.md).
+> This section records the initial R0-R7 roadmap. R0-R2 history is not rewritten after delivery; the accepted R3-plus calibration and completed Freeze boundary are documented separately in the [R3 Accelerated Delivery Decision Brief](2026-08-10-r3-accelerated-delivery-decision-brief.md).
 
 ### R0: product contract and spikes
 

@@ -17,4 +17,8 @@
 12. The user inspects diff, checks, artifacts, exceptions, and residual risk.
 13. They accept, request another repair, open the changes in an editor, or export a sanitized diagnostic bundle.
 
+The blocking R3-E proof instantiates this journey as one packaged first verified patch: the owner follows public instructions in a fresh isolated environment, approves a plan and exact actions, creates or edits, observes a failed required check, repairs within budget, resumes across one interruption, reaches verifier-owned success, and reviews the diff and Evidence Pack.
+
+R3-D is optional. When separately delivered, a Plan or Goal may request one bounded read-only child result or source-backed web result. The primary journey remains complete when those capabilities are absent, and the product must not display them as hidden release requirements.
+
 The journey is incomplete if any transition requires the user to inspect raw JSON, infer whether a command actually ran, or trust a natural-language completion claim.

@@ -150,6 +150,22 @@ recovery are also complete. The passing real probe reopened the same durable tra
 same exact container, recorded `container.created`, `dispatch.started`, receipt-before-cleanup, cleanup,
 and terminal facts in order, and performed no duplicate create or second approval.
 
+## Accepted R3 Freeze
+
+R3-A keeps one generic lifecycle rule but adds typed facts for run-budget initialization and consumption, semantic Git-diff requests/results, new-file proposal/policy/approval/effect/observation/reconciliation, structured-command proposal/policy/approval/dispatch/observation/reconciliation, and recoverable tool observations. The generic names do not erase action-kind payload validation.
+
+New-file recovery is content and parent-identity derived. Exact approved bytes at the target are completed; proven absence under the same parent identity is not started; any other target or parent state is stale or unknown. Command recovery follows process semantics: after dispatch starts, missing terminal evidence is unknown and cannot create a new dispatch.
+
+Budget consumption is a durable fact before the corresponding model, tool, or action dispatch. A reducer cannot request an effect whose declared observation would exceed model-step, tool, action, time, content, output, record, or journal limits. Replay reconstructs identical remaining budgets without metering external work again.
+
+R3-C adds closed facts for plan created/revised/approved, execution context selected, goal proposed/approved, checkpoint committed, completion candidate proposed, verification started, check observed, repair requested/exhausted, Evidence Pack persisted, resume requested/revalidated/blocked, and verifier terminal outcome. Plan or goal revision invalidates approvals through ordinary reduction rather than renderer convention.
+
+A checkpoint is a safe-boundary observation, not repository mutation. Resume first replays to the checkpoint, then appends reconciliation and current-workspace observations before any new effect. A stale or unknown result becomes blocked; it never rewrites old facts or dispatches optimistically.
+
+The verifier may emit `run.succeeded` only after the current GoalSpec identity, required checks, scope, artifacts, unresolved effects, policy facts, budgets, and persisted Evidence Pack all match. A completion candidate or model answer has no transition to `succeeded`.
+
+If separately activated, R3-D uses one parent-requested child identity and distinct child journal. Parent events project assigned, started, cancelled, completed, blocked, or failed lifecycle and one structured result reference; they do not inline child internal events or expand parent capability. Web observations retain source and network-policy identity and remain untrusted evidence.
+
 ## Replay
 
 Replay consumes only the journal and pure migrations. It must rebuild both `RunState` and product projections without calling providers or tools. Unknown future events fail visibly unless an explicit compatibility rule allows them to be ignored.

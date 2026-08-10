@@ -22,6 +22,10 @@ R2 adds a persistent authority strip, profile/readiness block, context-source su
 and read-only semantic-tool card. Spacing, borders, semantic status, emphasis, density, focus,
 disabled/awaiting state, and narrow fallbacks use shared tokens rather than component-local decoration.
 
+R3-B turns these elements into one composable product shell: session navigation, transcript, persistent multiline composer, authority/status bar, contextual review drawer, overlays, and a typed tool-card registry. The shared tokens cover semantic color, spacing, border, typography hierarchy, focus, density, disabled state, awaiting state, and theme variants. Component-local values require a measured exception rather than becoming a second design language.
+
+User input and complete model answers remain the primary reading flow. Repository, command, diff, check, approval, recovery, and evidence activity use compact summaries with progressive detail. A shared card envelope controls hierarchy and interaction but never erases typed authority, source, budget, outcome, or recovery facts.
+
 ## Accessibility
 
 Support terminal contrast variation, color-blind-safe status encoding, visible focus, screen-reader-friendly text where the renderer permits it, reduced motion, and complete keyboard navigation.

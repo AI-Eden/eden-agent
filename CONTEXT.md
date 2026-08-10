@@ -17,6 +17,8 @@ public candidate `3c23446db471eead735a0ac971551c43ecb55759` passed the Ubuntu, m
 matrix in run 30382567704. This closes the accepted safe-actuation packet, not all of R2 and not release
 support.
 
+On 2026-08-10 the owner accepted the accelerated R3 decisions with one amendment: R3-D remains a bounded read-only ExploreAgent plus web-tools direction but is non-blocking and requires separate activation. The blocking path is R3-A usable coding loop, R3-B TUI product-shell reconstruction, R3-C Plan plus verified Goal, and R3-E resume-ready release. The owner then accepted ADR 0019, the normative and focused document updates, and `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md` as the R3 Freeze packet. They are fixed Build input, but R3 Build, R3-D activation, provider/network use, Docker use, and publication remain unauthorized.
+
 On 2026-07-29 the owner accepted all 17 Docker repository-check Explore decisions and confirmed shared
 understanding. The decision frontier is empty. The owner then accepted ADR 0017, the focused public
 contracts, decision brief, and `docs/plans/2026-07-29-r2-docker-repository-check.md` as one Freeze packet.
@@ -66,6 +68,7 @@ unauthorized.
 ## Current truth
 
 - The public product is English-only.
+- The accepted R3 Freeze packet is implementation input, not implementation truth. Until Build is separately authorized and its evidence passes, the current production surface remains the completed R2 product described below.
 - The terminal product is part of the first vertical slice, not post-harness decoration.
 - The runtime is TypeScript-first and event-sourced.
 - The first provider is fake; the first real provider arrives after deterministic foundations.

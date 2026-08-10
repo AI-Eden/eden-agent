@@ -24,6 +24,8 @@ Linux/WSL2 reference platform. Real macOS Docker Desktop, real Windows Docker De
 external-user evidence remain optional `not-run` rows and do not establish or block this roadmap
 milestone. Release support remains outside R2.
 
+On 2026-08-10 the owner accepted the accelerated R3 delivery direction with R3-D changed to a separately activated, non-blocking milestone, then accepted ADR 0019, the focused contract changes below, and `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md` as the complete Freeze packet. They are fixed Build input, but Build remains separately unauthorized and no R3 implementation or success claim follows from this contract text.
+
 ## User story
 
 As a developer in a local Git repository, I can give Eden a coding task and acceptance checks, review its grounded plan, approve only scoped risky actions, interrupt or resume safely, and accept the result only after seeing the diff and verifier-produced evidence.
@@ -247,6 +249,60 @@ platform manifest. Only when it is absent may the exact config digest select tha
 application-owned immutable platform mapping. Malformed, missing, or contradictory evidence blocks; this
 fallback performs no registry lookup or network request.
 
+## Accepted R3 Freeze
+
+### Delivery graph
+
+The blocking path is `R3-A -> R3-B -> R3-C -> R3-E`. R3-D becomes eligible after R3-C but requires a separate owner activation and may be skipped or delivered after R3-E without weakening the release gate. Every milestone that enters Build must close through a runnable vertical journey and matching-surface evidence.
+
+### R3-A usable coding-loop contract
+
+- `usable_coding_v1` has hard ceilings of 12 model steps, 16 tool calls, 8 executable action proposals, 30 minutes wall time, 512 KiB aggregate model-visible tool content, and 256 KiB aggregate command output. Existing 64 KiB record, 1 MiB journal, and 4096-record limits remain authoritative. Runtime accounts every budget durably and blocks before dispatch when the next observation cannot fit.
+- `git_diff_v1` is read-only and model-visible. The model supplies only closed semantic scope and continuation. Runtime owns Git, fixed hardened arguments, cwd, scrubbed environment, parsing, paging, current `HEAD`, status/content identity, and complete page hashes. Each page is at most 24 KiB; at most four pages may be admitted to one run.
+- `write_file_v1` creates one new regular UTF-8 file of at most 32 KiB beneath the captured trusted root in an already existing regular directory. The canonical action binds path, parent and target absence, content bytes/length/hash, mode `0644`, workspace/scope/policy identities, and lifetime. Execution uses exclusive creation and parent/target revalidation. It cannot overwrite, append, create a directory, follow a link, accept a hardlink, stage, chmod, delete, or rename.
+- `run_command_v1` is a shell-free structured request. It contains one bounded program name, at most 64 literal argv values and 8 KiB total argv, one normalized root-relative cwd, reason, timeout no greater than 10 minutes, and a declared network need. It contains no shell text, redirection, interpolation, stdin, environment value, approval, or background-control field.
+- Runtime resolves the exact executable before policy and binds the resolved identity, argv, cwd, closed scrubbed environment identity, timeout, stream and aggregate output limits, process-tree ownership, network truth, execution mode, policy revision, and single-use lifetime into `ActionEnvelopeV1`. Both `write_file_v1` and `run_command_v1` are default-denied and evaluate to `ask` only in their exact closed shapes.
+- Trusted-host command execution reports `executionMode=trusted_host_policy_only`, `isolation=none`, and `network=host_unrestricted`. Approval and environment scrubbing do not constrain repository scripts, interpreters, descendants, filesystem access, or network behavior. A contained or network-denied command profile requires a separate accepted contract and evidence.
+- Each command stores at most 64 KiB stdout and 64 KiB stderr; aggregate command output across the run is at most 256 KiB. Overflow, timeout, cancellation, non-zero exit, resolution failure, policy denial, stale action, and unknown recovery are distinct closed observations.
+- A closed failure may return to the model when its recoverability and remaining budget permit. A process with durable dispatch and no terminal receipt is `unknown`, blocks for explicit user resolution, and never retries automatically.
+- New-file review uses an Eden-attributed empty-to-created patch plus current repository status; it does not pretend that an untracked file belongs to Git's tracked patch. The combined review remains complete-or-blocked within its declared limits.
+- R3-A ends in non-success `completed`. Model output, commands, named checks, and diff inspection cannot emit `succeeded`.
+
+### R3-B terminal product-shell contract
+
+- Bun and OpenTUI remain the release runtime and renderer. AgentClient, ProductView, journal truth, protocol versioning, and PTY evidence seams remain the only product-state authority.
+- The TUI separates app shell, session navigation, transcript, persistent multiline composer, status/authority bar, contextual review drawer, overlays, and typed tool-card registry. Renderer state is limited to layout, focus, selection, draft, expansion, and scroll.
+- The registry shares a presentation envelope but preserves typed tool/action/check details. It cannot create a generic execution schema or mock-only Plan, Goal, child, web, verification, or Evidence Pack state.
+- Narrow layout uses one primary column with explicit switching; medium uses conversation plus drawer; wide uses session navigation, conversation, and contextual review. Resize preserves focus identity, active approval identity, selection, expansion, and scroll anchor.
+- Complete user input and model answers remain the main reading flow. Tool activity is compact by default. Diff, command, approval, recovery, verification, and evidence expand progressively without renderer-owned summaries becoming execution facts.
+- The real executable must cover provider onboarding, a repository task, streamed tools, exact approval, changed files and diff, structured failure recovery, final answer, narrow/medium/wide resize, CJK paste, and representative output volume.
+
+### R3-C Plan and verified-Goal contract
+
+- `PlanArtifactV1` is journal-local product state, not a workspace file. It contains identity, revision, objective, ordered steps, acceptance checks, required capabilities, assumptions, risks, and non-goals and is closed within 24 KiB. Plan mode may read repository evidence and revise this artifact but has no workspace-write, command, approval, or success authority.
+- Only a human command may approve the current PlanArtifact revision. Any revision supersedes the prior approval. Execute requires one explicit context policy: `fresh`, `compact`, or `keep_context`; the choice changes provider context only.
+- `GoalSpecV1` binds one approved plan revision and contains a canonical digest, objective, canonical workspace and path scope, one to eight required checks, up to eight optional checks, up to sixteen expected artifacts, allowed capabilities, model/tool/action/time/repair budgets, stop conditions, workspace-drift policy, and `checkpoint_only_no_automatic_rollback` strategy.
+- Goal approval is human-owned and digest-bound. A model cannot approve or weaken the goal, remove a required check, widen scope or capability, raise a budget, replace the plan revision, or emit terminal success.
+- R3 uses the current trusted worktree. A checkpoint durably records plan/goal identity, `HEAD`, scoped status and content identities, completed effects, approval state, budgets, and verifier state at a safe boundary. It is not a Git commit, stash, copied worktree, filesystem snapshot, or rollback promise. Eden does not automatically create worktrees, reset user changes, or roll back files.
+- Required checks are exact goal-approved named checks or closed `run_command_v1` actions. Verifier code revalidates workspace and GoalSpec identity, unresolved effects, diff scope, required checks, expected artifacts, policy evidence, and budgets against current observations.
+- A completion candidate starts verification but does not change terminal state. `succeeded` requires every required check to pass, scope to remain valid, required artifacts to exist, no unresolved effect or policy violation, a current Evidence Pack, and one verifier-produced terminal event.
+- Failed required checks produce a minimum structured repair observation containing check identity, outcome, bounded diagnostics, hashes, and suggested next action without secret or unrestricted raw-output promotion. The default repair budget is one cycle and the hard maximum is two. Exhausted repair becomes `failed`; missing authority, unavailable capability, ambiguous effect, or required human input becomes `blocked`.
+- `eden run resume <run-id>` opens one exact run interactively. `eden run resume --json <run-id>` emits the same durable product stream and stops at interactive approval boundaries. Resume is distinct from read-only inspection, replays before I/O, reconciles only the owning effect kind, revalidates workspace/plan/goal/policy/provider facts, and dispatches only from a declared resumable safe boundary.
+- `EvidencePackV1` is a versioned runtime-state artifact of at most 256 KiB. Its journal event binds its SHA-256, byte length, GoalSpec and plan identities, scoped diff summary, required and optional checks, produced artifacts, policy exceptions, budget use, environment and support metadata, and residual risk. The artifact is persisted before the verifier emits `succeeded`.
+
+### R3-D optional exploration contract
+
+R3-D is not release-blocking and receives no Build authority from approval of the blocking plan. If separately activated after R3-C, it is limited to exactly one read-only ExploreAgent plus `web_search_v1` and `web_fetch_v1` under the boundaries in ADR 0019. Until its implementation and matching evidence pass, ProductView, README, demo, and resume claims omit child-agent and web capability.
+
+### R3-E release contract
+
+- The blocking capability gate includes the real-provider path; bounded list/read/search/status/diff; AnchorEdit; exclusive new-file creation; shell-free controlled command; named checks; Plan review/revise/approve/execute; Goal verification; bounded repair; durable resume; Evidence Pack; coherent TUI and headless paths; and installation and diagnosis documentation. It does not include R3-D.
+- The owner must complete one first verified patch from public instructions and the packaged artifact in a fresh isolated environment on the declared Linux/WSL2 reference platform. Source-tree execution does not satisfy this gate.
+- Three reproducible journeys cover happy path, approval/recovery, and failed-required-check/repair. Each records exact commands, application and artifact hashes, fixture identity, visible product evidence, terminal outcome, cleanup, and known limitations.
+- Release evidence covers package smoke, provider onboarding, workspace trust, Plan, edit or create, command or named check, failed verification, repair, verifier success, diff, Evidence Pack, interruption/resume, doctor, troubleshooting, upgrade compatibility, and uninstall or clean removal instructions.
+- Real TUI evidence covers narrow, medium, and wide viewports, resize, CJK paste, representative output and diff volume, focus safety, terminal restoration, and the 60-90 second demo path.
+- The allowed claim is a resume-ready v0.1 on the declared reference platform with the exact hosted regression and optional rows named by the release evidence. It does not imply signing, package-manager publication, update-channel support, equal Docker/Desktop support, native sandbox parity, or any unexecuted R3-D capability.
+
 ## Persistence and recovery
 
 Append-only JSONL is the initial journal format. Every effect has an idempotency or reconciliation
@@ -283,4 +339,4 @@ separate evidence targets; the framework decision does not imply support without
 
 ## Release threshold
 
-R3 is v0.1 only when an unfamiliar tester can install the artifact, complete a verified patch in a fixture repository, recover from at least one interruption, and review the result without reading source code.
+R3 is v0.1 only when the owner can use public instructions and the packaged artifact in a fresh isolated environment on the declared reference platform to complete a verified patch in a fixture repository, recover from at least one interruption, and review the result without reading source code. Independent external-user evidence remains desirable but optional under ADR 0018 and cannot substitute for verifier completion.

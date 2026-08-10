@@ -19,6 +19,16 @@ R1 requires clean-machine installation for the selected development distribution
 
 Unsupported guarantees, especially native sandbox parity, must be visible in the product and release notes.
 
+## Accepted R3 Freeze evidence gates
+
+The blocking R3 path is R3-A, R3-B, R3-C, and R3-E. R3-D ExploreAgent and web tools require separate activation and are not release gates. If they are not implemented, every release artifact, README, demo, and resume claim must omit them.
+
+R3-E requires one owner-operated first verified patch from public instructions and a packaged artifact in a fresh isolated environment on the declared Linux/WSL2 reference platform. The evidence records exact source and artifact hashes, fixture identity, install or archive setup, provider onboarding, workspace trust, Plan approval, edit or exclusive create, structured command or named check, failed required verification, bounded repair, verifier success, diff, Evidence Pack, interruption/resume, doctor, troubleshooting, upgrade compatibility, uninstall or clean removal, and cleanup truth.
+
+Three reproducible packaged journeys cover happy path, approval/recovery, and failed-check/repair. Real OpenTUI evidence covers narrow, medium, and wide viewports, resize, CJK paste, representative output and diff volume, focus safety, terminal restoration, and the 60-90 second demo flow.
+
+Hosted Ubuntu, macOS, and Windows repeat affected contract, package, TUI, and negative-prerequisite lanes when their inputs change and at the release candidate. Only lanes with real matching execution support the corresponding platform claim. R2's real macOS/Windows Docker Desktop and independent-user rows remain optional `not-run`; R3 does not infer them.
+
 ## Accepted R2 reference-platform evidence gates
 
 The accepted 2026-07-29 Freeze packet and ADR 0018 separate the Linux/WSL2 reference-platform milestone

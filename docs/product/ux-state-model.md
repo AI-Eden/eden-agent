@@ -62,6 +62,12 @@ probe is shown as exact recovery before any new proposal. JSON mode projects app
 recovery-required and exits without mutation. Interactive recovery either closes a proven non-start as
 `not_started`, resumes the exact durable object, or stops fail-closed for ambiguous identity.
 
+For R3-A, command approval prioritizes resolved executable identity, literal argv, cwd, reason, scrubbed-environment identity, timeout/output budgets, `network=host_unrestricted`, `executionMode=trusted_host_policy_only`, `isolation=none`, digest, policy, and one-use lifetime. New-file approval prioritizes path, target/parent absence, content length/hash, fixed mode, scope, and exclusive-create truth. Neither card uses sandbox wording.
+
+For R3-C, planning shows artifact revision, assumptions, risks, acceptance checks, capabilities, and approval state. Goal execution keeps objective, scope, required checks, remaining model/tool/action/time/repair budgets, current checkpoint, and blockers visible. Verifying and repairing are distinct states; a failed required check cannot be styled as success, and an Evidence Pack appears only from persisted verifier facts.
+
+Resume is an explicit action on one eligible exact run, not a control on read-only historical inspection. The resume surface shows the last safe checkpoint, workspace drift, unresolved effects, approvals requiring review, and the next permitted transition before any dispatch.
+
 ## Responsive terminal layout
 
 - Narrow: one primary column with explicit view switching.

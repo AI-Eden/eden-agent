@@ -110,10 +110,20 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
   always-ask approval before create; journal receipt before exact cleanup; and block synthetic workspace,
   broad recovery, raw Docker diagnostics, or non-interactive approval. The passing real Slice 4 probe
   exercised these boundaries without adding repository or provider authority.
+- For `write_file_v1`, bind complete content and target/parent absence to the canonical action, require an existing contained regular parent, use exclusive creation, revalidate parent and target immediately before dispatch, and treat any different file or parent identity as stale or unknown. Never overwrite, append, create directories, follow links, stage, chmod, delete, or rename through this action.
+- For `run_command_v1`, accept only one structured program plus literal argv and contained cwd, resolve the executable before policy, reject shell text, stdin, model-supplied environment, and background-control fields, bind the scrubbed environment identity and every budget to approval, and terminate the owned process tree on timeout or cancellation.
+- Display trusted-host command truth as `isolation=none` and `network=host_unrestricted`. Approval, exact argv, environment scrubbing, timeout, or process-tree cleanup must never be described as filesystem, descendant-process, or network containment.
+- Preserve process uncertainty: after durable command dispatch, missing terminal evidence is `unknown`, requires explicit user resolution, and never authorizes automatic retry or verifier success.
+- Keep PlanArtifact writes journal-local and human approval revision-bound. Bind GoalSpec scope, checks, capabilities, budgets, stop conditions, and checkpoint policy to one canonical identity that models and renderers cannot widen or approve.
+- Treat checkpoints as durable evidence rather than rollback authority. Resume must replay and revalidate before I/O, reconcile only the owning effect kind, block stale or ambiguous state, and never create a Git worktree, commit, stash, reset, or rollback implicitly.
+- Persist and hash the Evidence Pack before terminal success. Only verifier code may join current goal, workspace, checks, scope, artifacts, policy, budget, and evidence facts into `succeeded`.
+- If R3-D is separately activated, give the child an independent journal and explicit read-only scope/budgets, inherit and narrow parent capability, propagate cancellation, and prevent child results from becoming approval or success facts. Web adapters must block non-public destinations and unsafe redirects, bound content and time, redact at ingestion, and treat remote content as untrusted evidence rather than instructions.
 
 ## Execution modes
 
 R2 distinguishes trusted-host execution from Docker isolation. They share policy vocabulary but make different guarantees. Native OS sandboxing is a later per-platform project; the UI must not imply equal isolation where evidence differs.
+
+R3-A structured commands run on the trusted host and therefore have broader real effects than their shell-free syntax suggests. The product must show exact action and non-isolation truth before approval. Goal approval may authorize exact required checks under policy, but it does not transform the host into a sandbox or authorize a different command revision.
 
 The accepted repository-check profile constrains one Linux container and its repository process. It does
 not constrain a compromised Docker daemon, Docker Desktop VM, host kernel, administrator, or malicious
