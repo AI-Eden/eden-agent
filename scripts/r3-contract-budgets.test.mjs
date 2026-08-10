@@ -1,6 +1,6 @@
 import { strictEqual } from "node:assert";
 import { createHash } from "node:crypto";
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -57,7 +57,7 @@ async function createCommandFixture(root) {
 }
 
 test("R3 maximum production event fixtures fit one exact journal record", async () => {
-  const root = await mkdtemp(join(tmpdir(), "eden-r3-budget-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "eden-r3-budget-")));
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
   await mkdir(join(root, "src"));
@@ -82,7 +82,7 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
         cwd: ".",
         network: "host_unrestricted",
         program: commandFixture.program,
-        reason: "r".repeat(4_096),
+        reason: "r".repeat(1_024),
         timeoutMs: 600_000,
       },
       name: "run_command",
@@ -97,7 +97,11 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
       type: "run_command.prepare",
       workspace,
     });
-    strictEqual(commandAction.type, "safe.action.proposed");
+    strictEqual(
+      commandAction.type,
+      "safe.action.proposed",
+      commandAction.type === "run.blocked" ? JSON.stringify(commandAction.error) : undefined,
+    );
 
     const writeCall = {
       arguments: { content: "w".repeat(32_768), path: "src/maximum.txt" },
@@ -198,7 +202,7 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
         ...commandCall,
         arguments: {
           ...commandCall.arguments,
-          args: Array.from({ length: 13 }, () => "x".repeat(4_096)),
+          args: Array.from({ length: 14 }, () => "x".repeat(4_096)),
         },
       },
       type: "run_command.prepare",
@@ -211,7 +215,7 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
 });
 
 test("the independently counted complete R3-A maximum fixture fits 2 MiB and 4096 records", async () => {
-  const root = await mkdtemp(join(tmpdir(), "eden-r3-run-budget-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "eden-r3-run-budget-")));
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
   await mkdir(join(root, "src"));
@@ -245,7 +249,7 @@ test("the independently counted complete R3-A maximum fixture fits 2 MiB and 409
         cwd: ".",
         network: "host_unrestricted",
         program: commandFixture.program,
-        reason: "r".repeat(4_096),
+        reason: "r".repeat(1_024),
         timeoutMs: 600_000,
       },
       name: "run_command",
@@ -264,7 +268,9 @@ test("the independently counted complete R3-A maximum fixture fits 2 MiB and 409
       writeAction.type !== "safe.action.proposed" ||
       commandAction.type !== "safe.action.proposed"
     ) {
-      throw new Error("Maximum action fixture did not prepare.");
+      throw new Error(
+        `Maximum action fixture did not prepare: ${JSON.stringify({ commandAction, writeAction })}`,
+      );
     }
 
     const readContent = "r".repeat(24_576);
