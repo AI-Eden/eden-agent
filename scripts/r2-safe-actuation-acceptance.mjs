@@ -434,10 +434,20 @@ async function runScenario(name) {
     }
     if (name === "deny-narrow") {
       terminal.write("d");
-      for (let index = 0; index < 32; index += 1) {
+      await waitFor(
+        screen,
+        (value) => {
+          const compact = compactTerminal(value);
+          return compact.includes("approval:pending") && compact.includes("tools2");
+        },
+        "narrow child proposal",
+      );
+      for (let attempt = 0; attempt < 5; attempt += 1) {
         if (compactTerminal(screen()).includes("proposalrevision2")) break;
-        terminal.write("\u001B[B");
-        await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+        await waitForTerminalQuiet(session, 100);
+        const previousTranscript = session.transcript;
+        terminal.write("\u001B[F");
+        await waitForTerminalActivity(session, previousTranscript, 1_000);
       }
       await waitFor(
         screen,
