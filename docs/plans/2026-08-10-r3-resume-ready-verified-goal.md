@@ -1,6 +1,6 @@
 # R3 Resume-Ready Verified Goal Plan
 
-- Status: Amended Freeze and Build approved on 2026-08-11; R3-A milestone review pending
+- Status: R3-A milestone review completed on 2026-08-11; recommendation is do not accept or close
 - Date: 2026-08-10
 - Amended: 2026-08-11
 - Roadmap stage: R3, Verified Goal Product - v0.1
@@ -9,11 +9,11 @@
 - Required ADR: `docs/adr/0019-r3-resume-ready-vertical-delivery.md`
 - Blocking path: R3-A -> R3-B -> R3-C -> R3-E
 - Optional milestone: R3-D after R3-C, only with separate owner activation
-- Human checkpoint: review the R3-A candidate and its explicit `not-run` rows before any R3-B work
+- Human checkpoint: owner review of the failed matching-provider row is required before any new provider attempt or R3-B work
 
 ## Authority and entry conditions
 
-The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, and authorized public-first commits and pushes. Provider or network calls, Docker execution, hosted execution, R3-D activation, image or package publication, and release publication remain separately unauthorized.
+The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, authorized public-first commits and pushes, accepted the deterministic candidate, authorized copied packaged TUI evidence, and authorized exactly one matching real-provider/network fixture. That single provider authority has been consumed; another provider or network call requires fresh owner authority. R3-D activation, image or package publication, and release publication remain separately unauthorized.
 
 Build restarted only after that fresh authority. Its entry audit recorded and preserved the dirty Slice 0 draft and verified the public local/canonical/GitHub refs plus tutorial gitlink before the first new RED. Publication remains public repository first and tutorial gitlink second.
 
@@ -42,9 +42,11 @@ At the Freeze boundary no tool, action, verifier, resume, child, or web authorit
 
 ## R3-A Build review
 
-The deterministic implementation candidate closes Slices 0-5 at the local code boundary: production encoders prove maximum record/run budgets; an explicitly declared provider capability gates four-call read-only batches; replay preserves source order and blocks partial unknown work; Git diff uses semantic bounded pages with hardened Git configuration; new-file creation is exclusive and recovery-derived; structured commands bind exact executable identity, literal argv, contained cwd, scrubbed environment, bounded split output, process cleanup, and unknown post-dispatch recovery; and a real temporary-Git/Node journey ends in non-success `completed` with zero-effect replay. ProductView and OpenTUI contract tests expose exact command authority, bounded command output, diff identity, and `completed` truth at the accepted narrow, medium, and wide widths.
+The deterministic implementation candidate closes Slices 0-5 at the local code boundary: production encoders prove maximum record/run budgets; an explicitly declared provider capability gates four-call read-only batches; replay preserves source order and blocks partial unknown work; Git diff uses semantic bounded pages with hardened Git configuration; new-file creation is exclusive and recovery-derived; structured commands bind exact executable identity, literal argv, contained cwd, scrubbed environment, bounded split output, process cleanup, and unknown post-dispatch recovery; and a real temporary-Git/Node journey ends in non-success `completed` with zero-effect replay. ProductView and OpenTUI contract tests expose exact command authority, bounded command output, diff identity, and `completed` truth at the accepted narrow, medium, and wide widths. The owner accepted this deterministic candidate before matching-surface execution.
 
-The local milestone gate includes `pnpm test`, `pnpm typecheck`, `pnpm build`, `pnpm code:check`, `pnpm markdown:check`, `git diff --check`, repository status/ref review, focused R3 contract/runtime/process/recovery tests, and the deterministic integrated journey. Provider/network use was not authorized, so the required matching-provider journey is `not-run`. A copied packaged TUI journey was not produced in this Build slice and is also `not-run`. These two rows prevent R3-A acceptance and closure; this review must stop before R3-B.
+The local milestone gate includes `pnpm test`, `pnpm typecheck`, `pnpm build`, `pnpm code:check`, `pnpm markdown:check`, `git diff --check`, repository status/ref review, focused R3 contract/runtime/process/recovery tests, and the deterministic integrated journey. Candidate `092f9a107e93112b401a1c9e48dcad04ff064529` also passed the copied packaged TUI journey at `60x20`, `80x24`, and `100x30`; each run completed with 7 model attempts, 6 tool calls, 3 action proposals, a passing independent repository oracle, terminal restoration, no external network, and no verifier-success claim. Hosted R2 run [`31428717990`](https://github.com/AI-Eden/eden-agent/actions/runs/31428717990) passed Ubuntu, macOS, Windows, and Docker.
+
+The owner-authorized single matching real-provider attempt used the copied package, `https://api.deepseek.com`, `deepseek-v4-pro`, and normal TLS at the same candidate. It stopped before terminal completion at the explicit `network` retry boundary; the runtime performed no automatic retry and the driver emitted no passing JSON before cleaning its temporary directory. This row is failed rather than `not-run`. The completed milestone review therefore recommends no R3-A acceptance or closure. Before another review, retain a sanitized failure artifact, diagnose the normal-TLS network path without weakening certificate verification, obtain fresh owner authority, and pass the matching coding journey. Stop before R3-B.
 
 ## Current repository facts
 

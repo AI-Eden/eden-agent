@@ -168,3 +168,9 @@ and zero remaining containers. Companion R1 run
 platforms. Under ADR 0018 this evidence closes R2 on the declared Linux/WSL2 reference platform. Real
 macOS Docker Desktop, real Windows Docker Desktop WSL2, and independent external-user rows remain optional
 `not-run` evidence; corresponding platform support and release support are not closed or claimed.
+
+## R3-A milestone evidence
+
+At candidate `092f9a107e93112b401a1c9e48dcad04ff064529`, the deterministic implementation and copied packaged TUI journeys passed locally, and [hosted R2 run 31428717990](https://github.com/AI-Eden/eden-agent/actions/runs/31428717990) passed Ubuntu, macOS, Windows, and Docker. The copied Linux x64 package completed the bounded coding journey at `60x20`, `80x24`, and `100x30` with terminal restoration, exact budget usage, independent repository oracles, no external network, and no verifier-success claim.
+
+The one owner-authorized normal-TLS `deepseek-v4-pro` R3-A attempt stopped before completion at the explicit `network` retry boundary and was not retried. This failed row neither reopens the completed R2 claim nor establishes R3 provider or release support. R3-A remains open, R3-B remains not started, and another provider/network attempt requires fresh owner authority.
