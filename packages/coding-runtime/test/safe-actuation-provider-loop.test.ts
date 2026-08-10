@@ -16,6 +16,7 @@ import { projectJournal } from "../src/projection.ts";
 import { RunEffectHost } from "../src/run-effect-host.ts";
 import { RuntimeEngine } from "../src/runtime.ts";
 import { SafeActuationEffectHost } from "../src/safe-actuation-host.ts";
+import { WriteFileService } from "../src/write-file.ts";
 
 const clock = { now: () => new Date("2026-07-28T10:00:00.000Z") };
 
@@ -68,6 +69,7 @@ async function runtime(
     new AnchorEditService({ stateDirectory, workspaceRoot: root }),
     { now: () => clock.now().toISOString() },
     new GitReviewService({ now: () => clock.now().toISOString(), workspaceRoot: root }),
+    new WriteFileService({ stateDirectory, workspaceRoot: root }),
   );
   const engine = await RuntimeEngine.open(journal, new RunEffectHost(fake, safe), clock, ids());
   await engine.commit(
@@ -140,6 +142,70 @@ function currentSafeAction(state: RunState): SafeActuationAction {
 }
 
 describe("provider safe-actuation loop", () => {
+  it("exclusively creates one approved UTF-8 file and keeps its patch distinct from Git tracking", async () => {
+    const { root, stateDirectory } = fixture();
+    try {
+      const model = new ScriptedModel([
+        {
+          finishStatus: "tool_calls",
+          privateContinuity: null,
+          requestId: "request-write-file",
+          status: "completed",
+          text: "I propose one new file.",
+          toolCalls: [
+            {
+              arguments: { content: "export const greeting = '你好';\n", path: "created.ts" },
+              name: "write_file",
+              toolCallId: "call-write-file",
+            },
+          ],
+          usage: null,
+          version: 1,
+        },
+      ]);
+      const { journal, runtime: engine } = await runtime(root, stateDirectory, model);
+      await drive(engine);
+      strictEqual(engine.state.phase, "awaiting-approval", JSON.stringify(engine.state));
+      const action = currentSafeAction(engine.state);
+      strictEqual(action.safeActuation.envelope.kind, "write_file");
+      await engine.commit(
+        { approvalId: action.approvalId, decision: "approve", type: "approval.resolved" },
+        "command-approve-write",
+      );
+      await drive(engine);
+
+      strictEqual(
+        readFileSync(join(root, "created.ts"), "utf8"),
+        "export const greeting = '你好';\n",
+      );
+      const records = await journal.readAll();
+      strictEqual(records.filter((record) => record.type === "write_file.completed").length, 1);
+      const projected = projectJournal(records);
+      deepStrictEqual(projected.view.changedFiles, [
+        { attribution: "eden", path: "created.ts", status: "added" },
+      ]);
+      deepStrictEqual(projected.view.review?.untrackedPaths, ["created.ts"]);
+      strictEqual(projected.view.review?.edenPatch.state, "complete");
+      if (projected.view.review?.edenPatch.state === "complete") {
+        strictEqual(projected.view.review.edenPatch.content.includes("--- /dev/null"), true);
+        strictEqual(
+          projected.view.review.edenPatch.content.includes("+export const greeting"),
+          true,
+        );
+      }
+      strictEqual(projected.view.review?.currentTrackedPatch.state, "complete");
+      if (projected.view.review?.currentTrackedPatch.state === "complete") {
+        strictEqual(
+          projected.view.review.currentTrackedPatch.content.includes("created.ts"),
+          false,
+        );
+      }
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+      rmSync(stateDirectory, { force: true, recursive: true });
+    }
+  });
+
   it("prepares an ask decision, consumes approval, and applies only the approved digest", async () => {
     const { root, stateDirectory } = fixture();
     try {

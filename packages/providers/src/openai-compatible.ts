@@ -130,6 +130,7 @@ export type OpenAICompatibleProviderOptions = {
   readonly baseUrl: string;
   readonly clock?: { readonly now: () => Date };
   readonly model: string;
+  readonly multiCallCapability?: "bounded_read_only_v1";
   readonly profileId: string;
   readonly timeoutMilliseconds?: number;
 };
@@ -254,6 +255,7 @@ export class OpenAICompatibleProvider {
   private readonly client: OpenAI;
   private readonly clock: { readonly now: () => Date };
   private readonly model: string;
+  readonly multiCallCapability?: "bounded_read_only_v1";
   private readonly profileId: string;
 
   constructor(options: OpenAICompatibleProviderOptions) {
@@ -266,6 +268,9 @@ export class OpenAICompatibleProvider {
     });
     this.clock = options.clock ?? { now: () => new Date() };
     this.model = options.model;
+    if (options.multiCallCapability !== undefined) {
+      this.multiCallCapability = options.multiCallCapability;
+    }
     this.profileId = options.profileId;
   }
 
@@ -387,7 +392,7 @@ export class OpenAICompatibleProvider {
         max_tokens: input.maxOutputTokens,
         messages: input.conversation.map(conversationMessage),
         model: this.model,
-        parallel_tool_calls: false,
+        parallel_tool_calls: this.multiCallCapability === "bounded_read_only_v1",
         stream: true,
         stream_options: { include_usage: true },
         thinking: { type: "disabled" },
@@ -456,7 +461,12 @@ export class OpenAICompatibleProvider {
         }
         for (const fragment of delta.tool_calls ?? []) {
           receivedApplicationDelta = true;
-          if (!Number.isInteger(fragment.index) || fragment.index < 0 || fragment.index > 1) {
+          const maximumIndex = this.multiCallCapability === "bounded_read_only_v1" ? 3 : 0;
+          if (
+            !Number.isInteger(fragment.index) ||
+            fragment.index < 0 ||
+            fragment.index > maximumIndex
+          ) {
             throw new Error("invalid tool-call index");
           }
           const current = toolFragments.get(fragment.index) ?? {
@@ -491,8 +501,19 @@ export class OpenAICompatibleProvider {
       const toolCalls = [...toolFragments.entries()]
         .sort(([left], [right]) => left - right)
         .map(([, fragment]) => decodeToolFragment(fragment));
-      if (toolCalls.length > 1) throw new Error("parallel tool calls are unsupported");
-      if ((finishStatus === "tool_calls") !== (toolCalls.length === 1)) {
+      const maximumCalls = this.multiCallCapability === "bounded_read_only_v1" ? 4 : 1;
+      if (toolCalls.length > maximumCalls) throw new Error("tool-call batch exceeds capability");
+      if (
+        [...toolFragments.keys()]
+          .sort((left, right) => left - right)
+          .some((index, position) => index !== position)
+      ) {
+        throw new Error("tool-call indexes are not contiguous");
+      }
+      if (
+        (finishStatus === "tool_calls" && toolCalls.length === 0) ||
+        (finishStatus === "stop" && toolCalls.length !== 0)
+      ) {
         throw new Error("finish reason does not match tool output");
       }
       return {
@@ -576,11 +597,85 @@ const repositoryToolDefinitions: Readonly<Record<RepositoryToolCall["name"], Cha
       },
       type: "function",
     },
+    write_file: {
+      function: {
+        description:
+          "Propose exclusive creation of one new UTF-8 file in an existing repository directory. Eden computes absence, parent identity, policy, digest, approval, execution, and review.",
+        name: "write_file",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            content: { type: "string" },
+            path: { type: "string" },
+          },
+          required: ["content", "path"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
+    run_command: {
+      function: {
+        description:
+          "Propose one shell-free structured trusted-host command. Eden resolves the executable, closes the environment, binds policy and digest, obtains approval, and captures bounded output.",
+        name: "run_command",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            args: { items: { type: "string" }, maxItems: 64, type: "array" },
+            cwd: { type: "string" },
+            network: { const: "host_unrestricted", type: "string" },
+            program: { type: "string" },
+            reason: { type: "string" },
+            timeoutMs: { maximum: 600000, minimum: 1, type: "integer" },
+          },
+          required: ["args", "cwd", "network", "program", "reason", "timeoutMs"],
+          type: "object",
+        },
+        strict: true,
+      },
+      type: "function",
+    },
     git_status: {
       function: {
         description: "Return bounded structured Git status for the trusted repository.",
         name: "git_status",
         parameters: { additionalProperties: false, properties: {}, type: "object" },
+        strict: true,
+      },
+      type: "function",
+    },
+    git_diff: {
+      function: {
+        description:
+          "Return one bounded semantic Git diff page for the trusted repository and a closed continuation identity.",
+        name: "git_diff",
+        parameters: {
+          additionalProperties: false,
+          properties: {
+            continuation: {
+              anyOf: [
+                {
+                  additionalProperties: false,
+                  properties: {
+                    head: { type: "string" },
+                    nextOffset: { type: "integer" },
+                    patchHash: { type: "string" },
+                    path: { type: "string" },
+                    statusHash: { type: "string" },
+                  },
+                  required: ["head", "nextOffset", "patchHash", "path", "statusHash"],
+                  type: "object",
+                },
+                { type: "null" },
+              ],
+            },
+            path: { type: "string" },
+          },
+          required: ["continuation", "path"],
+          type: "object",
+        },
         strict: true,
       },
       type: "function",

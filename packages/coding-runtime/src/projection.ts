@@ -90,7 +90,7 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
           type: "phase.progress",
         });
         cursor += 1;
-        if (state.phase === "awaiting-approval" && view.repositoryCheck !== undefined) {
+        if (state.phase === "awaiting-approval") {
           events.push({
             ...base,
             approval: approvalPresentation(state.action),
@@ -99,14 +99,16 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
             type: "approval.presented",
           });
           cursor += 1;
-          events.push({
-            ...base,
-            cursor,
-            eventId: `${record.eventId}:product:2`,
-            repositoryCheck: view.repositoryCheck,
-            type: "repository.check.updated",
-          });
-          cursor += 1;
+          if (view.repositoryCheck !== undefined) {
+            events.push({
+              ...base,
+              cursor,
+              eventId: `${record.eventId}:product:2`,
+              repositoryCheck: view.repositoryCheck,
+              type: "repository.check.updated",
+            });
+            cursor += 1;
+          }
         }
         break;
       case "fake.model.tool-requested": {
@@ -149,6 +151,28 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         }
         break;
       }
+      case "repository.tool.batch.item.started":
+        break;
+      case "repository.tool.batch.item.completed": {
+        const batchEvent = decoded.value.event;
+        const activity = view.tools?.find(
+          (candidate) => candidate.call.toolCallId === batchEvent.result.toolCallId,
+        );
+        if (activity === undefined) {
+          throw new ProjectionError("A repository batch item requires visible activity.");
+        }
+        events.push({
+          ...base,
+          activity,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          type: "tool.updated",
+        });
+        cursor += 1;
+        break;
+      }
+      case "repository.tool.batch.closed":
+        break;
       case "model.attempt.started": {
         const attempt = view.attempts?.at(-1);
         if (attempt === undefined) {
@@ -242,6 +266,8 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
       case "effect.dispatch.started":
       case "approval.consumed":
       case "anchor_edit.completed":
+      case "write_file.completed":
+      case "run_command.output":
       case "review.eden_patch.captured":
       case "review.git_snapshot.captured":
       case "model.context.committed":
@@ -257,6 +283,30 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         });
         cursor += 1;
         break;
+      case "run_command.completed": {
+        const activity = view.tools?.at(-1);
+        if (activity !== undefined) {
+          events.push({
+            ...base,
+            activity,
+            cursor,
+            eventId: `${record.eventId}:product:0`,
+            type: "tool.updated",
+          });
+          cursor += 1;
+        }
+        if (state.phase === "terminal") {
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:1`,
+            outcome: requireTerminal(view),
+            type: "run.terminal",
+          });
+          cursor += 1;
+        }
+        break;
+      }
       case "review.git_check.completed":
         if (state.phase === "awaiting-approval") {
           events.push({
@@ -289,6 +339,33 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
             type: "run.terminal",
           });
           cursor += 1;
+          break;
+        }
+        if (
+          state.phase === "executing" &&
+          "model" in state &&
+          state.stage === "model-ready" &&
+          view.review !== undefined
+        ) {
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:0`,
+            review: view.review,
+            type: "review.updated",
+          });
+          cursor += 1;
+          const activity = view.tools?.at(-1);
+          if (activity !== undefined) {
+            events.push({
+              ...base,
+              activity,
+              cursor,
+              eventId: `${record.eventId}:product:1`,
+              type: "tool.updated",
+            });
+            cursor += 1;
+          }
           break;
         }
         throw new ProjectionError("A review check must present approval or terminal review.");

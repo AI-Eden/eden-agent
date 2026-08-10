@@ -119,13 +119,13 @@ function decode(bytes: Uint8Array, operation: string): string {
   }
 }
 
-function completePatch(content: string): PatchObservation {
+function completePatch(content: string, byteLimit = reviewByteLimit): PatchObservation {
   const byteLength = utf8.encode(content).byteLength;
-  if (byteLength > reviewByteLimit) {
+  if (byteLength > byteLimit) {
     return {
       error: {
         code: "review_budget_exceeded",
-        message: "The complete patch exceeds the 24 KiB review budget.",
+        message: "The complete patch exceeds its closed review budget.",
         recoverability: "ask-user",
         suggestedActions: ["Narrow the workspace change set before requesting another edit."],
       },
@@ -237,6 +237,34 @@ function mergeWindows(windows: readonly PatchWindow[]): PatchWindow[] {
 }
 
 export function createEdenPatch(envelope: ActionEnvelopeV1, baseText: string): PatchObservation {
+  if (envelope.operation.type === "write_file") {
+    if (baseText !== "") {
+      throw new GitReviewError(
+        "review_base_stale",
+        "A new-file review requires an absent empty base.",
+      );
+    }
+    const desired = envelope.operation.content;
+    if (
+      utf8.encode(desired).byteLength !== envelope.operation.byteLength ||
+      hash(desired) !== envelope.operation.sha256
+    ) {
+      throw new GitReviewError(
+        "review_desired_mismatch",
+        "The new-file review bytes do not match the approved snapshot.",
+      );
+    }
+    const lines = splitLines(desired);
+    const patch = [
+      `diff --git a/${envelope.operation.path} b/${envelope.operation.path}\n`,
+      "new file mode 100644\n",
+      "--- /dev/null\n",
+      `+++ b/${envelope.operation.path}\n`,
+      `@@ -0,0 +1,${lines.length} @@\n`,
+      ...lines.map((line) => patchLine(line, "+")),
+    ].join("");
+    return completePatch(patch, 57_344);
+  }
   if (envelope.operation.type !== "anchor_edit") {
     throw new GitReviewError("review_action_invalid", "Review requires one AnchorEdit envelope.");
   }

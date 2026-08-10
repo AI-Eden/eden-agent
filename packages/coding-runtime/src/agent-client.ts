@@ -100,17 +100,22 @@ function defaultModelProvider(
       signal: AbortSignal,
       onVisibleText?: ModelVisibleTextListener,
     ): Promise<ModelStepObservationV1> {
-      driver ??= import("@eden/providers").then(
-        ({ OpenAICompatibleProvider }) =>
-          new OpenAICompatibleProvider({
-            apiKey: resolved.credential,
-            baseUrl: resolved.profile.baseUrl,
-            clock,
-            model: resolved.profile.model,
-            profileId: resolved.profile.id,
-          }),
+      if (driver === undefined) {
+        driver = import("@eden/providers").then(
+          ({ OpenAICompatibleProvider }) =>
+            new OpenAICompatibleProvider({
+              apiKey: resolved.credential,
+              baseUrl: resolved.profile.baseUrl,
+              clock,
+              model: resolved.profile.model,
+              profileId: resolved.profile.id,
+            }),
+        );
+      }
+      const providerPromise = driver;
+      return providerPromise.then((provider) =>
+        provider.completeModelStep(input, signal, onVisibleText),
       );
-      return driver.then((provider) => provider.completeModelStep(input, signal, onVisibleText));
     },
   };
 }
@@ -458,6 +463,13 @@ export class InProcessAgentClient implements AgentClient {
           return result.data.entries.length === 0
             ? ["."]
             : result.data.entries.map((entry) => entry.path);
+        case "git_diff":
+          return [result.data.sourcePath];
+        case "anchor_edit":
+        case "write_file":
+          return [result.data.path];
+        case "run_command":
+          return [result.data.cwd];
         case "repository_check":
           return ["."];
       }
@@ -914,7 +926,7 @@ export class InProcessAgentClient implements AgentClient {
                   },
                   {
                     content:
-                      "Enabled tools: list_files, read_file, search_repository, git_status, and one modify-only anchor_edit proposal. Eden alone computes policy, digest, approval, execution, and review.",
+                      "Enabled tools: list_files, read_file, search_repository, git_status, git_diff, anchor_edit, write_file, run_command, and repository_check. Effectful calls are singleton proposals; Eden alone computes policy, digest, approval, execution, and review.",
                     contextItemId: "repository-tools-v1",
                     order: 2,
                     priority: "P0",
@@ -951,6 +963,8 @@ export class InProcessAgentClient implements AgentClient {
               "The generated run ID does not match the path-safe product contract.",
             );
           }
+          const modelProvider =
+            resolvedProfile === null ? undefined : this.createModelProvider(resolvedProfile);
           const session = await openSession(
             runId,
             this.stateDirectory,
@@ -959,7 +973,7 @@ export class InProcessAgentClient implements AgentClient {
             this.idSource,
             this.cwd,
             this.modelDriver,
-            resolvedProfile === null ? undefined : this.createModelProvider(resolvedProfile),
+            modelProvider,
             (delta) => this.publishModelDelta(runId, delta),
             this.repositoryToolOptions,
             this.repositoryCheckDockerContext,
@@ -974,10 +988,49 @@ export class InProcessAgentClient implements AgentClient {
             ...(resolvedProfile === null
               ? {}
               : {
+                  codingBudget: {
+                    grant: {
+                      actionProposals: 8,
+                      commandOutputBytes: 262_144,
+                      journalBytes: 2_097_152,
+                      journalRecords: 4_096,
+                      modelSteps: 12,
+                      modelVisibleToolContentBytes: 524_288,
+                      policy: "usable_coding_v1",
+                      toolCalls: 16,
+                      version: 1,
+                      wallTimeMs: 1_800_000,
+                    },
+                    policy: {
+                      actionProposals: 8,
+                      commandOutputBytes: 262_144,
+                      commandStderrBytes: 65_536,
+                      commandStdoutBytes: 65_536,
+                      commandTimeoutMs: 600_000,
+                      finalAnswerStep: 12,
+                      gitDiffPageBytes: 24_576,
+                      gitDiffPages: 4,
+                      journalBytes: 2_097_152,
+                      journalRecordBytes: 65_536,
+                      journalRecords: 4_096,
+                      maxReadOnlyCallsPerStep: 4,
+                      modelSteps: 12,
+                      modelVisibleToolContentBytes: 524_288,
+                      newFileBytes: 32_768,
+                      profile: "usable_coding_v1",
+                      readOnlyConcurrency: 4,
+                      toolCalls: 16,
+                      version: 1,
+                      wallTimeMs: 1_800_000,
+                    },
+                  },
                   model: {
                     contextWindowTokens: resolvedProfile.profile.contextWindowTokens,
                     maxOutputTokens: Math.min(resolvedProfile.profile.maxOutputTokens, 8_192),
                     model: resolvedProfile.profile.model,
+                    ...(modelProvider?.multiCallCapability === undefined
+                      ? {}
+                      : { multiCallCapability: modelProvider.multiCallCapability }),
                     profileId: resolvedProfile.profile.id,
                   },
                 }),

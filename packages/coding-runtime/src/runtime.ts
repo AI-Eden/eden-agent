@@ -1,4 +1,4 @@
-import { decodeRepositoryToolCall } from "@eden/contracts";
+import { decodeRepositoryToolCall, repositoryToolModelContent } from "@eden/contracts";
 import {
   decide,
   initialRunState,
@@ -8,8 +8,8 @@ import {
   reduce,
 } from "@eden/kernel";
 import type { ModelStepRequestV1 } from "@eden/providers/model-step";
-
-import type { JournalPort, JournalRecordV1 } from "./journal/index.ts";
+import { journalByteLimit } from "./journal/file-journal.ts";
+import { encodeJournalRecord, type JournalPort, type JournalRecordV1 } from "./journal/index.ts";
 import { replayRecords } from "./replay.ts";
 
 export type ReconciliationResult =
@@ -86,6 +86,31 @@ export function createJournalRecord(
   };
 }
 
+function withDerivedJournalUsage(
+  state: RunState,
+  journalBytes: number,
+  journalRecords: number,
+  wallTimeMs: number,
+): RunState {
+  if (state.phase === "idle" || !("model" in state) || state.codingBudget === undefined) {
+    return state;
+  }
+  const usage = {
+    ...state.codingBudget.usage,
+    journalBytes,
+    journalRecords,
+    wallTimeMs,
+  };
+  if (
+    usage.journalBytes > state.codingBudget.grant.journalBytes ||
+    usage.journalRecords > state.codingBudget.grant.journalRecords ||
+    usage.wallTimeMs > state.codingBudget.grant.wallTimeMs
+  ) {
+    throw new Error("The durable usable-coding journal or wall-time grant was exceeded.");
+  }
+  return { ...state, codingBudget: { ...state.codingBudget, usage } };
+}
+
 export class RuntimeEngine {
   private readonly clock: RuntimeClock;
   private readonly host: EffectHost;
@@ -94,6 +119,8 @@ export class RuntimeEngine {
   private lastEventId: string | null;
   private sequence: number;
   private currentState: RunState;
+  private journalBytes: number;
+  private startedAtMs: number | null;
 
   private constructor(
     journal: JournalPort,
@@ -103,6 +130,8 @@ export class RuntimeEngine {
     state: RunState,
     sequence: number,
     lastEventId: string | null,
+    journalBytes: number,
+    startedAtMs: number | null,
   ) {
     this.clock = clock;
     this.host = host;
@@ -111,6 +140,8 @@ export class RuntimeEngine {
     this.currentState = state;
     this.sequence = sequence;
     this.lastEventId = lastEventId;
+    this.journalBytes = journalBytes;
+    this.startedAtMs = startedAtMs;
   }
 
   static async open(
@@ -120,7 +151,29 @@ export class RuntimeEngine {
     idSource: RuntimeIdSource,
   ): Promise<RuntimeEngine> {
     const records = await journal.readAll();
-    const state = records.length === 0 ? initialRunState : replayRecords(records).state;
+    const replayedState = records.length === 0 ? initialRunState : replayRecords(records).state;
+    const journalBytes = records.reduce(
+      (total, record) => total + encodeJournalRecord(record).byteLength,
+      0,
+    );
+    const firstRecord = records[0];
+    const lastRecord = records.at(-1);
+    const startedAtMs = firstRecord === undefined ? null : Date.parse(firstRecord.recordedAt);
+    const lastRecordedAtMs = lastRecord === undefined ? null : Date.parse(lastRecord.recordedAt);
+    const state = withDerivedJournalUsage(
+      replayedState,
+      journalBytes,
+      records.length,
+      startedAtMs === null || lastRecordedAtMs === null
+        ? 0
+        : Math.max(0, lastRecordedAtMs - startedAtMs),
+    );
+    if (
+      journalBytes > journalByteLimit &&
+      (state.phase === "idle" || !("model" in state) || state.codingBudget === undefined)
+    ) {
+      throw new Error("An R2 journal cannot use the usable-coding run ceiling.");
+    }
     return new RuntimeEngine(
       journal,
       host,
@@ -129,6 +182,8 @@ export class RuntimeEngine {
       state,
       records.length,
       records.at(-1)?.eventId ?? null,
+      journalBytes,
+      startedAtMs,
     );
   }
 
@@ -154,17 +209,28 @@ export class RuntimeEngine {
           ? ""
           : this.currentState.correlationId;
     const eventId = this.idSource.next();
-    await this.journal.append(
-      createJournalRecord(event, {
-        causationId,
-        correlationId,
-        eventId,
-        recordedAt: this.clock.now(),
-        runId,
-        sequence: this.sequence,
-      }),
+    const recordedAt = this.clock.now();
+    const record = createJournalRecord(event, {
+      causationId,
+      correlationId,
+      eventId,
+      recordedAt,
+      runId,
+      sequence: this.sequence,
+    });
+    const recordBytes = encodeJournalRecord(record).byteLength;
+    const nextJournalBytes = this.journalBytes + recordBytes;
+    const effectiveStartedAtMs = this.startedAtMs ?? recordedAt.getTime();
+    const nextState = withDerivedJournalUsage(
+      transition.state,
+      nextJournalBytes,
+      this.sequence + 1,
+      Math.max(0, recordedAt.getTime() - effectiveStartedAtMs),
     );
-    this.currentState = transition.state;
+    await this.journal.append(record);
+    this.currentState = nextState;
+    this.journalBytes = nextJournalBytes;
+    this.startedAtMs ??= recordedAt.getTime();
     this.lastEventId = eventId;
     this.sequence += 1;
   }
@@ -202,9 +268,13 @@ export class RuntimeEngine {
       !(
         (this.currentState.stage === "safe-action-in-flight" &&
           (this.currentState.inFlightEffect?.type === "anchor_edit.execute" ||
+            this.currentState.inFlightEffect?.type === "write_file.execute" ||
+            this.currentState.inFlightEffect?.type === "run_command.execute" ||
             this.currentState.inFlightEffect?.type === "repository_check.execute")) ||
         (this.currentState.stage === "action-prepare-in-flight" &&
           (this.currentState.inFlightEffect?.type === "anchor_edit.prepare" ||
+            this.currentState.inFlightEffect?.type === "write_file.prepare" ||
+            this.currentState.inFlightEffect?.type === "run_command.prepare" ||
             this.currentState.inFlightEffect?.type === "repository_check.prepare")) ||
         (this.currentState.stage === "eden-patch-in-flight" &&
           this.currentState.inFlightEffect?.type === "review.eden_patch.capture") ||
@@ -248,7 +318,33 @@ export class RuntimeEngine {
         return;
       case "not-started": {
         if (
+          effect.type === "repository.tool.batch.execute" &&
+          this.currentState.phase === "executing" &&
+          "model" in this.currentState &&
+          this.currentState.toolBatch !== undefined &&
+          (this.currentState.toolBatch.started.some(Boolean) ||
+            this.currentState.toolBatch.results.some((result) => result !== null))
+        ) {
+          await this.commit(
+            {
+              error: {
+                code: "effect_outcome_unknown",
+                message: `The partially observed batch ${effect.effectId} cannot be redispatched safely.`,
+                recoverability: "ask-user",
+                suggestedActions: [
+                  "Inspect the closed sibling results before starting a new task.",
+                ],
+              },
+              type: "run.blocked",
+            },
+            effect.effectId,
+          );
+          return;
+        }
+        if (
           (effect.type === "anchor_edit.prepare" ||
+            effect.type === "write_file.prepare" ||
+            effect.type === "run_command.prepare" ||
             effect.type === "repository_check.prepare" ||
             effect.type === "review.git_snapshot.capture" ||
             effect.type === "review.git_check.capture") &&
@@ -274,6 +370,9 @@ export class RuntimeEngine {
         if (
           effect.type === "anchor_edit.execute" ||
           effect.type === "anchor_edit.prepare" ||
+          effect.type === "write_file.execute" ||
+          effect.type === "write_file.prepare" ||
+          effect.type === "run_command.prepare" ||
           effect.type === "repository_check.prepare" ||
           effect.type === "review.eden_patch.capture" ||
           effect.type === "review.git_snapshot.capture" ||
@@ -355,6 +454,20 @@ export class RuntimeEngine {
       if (state.phase !== "executing" || !("model" in state) || state.stage !== "model-in-flight") {
         throw new Error("The model attempt state changed before dispatch.");
       }
+      const enabledTools: ModelStepRequestV1["enabledTools"] =
+        state.codingBudget !== undefined && state.modelStep >= state.codingBudget.grant.modelSteps
+          ? []
+          : [
+              "list_files",
+              "read_file",
+              "search_repository",
+              "git_diff",
+              "git_status",
+              "anchor_edit",
+              "write_file",
+              "run_command",
+              "repository_check",
+            ];
       const observation = await this.host.executeModelAttempt(
         effect,
         {
@@ -380,7 +493,7 @@ export class RuntimeEngine {
                   };
                 case "tool":
                   return {
-                    content: JSON.stringify(item.result),
+                    content: repositoryToolModelContent(item.result),
                     name: item.call.name,
                     role: "tool" as const,
                     toolCallId: item.call.toolCallId,
@@ -390,14 +503,7 @@ export class RuntimeEngine {
               }
             }),
           ],
-          enabledTools: [
-            "list_files",
-            "read_file",
-            "search_repository",
-            "git_status",
-            "anchor_edit",
-            "repository_check",
-          ],
+          enabledTools,
           maxOutputTokens: effect.maxOutputTokens,
           version: 1,
         },

@@ -36,7 +36,9 @@ function ToolCard({
       ? "."
       : activity.call.name === "repository_check"
         ? `.eden/checks:${activity.call.arguments.checkName}`
-        : activity.call.arguments.path;
+        : activity.call.name === "run_command"
+          ? activity.call.arguments.cwd
+          : activity.call.arguments.path;
   const safePath = fitTerminalLine(path, Number.MAX_SAFE_INTEGER);
   const result = activity.result;
   return (
@@ -52,7 +54,14 @@ function ToolCard({
       <text>
         repository tool: {activity.call.name} · {activity.state}
       </text>
-      {expanded && <text>source: {safePath} · authority: bounded read-only</text>}
+      {expanded && (
+        <text>
+          source: {safePath} · authority:{" "}
+          {activity.call.name === "run_command"
+            ? "approved structured host command"
+            : "bounded read-only repository capability"}
+        </text>
+      )}
       <text>
         {fitTerminalLine(
           `tool details: ${expanded ? "expanded" : "folded"} · focus tools + Enter/e toggles`,
@@ -118,6 +127,35 @@ function ToolCard({
                 : ` ← ${fitTerminalLine(entry.originalPath, Number.MAX_SAFE_INTEGER)}`}
             </text>
           ))}
+        </box>
+      )}
+      {expanded && result?.status === "succeeded" && result.name === "git_diff" && (
+        <box style={{ flexDirection: "column" }}>
+          <text>
+            bytes: {result.data.offset}+{result.data.bytesRead}/{result.data.totalBytes} · next:{" "}
+            {result.data.continuation?.nextOffset ?? "complete"}
+          </text>
+          <text>
+            HEAD: {result.data.head} · status: {result.data.statusHash}
+          </text>
+          <text>patch: {result.data.patchHash}</text>
+          <text>repository diff:</text>
+          <text>{safeTerminalBlock(result.data.content)}</text>
+        </box>
+      )}
+      {expanded && result?.status === "completed" && result.name === "run_command" && (
+        <box style={{ flexDirection: "column" }}>
+          <text>
+            outcome: {result.data.outcome} · exit: {result.data.exitCode ?? "none"} · cleanup:{" "}
+            {result.data.cleanupStatus}
+          </text>
+          <text>
+            executable: {fitTerminalLine(result.data.executablePath, Number.MAX_SAFE_INTEGER)}
+          </text>
+          <text>stdout ({result.data.stdoutBytes} bytes):</text>
+          <text>{safeTerminalBlock(result.data.stdout)}</text>
+          <text>stderr ({result.data.stderrBytes} bytes):</text>
+          <text>{safeTerminalBlock(result.data.stderr)}</text>
         </box>
       )}
     </box>
@@ -777,12 +815,23 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                             {props.view.approval.authority.network}
                           </text>
                           {"baseSnapshots" in props.view.approval.authority ? (
-                            props.view.approval.authority.baseSnapshots.map((snapshot) => (
-                              <text key={snapshot.path}>
-                                base: {snapshot.path} · {snapshot.byteLength} bytes ·{" "}
-                                {snapshot.sha256}
-                              </text>
-                            ))
+                            <>
+                              {props.view.approval.authority.baseSnapshots.map((snapshot) => (
+                                <text key={snapshot.path}>
+                                  base: {snapshot.path} · {snapshot.byteLength} bytes ·{" "}
+                                  {snapshot.sha256}
+                                </text>
+                              ))}
+                              {props.view.approval.authority.process !== undefined && (
+                                <text>
+                                  process: {props.view.approval.authority.process.executablePath}{" "}
+                                  {props.view.approval.authority.process.args
+                                    .map((argument) => JSON.stringify(argument))
+                                    .join(" ")}{" "}
+                                  · timeout {props.view.approval.authority.process.timeoutMs} ms
+                                </text>
+                              )}
+                            </>
                           ) : (
                             <>
                               <text>

@@ -1,9 +1,12 @@
+import { repositoryToolModelContent } from "@eden/contracts";
+
 import { decide } from "./decide.ts";
 import { deterministicFakeAction } from "./fake-action.ts";
 import type {
   Action,
   KernelEffect,
   KernelEvent,
+  RepositoryToolCall,
   RepositoryToolResult,
   RunState,
   SafeActuationAction,
@@ -39,8 +42,11 @@ function terminal(
       terminalOutcome: outcome,
       tool: state.tool,
       tools: state.tools,
+      ...(state.codingBudget === undefined ? {} : { codingBudget: state.codingBudget }),
+      ...(state.toolBatch === undefined ? {} : { toolBatch: state.toolBatch }),
       ...(state.safeReview === undefined ? {} : { safeReview: state.safeReview }),
       ...(state.repositoryCheck === undefined ? {} : { repositoryCheck: state.repositoryCheck }),
+      ...(state.runCommand === undefined ? {} : { runCommand: state.runCommand }),
       workspace: state.workspace,
     } as const;
   }
@@ -55,6 +61,7 @@ function terminal(
     tool: state.tool,
     ...(state.safeReview === undefined ? {} : { safeReview: state.safeReview }),
     ...(state.repositoryCheck === undefined ? {} : { repositoryCheck: state.repositoryCheck }),
+    ...(state.runCommand === undefined ? {} : { runCommand: state.runCommand }),
     workspace: state.workspace,
   } as const;
 }
@@ -95,7 +102,19 @@ function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
   if (effect.type === "repository.tool.execute" && expected.type === "repository.tool.execute") {
     return canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall);
   }
+  if (
+    effect.type === "repository.tool.batch.execute" &&
+    expected.type === "repository.tool.batch.execute"
+  ) {
+    return canonicalValue(effect.calls) === canonicalValue(expected.calls);
+  }
   if (effect.type === "anchor_edit.execute" && expected.type === "anchor_edit.execute") {
+    return canonicalValue(effect.envelope) === canonicalValue(expected.envelope);
+  }
+  if (effect.type === "write_file.execute" && expected.type === "write_file.execute") {
+    return canonicalValue(effect.envelope) === canonicalValue(expected.envelope);
+  }
+  if (effect.type === "run_command.execute" && expected.type === "run_command.execute") {
     return canonicalValue(effect.envelope) === canonicalValue(expected.envelope);
   }
   if (effect.type === "repository_check.execute" && expected.type === "repository_check.execute") {
@@ -105,6 +124,22 @@ function effectMatches(effect: KernelEffect, expected: KernelEffect): boolean {
     return (
       effect.expectedRevision === expected.expectedRevision &&
       effect.parentActionId === expected.parentActionId &&
+      effect.proposalRevision === expected.proposalRevision &&
+      canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall) &&
+      canonicalValue(effect.workspace) === canonicalValue(expected.workspace)
+    );
+  }
+  if (effect.type === "write_file.prepare" && expected.type === "write_file.prepare") {
+    return (
+      effect.expectedRevision === expected.expectedRevision &&
+      effect.proposalRevision === expected.proposalRevision &&
+      canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall) &&
+      canonicalValue(effect.workspace) === canonicalValue(expected.workspace)
+    );
+  }
+  if (effect.type === "run_command.prepare" && expected.type === "run_command.prepare") {
+    return (
+      effect.expectedRevision === expected.expectedRevision &&
       effect.proposalRevision === expected.proposalRevision &&
       canonicalValue(effect.toolCall) === canonicalValue(expected.toolCall) &&
       canonicalValue(effect.workspace) === canonicalValue(expected.workspace)
@@ -164,6 +199,52 @@ function isSafeAction(action: Action | null): action is SafeActuationAction {
   return action !== null && "safeActuation" in action;
 }
 
+const zeroUsableCodingUsage = {
+  actionProposals: 0,
+  commandOutputBytes: 0,
+  journalBytes: 0,
+  journalRecords: 0,
+  modelSteps: 0,
+  modelVisibleToolContentBytes: 0,
+  toolCalls: 0,
+  version: 1,
+  wallTimeMs: 0,
+} as const;
+
+function isReadOnlyRepositoryCall(call: RepositoryToolCall): boolean {
+  return (
+    call.name === "list_files" ||
+    call.name === "read_file" ||
+    call.name === "search_repository" ||
+    call.name === "git_diff" ||
+    call.name === "git_status"
+  );
+}
+
+function declaredModelVisibleToolBytes(call: RepositoryToolCall): number {
+  if (call.name === "run_command") return 147_456;
+  return call.name === "anchor_edit" ||
+    call.name === "write_file" ||
+    call.name === "repository_check"
+    ? 8_192
+    : 32_768;
+}
+
+function observedModelVisibleToolBytes(result: RepositoryToolResult): number {
+  return new TextEncoder().encode(repositoryToolModelContent(result)).byteLength;
+}
+
+function decodeUtf8Base64(value: string, expectedBytes: number): string | null {
+  try {
+    const binary = atob(value);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    if (bytes.byteLength !== expectedBytes) return null;
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
 function narrowerSafeAction(parent: SafeActuationAction, child: SafeActuationAction): boolean {
   const left = parent.safeActuation.envelope;
   const right = child.safeActuation.envelope;
@@ -204,6 +285,14 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           state: {
             action: null,
             attempts: [],
+            ...(event.codingBudget === undefined
+              ? {}
+              : {
+                  codingBudget: {
+                    ...event.codingBudget,
+                    usage: zeroUsableCodingUsage,
+                  },
+                }),
             conversation: [{ content: event.task, role: "user" }],
             context: [],
             correlationId: event.correlationId,
@@ -249,6 +338,8 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
             if (
               state.tool === null ||
               (state.tool.call.name !== "anchor_edit" &&
+                state.tool.call.name !== "write_file" &&
+                state.tool.call.name !== "run_command" &&
                 state.tool.call.name !== "repository_check")
             ) {
               return illegal(state, event);
@@ -264,15 +355,29 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
                     status: "denied",
                     toolCallId: state.tool.call.toolCallId,
                   }
-                : {
-                    data: {
-                      parentActionId: action.actionId,
-                      reason: "The user denied this exact action digest.",
-                    },
-                    name: "anchor_edit",
-                    status: "denied",
-                    toolCallId: state.tool.call.toolCallId,
-                  };
+                : state.tool.call.name === "anchor_edit"
+                  ? {
+                      data: {
+                        parentActionId: action.actionId,
+                        reason: "The user denied this exact action digest.",
+                      },
+                      name: "anchor_edit",
+                      status: "denied",
+                      toolCallId: state.tool.call.toolCallId,
+                    }
+                  : {
+                      error: {
+                        code: "approval_denied",
+                        message: "The user denied this exact action digest.",
+                        recoverability: "retry",
+                        suggestedActions: [
+                          "Continue without this action or propose a different singleton action.",
+                        ],
+                      },
+                      name: state.tool.call.name,
+                      status: "failed",
+                      toolCallId: state.tool.call.toolCallId,
+                    };
             const tool = { call: state.tool.call, result };
             if (
               state.tool.call.name === "anchor_edit" &&
@@ -386,6 +491,8 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         "model" in state &&
         state.stage === "action-prepare-in-flight" &&
         (state.inFlightEffect?.type === "anchor_edit.prepare" ||
+          state.inFlightEffect?.type === "write_file.prepare" ||
+          state.inFlightEffect?.type === "run_command.prepare" ||
           state.inFlightEffect?.type === "repository_check.prepare") &&
         state.inFlightEffect.effectId === event.effectId;
       const directProposal =
@@ -402,13 +509,15 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       const safe = event.action.safeActuation;
       const envelope = safe.envelope;
       const repositoryCheck = envelope.kind === "repository_check_v1";
-      const parentAction = repositoryCheck
-        ? null
-        : "model" in state
-          ? state.action
-          : state.stage === "safe-reproposal-ready"
+      const command = envelope.kind === "run_command";
+      const parentAction =
+        repositoryCheck || envelope.kind === "write_file" || command
+          ? null
+          : "model" in state
             ? state.action
-            : null;
+            : state.stage === "safe-reproposal-ready"
+              ? state.action
+              : null;
       const replacingDenied = parentAction !== null;
       if (
         envelope.runId !== state.runId ||
@@ -419,7 +528,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         event.action.approvalId.length === 0 ||
         safe.policy.decision !== "ask" ||
         safe.approval.state !== "available" ||
-        safe.approval.expectedRevision !== state.revision + (repositoryCheck ? 1 : 10) ||
+        safe.approval.expectedRevision !== state.revision + (repositoryCheck || command ? 1 : 10) ||
         safe.approval.proposalRevision !== envelope.proposalRevision ||
         (replacingDenied
           ? safe.parentActionId !== parentAction.actionId ||
@@ -448,6 +557,21 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
                 result: null,
                 state: "awaiting_approval",
               },
+              revision: state.revision + 1,
+            },
+          };
+        }
+        if (command) {
+          if (state.inFlightEffect?.type !== "run_command.prepare") {
+            return illegal(state, event);
+          }
+          return {
+            ok: true,
+            state: {
+              ...state,
+              action: event.action,
+              inFlightEffect: null,
+              phase: "awaiting-approval",
               revision: state.revision + 1,
             },
           };
@@ -578,8 +702,25 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       }
       if (
         "model" in state &&
+        state.stage === "tool-batch-ready" &&
+        event.effect.type === "repository.tool.batch.execute"
+      ) {
+        return {
+          ok: true,
+          state: {
+            ...state,
+            inFlightEffect: event.effect,
+            revision: state.revision + 1,
+            stage: "tool-batch-in-flight",
+          },
+        };
+      }
+      if (
+        "model" in state &&
         state.stage === "action-prepare-ready" &&
         (event.effect.type === "anchor_edit.prepare" ||
+          event.effect.type === "write_file.prepare" ||
+          event.effect.type === "run_command.prepare" ||
           event.effect.type === "repository_check.prepare")
       ) {
         return {
@@ -607,6 +748,8 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       if (
         state.stage === "safe-action-ready" &&
         (event.effect.type === "anchor_edit.execute" ||
+          event.effect.type === "write_file.execute" ||
+          event.effect.type === "run_command.execute" ||
           event.effect.type === "repository_check.execute") &&
         isSafeAction(state.action)
       ) {
@@ -617,6 +760,15 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
             dispatchStarted: false,
             inFlightEffect: event.effect,
             revision: state.revision + 1,
+            ...(event.effect.type === "run_command.execute"
+              ? {
+                  runCommand: {
+                    effectId: event.effect.effectId,
+                    stderr: [],
+                    stdout: [],
+                  },
+                }
+              : {}),
             stage: "safe-action-in-flight",
           },
         };
@@ -681,9 +833,13 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         !(
           (state.stage === "safe-action-in-flight" &&
             (state.inFlightEffect?.type === "anchor_edit.execute" ||
+              state.inFlightEffect?.type === "write_file.execute" ||
+              state.inFlightEffect?.type === "run_command.execute" ||
               state.inFlightEffect?.type === "repository_check.execute")) ||
           (state.stage === "action-prepare-in-flight" &&
             (state.inFlightEffect?.type === "anchor_edit.prepare" ||
+              state.inFlightEffect?.type === "write_file.prepare" ||
+              state.inFlightEffect?.type === "run_command.prepare" ||
               state.inFlightEffect?.type === "repository_check.prepare")) ||
           (state.stage === "eden-patch-in-flight" &&
             state.inFlightEffect?.type === "review.eden_patch.capture") ||
@@ -737,6 +893,171 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           stage: "git-current-ready",
         },
       };
+    case "write_file.completed":
+      if (
+        state.phase !== "executing" ||
+        state.stage !== "safe-action-in-flight" ||
+        state.inFlightEffect?.type !== "write_file.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        !isSafeAction(state.action) ||
+        state.action.safeActuation.envelope.operation.type !== "write_file"
+      ) {
+        return illegal(state, event);
+      }
+      if (
+        event.observation.path !== state.action.safeActuation.envelope.operation.path ||
+        event.observation.sha256 !== state.action.safeActuation.envelope.operation.sha256 ||
+        event.observation.byteLength !== state.action.safeActuation.envelope.operation.byteLength
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          dispatchStarted: state.dispatchStarted || event.recovered,
+          inFlightEffect: null,
+          revision: state.revision + 1,
+          stage: "git-current-ready",
+        },
+      };
+    case "run_command.output": {
+      if (
+        state.phase !== "executing" ||
+        !("model" in state) ||
+        state.stage !== "safe-action-in-flight" ||
+        state.inFlightEffect?.type !== "run_command.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.runCommand?.effectId !== event.effectId ||
+        !isSafeAction(state.action) ||
+        state.action.safeActuation.envelope.operation.type !== "run_command"
+      ) {
+        return illegal(state, event);
+      }
+      const content = decodeUtf8Base64(event.contentBase64, event.byteLength);
+      if (content === null) return illegal(state, event);
+      const previous = state.runCommand[event.stream];
+      if (event.index !== previous.length) return illegal(state, event);
+      const next = [...previous, content];
+      if (new TextEncoder().encode(next.join("")).byteLength > 65_536) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          revision: state.revision + 1,
+          runCommand: { ...state.runCommand, [event.stream]: next },
+        },
+      };
+    }
+    case "run_command.completed": {
+      if (
+        state.phase !== "executing" ||
+        !("model" in state) ||
+        state.stage !== "safe-action-in-flight" ||
+        state.inFlightEffect?.type !== "run_command.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.runCommand?.effectId !== event.effectId ||
+        state.tool?.call.name !== "run_command" ||
+        !isSafeAction(state.action) ||
+        state.action.safeActuation.envelope.operation.type !== "run_command"
+      ) {
+        return illegal(state, event);
+      }
+      const stdout = state.runCommand.stdout.join("");
+      const stderr = state.runCommand.stderr.join("");
+      const stdoutBytes = new TextEncoder().encode(stdout).byteLength;
+      const stderrBytes = new TextEncoder().encode(stderr).byteLength;
+      const observation = event.observation;
+      if (
+        stdoutBytes !== observation.stdoutBytes ||
+        stderrBytes !== observation.stderrBytes ||
+        Date.parse(observation.startedAt) > Date.parse(observation.completedAt) ||
+        (observation.outcome === "exited") !== (observation.exitCode !== null)
+      ) {
+        return illegal(state, event);
+      }
+      if (observation.cleanupStatus !== "complete" || observation.outcome === "cleanup_failed") {
+        return {
+          ok: true,
+          state: terminal(
+            { ...state, inFlightEffect: null },
+            {
+              error: {
+                code: "command_cleanup_unconfirmed",
+                message: "The approved command did not produce a confirmed complete cleanup.",
+                recoverability: "ask-user",
+                suggestedActions: ["Inspect the durable command output and host process state."],
+              },
+              state: "blocked",
+            },
+          ),
+        };
+      }
+      const operation = state.action.safeActuation.envelope.operation;
+      const result: RepositoryToolResult = {
+        data: {
+          actionId: state.action.actionId,
+          cleanupStatus: observation.cleanupStatus,
+          completedAt: observation.completedAt,
+          cwd: operation.cwd,
+          executablePath: operation.executable.path,
+          exitCode: observation.exitCode,
+          outcome: observation.outcome,
+          startedAt: observation.startedAt,
+          stderr,
+          stderrBytes,
+          stderrSha256: observation.stderrSha256,
+          stdout,
+          stdoutBytes,
+          stdoutSha256: observation.stdoutSha256,
+        },
+        name: "run_command",
+        status: "completed",
+        toolCallId: state.tool.call.toolCallId,
+      };
+      const commandOutputBytes = stdoutBytes + stderrBytes;
+      const modelVisibleToolContentBytes = observedModelVisibleToolBytes(result);
+      if (
+        state.codingBudget !== undefined &&
+        (state.codingBudget.usage.commandOutputBytes + commandOutputBytes >
+          state.codingBudget.grant.commandOutputBytes ||
+          state.codingBudget.usage.modelVisibleToolContentBytes + modelVisibleToolContentBytes >
+            state.codingBudget.grant.modelVisibleToolContentBytes)
+      ) {
+        return illegal(state, event);
+      }
+      const tool = { call: state.tool.call, result };
+      return {
+        ok: true,
+        state: {
+          ...state,
+          ...(state.codingBudget === undefined
+            ? {}
+            : {
+                codingBudget: {
+                  ...state.codingBudget,
+                  usage: {
+                    ...state.codingBudget.usage,
+                    commandOutputBytes:
+                      state.codingBudget.usage.commandOutputBytes + commandOutputBytes,
+                    modelVisibleToolContentBytes:
+                      state.codingBudget.usage.modelVisibleToolContentBytes +
+                      modelVisibleToolContentBytes,
+                  },
+                },
+              }),
+          conversation: [...state.conversation, { ...tool, role: "tool" }],
+          inFlightEffect: null,
+          modelStep: state.modelStep + 1,
+          revision: state.revision + 1,
+          stage: "model-ready",
+          tool,
+          tools: [...state.tools.slice(0, -1), tool],
+        },
+      };
+    }
     case "review.eden_patch.captured":
       if (
         state.phase !== "executing" ||
@@ -852,6 +1173,58 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
             phase: "awaiting-approval",
             revision: state.revision + 1,
             safeReview,
+          },
+        };
+      }
+      if ("model" in state && state.codingBudget !== undefined) {
+        const call = state.tool?.call;
+        const operation = action.safeActuation.envelope.operation;
+        if (
+          call === undefined ||
+          (call.name !== "anchor_edit" && call.name !== "write_file") ||
+          (operation.type !== "anchor_edit" && operation.type !== "write_file") ||
+          call.name !== operation.type
+        ) {
+          return illegal(state, event);
+        }
+        const result: RepositoryToolResult = {
+          data: {
+            actionId: action.actionId,
+            byteLength:
+              operation.type === "anchor_edit" ? operation.desiredByteLength : operation.byteLength,
+            contentHash:
+              operation.type === "anchor_edit" ? operation.desiredSha256 : operation.sha256,
+            path: operation.path,
+            reviewStatus: event.check.status === "passed" ? "passed" : "diagnostics",
+          },
+          name: call.name,
+          status: "completed",
+          toolCallId: call.toolCallId,
+        };
+        const tool = { call, result };
+        const codingBudget = {
+          ...state.codingBudget,
+          usage: {
+            ...state.codingBudget.usage,
+            modelVisibleToolContentBytes:
+              state.codingBudget.usage.modelVisibleToolContentBytes +
+              observedModelVisibleToolBytes(result),
+          },
+        };
+        return {
+          ok: true,
+          state: {
+            ...state,
+            action,
+            codingBudget,
+            conversation: [...state.conversation, { ...tool, role: "tool" }],
+            inFlightEffect: null,
+            modelStep: state.modelStep + 1,
+            revision: state.revision + 1,
+            safeReview,
+            stage: "model-ready",
+            tool,
+            tools: [...state.tools.slice(0, -1), tool],
           },
         };
       }
@@ -1101,19 +1474,126 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         { ...currentAttempt, observation: event.observation },
       ];
       if (event.observation.status === "completed") {
-        if (event.observation.finishStatus === "stop") {
-          if (event.observation.text.length === 0) return illegal(state, event);
+        const calls = event.observation.toolCalls;
+        const actionProposalCount = calls.filter(
+          (call) =>
+            call.name === "anchor_edit" ||
+            call.name === "write_file" ||
+            call.name === "run_command" ||
+            call.name === "repository_check",
+        ).length;
+        const declaredToolContentBytes = calls.reduce(
+          (total, call) => total + declaredModelVisibleToolBytes(call),
+          0,
+        );
+        const codingBudget =
+          state.codingBudget === undefined
+            ? undefined
+            : {
+                ...state.codingBudget,
+                usage: {
+                  ...state.codingBudget.usage,
+                  actionProposals: state.codingBudget.usage.actionProposals + actionProposalCount,
+                  modelSteps: state.codingBudget.usage.modelSteps + 1,
+                  toolCalls: state.codingBudget.usage.toolCalls + calls.length,
+                },
+              };
+        if (
+          codingBudget !== undefined &&
+          (codingBudget.usage.modelSteps > codingBudget.grant.modelSteps ||
+            (calls.length > 0 && state.modelStep >= codingBudget.grant.modelSteps))
+        ) {
           return {
             ok: true,
             state: terminal(
               { ...state, attempts },
-              { answer: event.observation.text, state: "completed" },
+              {
+                error: {
+                  code: "model_tool_budget_exceeded",
+                  message: "The model exceeded the durable usable-coding grant.",
+                  recoverability: "ask-user",
+                  suggestedActions: ["Start a new task with a sufficient explicit grant."],
+                },
+                state: "blocked",
+              },
             ),
           };
         }
-        const call = event.observation.toolCalls[0];
+        if (
+          codingBudget !== undefined &&
+          (codingBudget.usage.toolCalls > codingBudget.grant.toolCalls ||
+            codingBudget.usage.actionProposals > codingBudget.grant.actionProposals ||
+            (calls.some((batchCall) => batchCall.name === "run_command") &&
+              codingBudget.usage.commandOutputBytes + 131_072 >
+                codingBudget.grant.commandOutputBytes) ||
+            codingBudget.usage.modelVisibleToolContentBytes + declaredToolContentBytes >
+              codingBudget.grant.modelVisibleToolContentBytes)
+        ) {
+          const rejected = calls.map((batchCall) => ({
+            call: batchCall,
+            result: {
+              error: {
+                code: "model_tool_budget_exceeded",
+                message:
+                  "The complete tool request was rejected before dispatch because it exceeded the durable run grant.",
+                recoverability: "retry" as const,
+                suggestedActions: [
+                  "Continue without tools or request fewer tools in a later model step.",
+                ],
+              },
+              name: batchCall.name,
+              status: "failed" as const,
+              toolCallId: batchCall.toolCallId,
+            },
+          }));
+          const last = rejected.at(-1);
+          if (last === undefined) return illegal(state, event);
+          return {
+            ok: true,
+            state: {
+              ...state,
+              attempts,
+              codingBudget: {
+                ...codingBudget,
+                usage: {
+                  ...codingBudget.usage,
+                  actionProposals: state.codingBudget?.usage.actionProposals ?? 0,
+                  toolCalls: state.codingBudget?.usage.toolCalls ?? 0,
+                },
+              },
+              conversation: [
+                ...state.conversation,
+                {
+                  content: event.observation.text,
+                  privateContinuity: event.observation.privateContinuity,
+                  role: "assistant",
+                  toolCalls: calls,
+                },
+                ...rejected.map((exchange) => ({ ...exchange, role: "tool" as const })),
+              ],
+              inFlightEffect: null,
+              modelStep: state.modelStep + 1,
+              revision: state.revision + 1,
+              stage: "model-ready",
+              tool: last,
+              tools: [...state.tools, ...rejected],
+            },
+          };
+        }
+        const budgetedState =
+          codingBudget === undefined
+            ? { ...state, attempts }
+            : { ...state, attempts, codingBudget };
+        if (event.observation.finishStatus === "stop") {
+          if (event.observation.text.length === 0) return illegal(state, event);
+          return {
+            ok: true,
+            state: terminal(budgetedState, { answer: event.observation.text, state: "completed" }),
+          };
+        }
+        const call = calls[0];
         if (call === undefined) return illegal(state, event);
-        if (state.modelStep >= 4 || state.tools.length >= 4) {
+        if (codingBudget === undefined && (state.modelStep >= 4 || state.tools.length >= 4)) {
           return {
             ok: true,
             state: terminal(
@@ -1128,6 +1608,93 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
                 state: "blocked",
               },
             ),
+          };
+        }
+        if (calls.length > 1) {
+          const eligible =
+            state.model.multiCallCapability === "bounded_read_only_v1" &&
+            codingBudget !== undefined &&
+            calls.length <= codingBudget.policy.maxReadOnlyCallsPerStep &&
+            calls.every(isReadOnlyRepositoryCall);
+          if (!eligible) {
+            const rejectedBudget =
+              codingBudget === undefined
+                ? undefined
+                : {
+                    ...codingBudget,
+                    usage: {
+                      ...codingBudget.usage,
+                      actionProposals: state.codingBudget?.usage.actionProposals ?? 0,
+                      toolCalls: state.codingBudget?.usage.toolCalls ?? 0,
+                    },
+                  };
+            const rejected = calls.map((batchCall) => ({
+              call: batchCall,
+              result: {
+                error: {
+                  code: "ineligible_tool_batch",
+                  message:
+                    "The complete batch was rejected before dispatch because it was not independent and read-only.",
+                  recoverability: "retry" as const,
+                  suggestedActions: ["Re-plan effects as singleton calls in a later model step."],
+                },
+                name: batchCall.name,
+                status: "failed" as const,
+                toolCallId: batchCall.toolCallId,
+              },
+            }));
+            const last = rejected.at(-1);
+            if (last === undefined) return illegal(state, event);
+            return {
+              ok: true,
+              state: {
+                ...state,
+                attempts,
+                ...(rejectedBudget === undefined ? {} : { codingBudget: rejectedBudget }),
+                conversation: [
+                  ...state.conversation,
+                  {
+                    content: event.observation.text,
+                    privateContinuity: event.observation.privateContinuity,
+                    role: "assistant",
+                    toolCalls: calls,
+                  },
+                  ...rejected.map((exchange) => ({ ...exchange, role: "tool" as const })),
+                ],
+                inFlightEffect: null,
+                modelStep: state.modelStep + 1,
+                revision: state.revision + 1,
+                stage: "model-ready",
+                tool: last,
+                tools: [...state.tools, ...rejected],
+              },
+            };
+          }
+          const pending = calls.map((batchCall) => ({ call: batchCall, result: null }));
+          return {
+            ok: true,
+            state: {
+              ...budgetedState,
+              conversation: [
+                ...state.conversation,
+                {
+                  content: event.observation.text,
+                  privateContinuity: event.observation.privateContinuity,
+                  role: "assistant",
+                  toolCalls: calls,
+                },
+              ],
+              inFlightEffect: null,
+              revision: state.revision + 1,
+              stage: "tool-batch-ready",
+              tool: null,
+              toolBatch: {
+                calls,
+                results: calls.map(() => null),
+                started: calls.map(() => false),
+              },
+              tools: [...state.tools, ...pending],
+            },
           };
         }
         const tool = { call, result: null };
@@ -1151,7 +1718,12 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
             ),
           };
         }
-        if (call.name === "anchor_edit" || call.name === "repository_check") {
+        if (
+          call.name === "anchor_edit" ||
+          call.name === "write_file" ||
+          call.name === "run_command" ||
+          call.name === "repository_check"
+        ) {
           if (
             call.name === "anchor_edit" &&
             state.action !== null &&
@@ -1176,8 +1748,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           return {
             ok: true,
             state: {
-              ...state,
-              attempts,
+              ...budgetedState,
               conversation: [
                 ...state.conversation,
                 {
@@ -1198,8 +1769,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
         return {
           ok: true,
           state: {
-            ...state,
-            attempts,
+            ...budgetedState,
             conversation: [
               ...state.conversation,
               {
@@ -1312,7 +1882,14 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       ) {
         return illegal(state, event);
       }
-      if (event.result.status === "failed") {
+      if (
+        event.result.status === "failed" &&
+        !(
+          "model" in state &&
+          state.codingBudget !== undefined &&
+          event.result.error.recoverability === "retry"
+        )
+      ) {
         return {
           ok: true,
           state: terminal(
@@ -1324,10 +1901,23 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
       if ("model" in state) {
         const tool = { call: state.tool.call, result: event.result };
         const tools = [...state.tools.slice(0, -1), tool];
+        const codingBudget =
+          state.codingBudget === undefined
+            ? undefined
+            : {
+                ...state.codingBudget,
+                usage: {
+                  ...state.codingBudget.usage,
+                  modelVisibleToolContentBytes:
+                    state.codingBudget.usage.modelVisibleToolContentBytes +
+                    observedModelVisibleToolBytes(event.result),
+                },
+              };
         return {
           ok: true,
           state: {
             ...state,
+            ...(codingBudget === undefined ? {} : { codingBudget }),
             conversation: [...state.conversation, { ...tool, role: "tool" }],
             inFlightEffect: null,
             modelStep: state.modelStep + 1,
@@ -1348,6 +1938,140 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           tool: { call: state.tool.call, result: event.result },
         },
       };
+    case "repository.tool.batch.item.started": {
+      if (
+        state.phase !== "executing" ||
+        !("model" in state) ||
+        state.stage !== "tool-batch-in-flight" ||
+        state.inFlightEffect?.type !== "repository.tool.batch.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.toolBatch === undefined ||
+        event.index >= state.toolBatch.calls.length ||
+        state.toolBatch.started[event.index] !== false
+      ) {
+        return illegal(state, event);
+      }
+      const started = [...state.toolBatch.started];
+      started[event.index] = true;
+      return {
+        ok: true,
+        state: {
+          ...state,
+          revision: state.revision + 1,
+          toolBatch: { ...state.toolBatch, started },
+        },
+      };
+    }
+    case "repository.tool.batch.item.completed": {
+      if (
+        state.phase !== "executing" ||
+        !("model" in state) ||
+        state.stage !== "tool-batch-in-flight" ||
+        state.inFlightEffect?.type !== "repository.tool.batch.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.toolBatch === undefined ||
+        event.index >= state.toolBatch.calls.length ||
+        state.toolBatch.started[event.index] !== true ||
+        state.toolBatch.results[event.index] !== null ||
+        event.result.toolCallId !== state.toolBatch.calls[event.index]?.toolCallId ||
+        event.result.name !== state.toolBatch.calls[event.index]?.name
+      ) {
+        return illegal(state, event);
+      }
+      const results = [...state.toolBatch.results];
+      results[event.index] = event.result;
+      const tools = [...state.tools];
+      const toolIndex = tools.length - state.toolBatch.calls.length + event.index;
+      const call = state.toolBatch.calls[event.index];
+      if (call === undefined || toolIndex < 0) return illegal(state, event);
+      tools[toolIndex] = { call, result: event.result };
+      const codingBudget =
+        state.codingBudget === undefined
+          ? undefined
+          : {
+              ...state.codingBudget,
+              usage: {
+                ...state.codingBudget.usage,
+                modelVisibleToolContentBytes:
+                  state.codingBudget.usage.modelVisibleToolContentBytes +
+                  observedModelVisibleToolBytes(event.result),
+              },
+            };
+      return {
+        ok: true,
+        state: {
+          ...state,
+          ...(codingBudget === undefined ? {} : { codingBudget }),
+          revision: state.revision + 1,
+          toolBatch: { ...state.toolBatch, results },
+          tools,
+        },
+      };
+    }
+    case "repository.tool.batch.closed": {
+      if (
+        state.phase !== "executing" ||
+        !("model" in state) ||
+        state.stage !== "tool-batch-in-flight" ||
+        state.inFlightEffect?.type !== "repository.tool.batch.execute" ||
+        state.inFlightEffect.effectId !== event.effectId ||
+        state.toolBatch === undefined ||
+        state.toolBatch.started.some((started) => !started) ||
+        state.toolBatch.results.some((result) => result === null)
+      ) {
+        return illegal(state, event);
+      }
+      const exchanges = state.toolBatch.calls.map((call, index) => ({
+        call,
+        result: state.toolBatch?.results[index] ?? null,
+      }));
+      if (exchanges.some((exchange) => exchange.result === null)) return illegal(state, event);
+      const completed = exchanges as readonly {
+        readonly call: RepositoryToolCall;
+        readonly result: RepositoryToolResult;
+      }[];
+      const last = completed.at(-1);
+      if (last === undefined) return illegal(state, event);
+      const blocking = completed.find(
+        (exchange) =>
+          exchange.result.status === "failed" && exchange.result.error.recoverability !== "retry",
+      );
+      if (blocking?.result.status === "failed") {
+        return {
+          ok: true,
+          state: terminal(
+            {
+              ...state,
+              conversation: [
+                ...state.conversation,
+                ...completed.map((exchange) => ({ ...exchange, role: "tool" as const })),
+              ],
+              inFlightEffect: null,
+              tool: last,
+              tools: [...state.tools.slice(0, -completed.length), ...completed],
+            },
+            { error: blocking.result.error, state: "blocked" },
+          ),
+        };
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          conversation: [
+            ...state.conversation,
+            ...completed.map((exchange) => ({ ...exchange, role: "tool" as const })),
+          ],
+          inFlightEffect: null,
+          modelStep: state.modelStep + 1,
+          revision: state.revision + 1,
+          stage: "model-ready",
+          tool: last,
+          toolBatch: state.toolBatch,
+          tools: [...state.tools.slice(0, -completed.length), ...completed],
+        },
+      };
+    }
     case "fake.model.completed":
       if (
         state.phase !== "executing" ||

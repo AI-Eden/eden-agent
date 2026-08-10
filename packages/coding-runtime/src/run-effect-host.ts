@@ -41,11 +41,15 @@ export class RunEffectHost implements EffectHost {
     }
     return effect.type === "anchor_edit.prepare" ||
       effect.type === "anchor_edit.execute" ||
+      effect.type === "write_file.prepare" ||
+      effect.type === "write_file.execute" ||
+      effect.type === "run_command.prepare" ||
+      effect.type === "run_command.execute" ||
       effect.type === "review.eden_patch.capture" ||
       effect.type === "review.git_snapshot.capture" ||
       effect.type === "review.git_check.capture"
-      ? this.#safe.execute(effect, signal)
-      : this.#fake.execute(effect, signal);
+      ? this.#safe.execute(effect, signal, observe, control)
+      : this.#fake.execute(effect, signal, observe);
   }
 
   reconcile(
@@ -61,10 +65,14 @@ export class RunEffectHost implements EffectHost {
     }
     return effect.type === "anchor_edit.prepare" ||
       effect.type === "anchor_edit.execute" ||
+      effect.type === "write_file.prepare" ||
+      effect.type === "write_file.execute" ||
+      effect.type === "run_command.prepare" ||
+      effect.type === "run_command.execute" ||
       effect.type === "review.eden_patch.capture" ||
       effect.type === "review.git_snapshot.capture" ||
       effect.type === "review.git_check.capture"
-      ? this.#safe.reconcile(effect)
+      ? this.#safe.reconcile(effect, observe, context)
       : this.#fake.reconcile(effect);
   }
 

@@ -26,7 +26,7 @@ const sha256Schema = Type.String({ pattern: "^sha256:[a-f0-9]{64}$" });
 const digestSchema = Type.String({ pattern: "^[a-f0-9]{64}$" });
 const identifierSchema = Type.String({ maxLength: 256, minLength: 1 });
 const boundedText = () => Type.String({ maxLength: 4_096, minLength: 1 });
-const reviewText = () => Type.String({ maxLength: 24_576 });
+const reviewText = () => Type.String({ maxLength: 57_344 });
 const utf8 = new TextEncoder();
 
 export const FileSnapshotSchema = Type.Object(
@@ -68,6 +68,74 @@ export const AnchorEditOperationSchema = Type.Refine(
 );
 export type AnchorEditOperation = Type.Static<typeof AnchorEditOperationSchema>;
 
+export const WriteFileOperationSchema = Type.Refine(
+  Type.Object(
+    {
+      byteLength: Type.Integer({ maximum: 32_768, minimum: 0 }),
+      content: Type.String({ maxLength: 32_768 }),
+      mode: Type.Literal(420),
+      parent: Type.Object(
+        {
+          device: Type.String({ pattern: "^[0-9]+$" }),
+          inode: Type.String({ pattern: "^[0-9]+$" }),
+          path: RepositoryPathSchema,
+        },
+        closed,
+      ),
+      path: RepositoryPathSchema,
+      sha256: sha256Schema,
+      targetState: Type.Literal("absent"),
+      type: Type.Literal("write_file"),
+    },
+    closed,
+  ),
+  (operation) => utf8.encode(operation.content).byteLength === operation.byteLength,
+);
+export type WriteFileOperation = Type.Static<typeof WriteFileOperationSchema>;
+
+export const RunCommandOperationSchema = Type.Refine(
+  Type.Object(
+    {
+      args: Type.Array(Type.String({ maxLength: 4_096 }), { maxItems: 64 }),
+      cwd: RepositoryPathSchema,
+      cwdIdentity: Type.Object(
+        {
+          device: Type.String({ pattern: "^[0-9]+$" }),
+          inode: Type.String({ pattern: "^[0-9]+$" }),
+        },
+        closed,
+      ),
+      environment: Type.Object(
+        {
+          lang: Type.Literal("C.UTF-8"),
+          lcAll: Type.Literal("C.UTF-8"),
+          noColor: Type.Literal("1"),
+          path: Type.String({ maxLength: 16_384 }),
+        },
+        closed,
+      ),
+      executable: Type.Object(
+        {
+          byteLength: Type.Integer({ maximum: 134_217_728, minimum: 1 }),
+          device: Type.String({ pattern: "^[0-9]+$" }),
+          inode: Type.String({ pattern: "^[0-9]+$" }),
+          path: Type.String({ maxLength: 4_096, minLength: 1 }),
+          sha256: sha256Schema,
+        },
+        closed,
+      ),
+      network: Type.Literal("host_unrestricted"),
+      program: Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$" }),
+      reason: boundedText(),
+      timeoutMs: Type.Integer({ maximum: 600_000, minimum: 1 }),
+      type: Type.Literal("run_command"),
+    },
+    closed,
+  ),
+  (operation) => operation.args.every((argument) => !argument.includes("\0")),
+);
+export type RunCommandOperation = Type.Static<typeof RunCommandOperationSchema>;
+
 export const GitTrackedQueryOperationSchema = Type.Object(
   { type: Type.Literal("git_tracked_query"), path: RepositoryPathSchema },
   closed,
@@ -85,6 +153,8 @@ const HostOperationSchema = Type.Union([
   GitTrackedQueryOperationSchema,
   GitDiffOperationSchema,
   GitDiffCheckOperationSchema,
+  WriteFileOperationSchema,
+  RunCommandOperationSchema,
 ]);
 
 const commonActionProperties = {
@@ -112,6 +182,8 @@ const HostActionEnvelopeV1Schema = Type.Refine(
         Type.Literal("git_tracked_query"),
         Type.Literal("git_diff"),
         Type.Literal("git_diff_check"),
+        Type.Literal("write_file"),
+        Type.Literal("run_command"),
       ]),
       operation: HostOperationSchema,
       scope: Type.Object(
@@ -126,15 +198,19 @@ const HostActionEnvelopeV1Schema = Type.Refine(
         {
           policyVersion: Type.Literal(1),
           ruleSetRevision: identifierSchema,
-          environmentClass: Type.Union([Type.Literal("none"), Type.Literal("scrubbed_git")]),
-          network: Type.Literal("not_requested"),
+          environmentClass: Type.Union([
+            Type.Literal("none"),
+            Type.Literal("scrubbed_git"),
+            Type.Literal("closed_non_secret"),
+          ]),
+          network: Type.Union([Type.Literal("not_requested"), Type.Literal("host_unrestricted")]),
           executionMode: Type.Literal("trusted_host_policy_only"),
         },
         closed,
       ),
       budgets: Type.Object(
         {
-          timeoutMs: Type.Union([Type.Integer({ maximum: 60_000, minimum: 1 }), Type.Null()]),
+          timeoutMs: Type.Union([Type.Integer({ maximum: 600_000, minimum: 1 }), Type.Null()]),
           outputBytes: Type.Union([Type.Integer({ maximum: 2_097_152, minimum: 1 }), Type.Null()]),
         },
         closed,
@@ -146,7 +222,10 @@ const HostActionEnvelopeV1Schema = Type.Refine(
     if (
       envelope.kind !== envelope.operation.type ||
       envelope.proposalRevision !== envelope.lifetime.revision ||
-      utf8.encode(JSON.stringify(envelope)).byteLength > 24_576
+      utf8.encode(JSON.stringify(envelope)).byteLength >
+        (envelope.operation.type === "write_file" || envelope.operation.type === "run_command"
+          ? 57_344
+          : 24_576)
     ) {
       return false;
     }
@@ -164,6 +243,30 @@ const HostActionEnvelopeV1Schema = Type.Refine(
         envelope.authority.environmentClass === "none" &&
         envelope.budgets.timeoutMs === null &&
         envelope.budgets.outputBytes === null
+      );
+    }
+    if (envelope.operation.type === "write_file") {
+      return (
+        envelope.scope.paths.length === 1 &&
+        envelope.scope.paths[0] === envelope.operation.path &&
+        envelope.scope.capability === "workspace.write.new_utf8_exclusive" &&
+        envelope.baseSnapshots.length === 0 &&
+        envelope.authority.environmentClass === "none" &&
+        envelope.budgets.timeoutMs === null &&
+        envelope.budgets.outputBytes === null &&
+        utf8.encode(JSON.stringify(envelope)).byteLength <= 57_344
+      );
+    }
+    if (envelope.operation.type === "run_command") {
+      return (
+        envelope.scope.paths.length === 1 &&
+        envelope.scope.paths[0] === envelope.operation.cwd &&
+        envelope.scope.capability === "process.execute.structured_trusted_host" &&
+        envelope.baseSnapshots.length === 0 &&
+        envelope.authority.environmentClass === "closed_non_secret" &&
+        envelope.authority.network === "host_unrestricted" &&
+        envelope.budgets.timeoutMs === envelope.operation.timeoutMs &&
+        envelope.budgets.outputBytes === 131_072
       );
     }
     return (
@@ -254,7 +357,7 @@ export const CompletePatchSchema = Type.Refine(
   Type.Object(
     {
       state: Type.Literal("complete"),
-      byteLength: Type.Integer({ maximum: 24_576, minimum: 0 }),
+      byteLength: Type.Integer({ maximum: 57_344, minimum: 0 }),
       content: reviewText(),
       contentHash: sha256Schema,
     },

@@ -9,6 +9,9 @@ import type {
   RepositoryCheckLifecycleState,
   RepositoryCheckReceiptV1,
   RepositoryCheckResultV1,
+  UsableCodingBudgetPolicyV1,
+  UsableCodingRunGrantV1,
+  UsableCodingRunUsageV1,
 } from "@eden/contracts";
 
 export type Action = {
@@ -41,6 +44,38 @@ export type AnchorEditObservation = {
   readonly desiredSha256: string;
   readonly path: string;
   readonly state: "completed";
+};
+
+export type WriteFileObservation = {
+  readonly byteLength: number;
+  readonly path: string;
+  readonly sha256: string;
+  readonly state: "completed";
+};
+
+export type RunCommandProgress = {
+  readonly effectId: string;
+  readonly stderr: readonly string[];
+  readonly stdout: readonly string[];
+};
+
+export type RunCommandObservation = {
+  readonly cleanupStatus: "complete" | "failed" | "unknown";
+  readonly completedAt: string;
+  readonly exitCode: number | null;
+  readonly outcome:
+    | "cancelled"
+    | "cleanup_failed"
+    | "exited"
+    | "invalid_output"
+    | "output_overflow"
+    | "spawn_failed"
+    | "timed_out";
+  readonly startedAt: string;
+  readonly stderrBytes: number;
+  readonly stderrSha256: string;
+  readonly stdoutBytes: number;
+  readonly stdoutSha256: string;
 };
 
 export type GitReviewSnapshot = {
@@ -102,10 +137,23 @@ export type RepositoryToolExchange = {
   readonly result: RepositoryToolResult | null;
 };
 
+export type RepositoryToolBatch = {
+  readonly calls: readonly RepositoryToolCall[];
+  readonly results: readonly (RepositoryToolResult | null)[];
+  readonly started: readonly boolean[];
+};
+
+export type UsableCodingBudgetState = {
+  readonly grant: UsableCodingRunGrantV1;
+  readonly policy: UsableCodingBudgetPolicyV1;
+  readonly usage: UsableCodingRunUsageV1;
+};
+
 export type ModelRunConfiguration = {
   readonly contextWindowTokens: number;
   readonly maxOutputTokens: number;
   readonly model: string;
+  readonly multiCallCapability?: "bounded_read_only_v1";
   readonly profileId: string;
 };
 
@@ -204,6 +252,12 @@ export type KernelEffect =
       readonly toolCall: RepositoryToolCall;
     }
   | {
+      readonly type: "repository.tool.batch.execute";
+      readonly calls: readonly RepositoryToolCall[];
+      readonly effectId: string;
+      readonly runId: string;
+    }
+  | {
       readonly type: "anchor_edit.prepare";
       readonly effectId: string;
       readonly expectedRevision: number;
@@ -211,6 +265,24 @@ export type KernelEffect =
       readonly proposalRevision: number;
       readonly runId: string;
       readonly toolCall: Extract<RepositoryToolCall, { readonly name: "anchor_edit" }>;
+      readonly workspace: RunWorkspace;
+    }
+  | {
+      readonly type: "write_file.prepare";
+      readonly effectId: string;
+      readonly expectedRevision: number;
+      readonly proposalRevision: number;
+      readonly runId: string;
+      readonly toolCall: Extract<RepositoryToolCall, { readonly name: "write_file" }>;
+      readonly workspace: RunWorkspace;
+    }
+  | {
+      readonly type: "run_command.prepare";
+      readonly effectId: string;
+      readonly expectedRevision: number;
+      readonly proposalRevision: number;
+      readonly runId: string;
+      readonly toolCall: Extract<RepositoryToolCall, { readonly name: "run_command" }>;
       readonly workspace: RunWorkspace;
     }
   | {
@@ -225,6 +297,18 @@ export type KernelEffect =
     }
   | {
       readonly type: "anchor_edit.execute";
+      readonly effectId: string;
+      readonly envelope: ActionEnvelopeV1;
+      readonly runId: string;
+    }
+  | {
+      readonly type: "write_file.execute";
+      readonly effectId: string;
+      readonly envelope: ActionEnvelopeV1;
+      readonly runId: string;
+    }
+  | {
+      readonly type: "run_command.execute";
       readonly effectId: string;
       readonly envelope: ActionEnvelopeV1;
       readonly runId: string;
@@ -269,6 +353,10 @@ export type KernelEvent =
       readonly task: string;
       readonly workspace: RunWorkspace;
       readonly model?: ModelRunConfiguration;
+      readonly codingBudget?: {
+        readonly grant: UsableCodingRunGrantV1;
+        readonly policy: UsableCodingBudgetPolicyV1;
+      };
     }
   | {
       readonly type: "approval.resolved";
@@ -297,6 +385,25 @@ export type KernelEvent =
       readonly effectId: string;
       readonly observation: AnchorEditObservation;
       readonly recovered: boolean;
+    }
+  | {
+      readonly type: "write_file.completed";
+      readonly effectId: string;
+      readonly observation: WriteFileObservation;
+      readonly recovered: boolean;
+    }
+  | {
+      readonly type: "run_command.output";
+      readonly byteLength: number;
+      readonly contentBase64: string;
+      readonly effectId: string;
+      readonly index: number;
+      readonly stream: "stderr" | "stdout";
+    }
+  | {
+      readonly type: "run_command.completed";
+      readonly effectId: string;
+      readonly observation: RunCommandObservation;
     }
   | {
       readonly type: "review.eden_patch.captured";
@@ -364,6 +471,18 @@ export type KernelEvent =
       readonly effectId: string;
       readonly result: RepositoryToolResult;
     }
+  | {
+      readonly type: "repository.tool.batch.item.started";
+      readonly effectId: string;
+      readonly index: number;
+    }
+  | {
+      readonly type: "repository.tool.batch.item.completed";
+      readonly effectId: string;
+      readonly index: number;
+      readonly result: RepositoryToolResult;
+    }
+  | { readonly type: "repository.tool.batch.closed"; readonly effectId: string }
   | { readonly type: "fake.action.completed"; readonly effectId: string }
   | {
       readonly type: "verification.completed";
@@ -389,6 +508,7 @@ type ActiveRunFields = {
   readonly tool: RepositoryToolExchange | null;
   readonly safeReview?: SafeReviewProgress;
   readonly repositoryCheck?: RepositoryCheckProgress;
+  readonly runCommand?: RunCommandProgress;
   readonly workspace: RunWorkspace;
 };
 
@@ -449,6 +569,7 @@ type ProviderActiveRunFields = {
   readonly attempts: readonly ModelAttempt[];
   readonly conversation: readonly ModelConversationItem[];
   readonly context: readonly ModelContextItem[];
+  readonly codingBudget?: UsableCodingBudgetState;
   readonly correlationId: string;
   readonly model: ModelRunConfiguration;
   readonly modelStep: number;
@@ -457,8 +578,10 @@ type ProviderActiveRunFields = {
   readonly task: string;
   readonly terminalOutcome: null;
   readonly tool: RepositoryToolExchange | null;
+  readonly toolBatch?: RepositoryToolBatch;
   readonly safeReview?: SafeReviewProgress;
   readonly repositoryCheck?: RepositoryCheckProgress;
+  readonly runCommand?: RunCommandProgress;
   readonly tools: readonly RepositoryToolExchange[];
   readonly workspace: RunWorkspace;
 };
@@ -472,6 +595,8 @@ export type ProviderExecutingRunState = ProviderActiveRunFields & {
     | "model-in-flight"
     | "tool-ready"
     | "tool-in-flight"
+    | "tool-batch-ready"
+    | "tool-batch-in-flight"
     | "action-prepare-ready"
     | "action-prepare-in-flight"
     | "approval-consume-ready"

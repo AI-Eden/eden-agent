@@ -1,4 +1,5 @@
 export {
+  encodeJournalRecord,
   FileJournal,
   JournalCorruptionError,
   readJournalRecords,

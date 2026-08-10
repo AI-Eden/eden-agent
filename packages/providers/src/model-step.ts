@@ -79,6 +79,7 @@ export type ModelStepObservationV1 =
 export type ModelVisibleTextListener = (delta: ModelVisibleTextDeltaV1) => void;
 
 export interface ModelStepDriver {
+  readonly multiCallCapability?: "bounded_read_only_v1";
   completeModelStep(
     input: ModelStepRequestV1,
     signal: AbortSignal,
@@ -99,7 +100,10 @@ const toolName = Type.Union([
   Type.Literal("read_file"),
   Type.Literal("search_repository"),
   Type.Literal("git_status"),
+  Type.Literal("git_diff"),
   Type.Literal("repository_check"),
+  Type.Literal("write_file"),
+  Type.Literal("run_command"),
 ]);
 const conversationItem = Type.Union([
   Type.Object(
@@ -114,13 +118,13 @@ const conversationItem = Type.Union([
       content: Type.Union([utf8Text(32_768), Type.Null()]),
       privateContinuity: Type.Union([utf8Text(8_192), Type.Null()]),
       role: Type.Literal("assistant"),
-      toolCalls: Type.Array(RepositoryToolCallSchema, { maxItems: 1 }),
+      toolCalls: Type.Array(RepositoryToolCallSchema, { maxItems: 4 }),
     },
     closed,
   ),
   Type.Object(
     {
-      content: utf8Text(32_768),
+      content: utf8Text(196_608),
       name: toolName,
       role: Type.Literal("tool"),
       toolCallId: identifier(),
@@ -133,7 +137,7 @@ export const ModelStepRequestV1Schema = Type.Object(
   {
     attemptId: identifier(),
     conversation: Type.Array(conversationItem, { maxItems: 272, minItems: 1 }),
-    enabledTools: Type.Array(toolName, { maxItems: 6 }),
+    enabledTools: Type.Array(toolName, { maxItems: 9 }),
     maxOutputTokens: Type.Integer({ maximum: 8_192, minimum: 1 }),
     version: Type.Literal(1),
   },
@@ -190,7 +194,7 @@ export const ModelStepObservationV1Schema = Type.Union([
         requestId: Type.Union([Type.String({ maxLength: 128, minLength: 1 }), Type.Null()]),
         status: Type.Literal("completed"),
         text: Type.String({ maxLength: 32_768 }),
-        toolCalls: Type.Array(RepositoryToolCallSchema, { maxItems: 1 }),
+        toolCalls: Type.Array(RepositoryToolCallSchema, { maxItems: 4 }),
         usage: Type.Union([modelUsage, Type.Null()]),
         version: Type.Literal(1),
       },
@@ -201,7 +205,9 @@ export const ModelStepObservationV1Schema = Type.Union([
       (value.privateContinuity === null ||
         new TextEncoder().encode(value.privateContinuity).byteLength <= 8_192) &&
       ((value.finishStatus === "stop" && value.toolCalls.length === 0) ||
-        (value.finishStatus === "tool_calls" && value.toolCalls.length === 1)),
+        (value.finishStatus === "tool_calls" &&
+          value.toolCalls.length >= 1 &&
+          value.toolCalls.length <= 4)),
   ),
   Type.Object(
     {

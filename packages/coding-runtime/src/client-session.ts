@@ -13,10 +13,12 @@ import { NativeProcessRunner } from "./native-process.ts";
 import { RepositoryCheckEffectHost } from "./repository-check-effect-host.ts";
 import { DockerCliRepositoryCheckPort } from "./repository-check-runner.ts";
 import { RepositoryCheckSnapshotService } from "./repository-check-snapshot.ts";
+import { RunCommandService } from "./run-command.ts";
 import { RunEffectHost } from "./run-effect-host.ts";
 import { type RuntimeClock, RuntimeEngine, type RuntimeIdSource } from "./runtime.ts";
 import { SafeActuationEffectHost } from "./safe-actuation-host.ts";
 import type { RepositoryToolServiceOptions } from "./tools/index.ts";
+import { WriteFileService } from "./write-file.ts";
 
 export type RunSession = {
   readonly engine: RuntimeEngine;
@@ -87,11 +89,10 @@ export async function openRunSession(
   onVisibleText?: ModelVisibleTextListener,
 ): Promise<RunSession> {
   const runDirectory = runDirectoryPath(stateDirectory, workspaceId, runId);
-  const journal = await FileJournal.open(
-    journalPath(stateDirectory, workspaceId, runId),
-    runId,
+  const journal = await FileJournal.open(journalPath(stateDirectory, workspaceId, runId), runId, {
     create,
-  );
+    profile: modelStepDriver === undefined ? "r2" : "usable_coding_v1",
+  });
   const engine = await RuntimeEngine.open(
     journal,
     new RunEffectHost(
@@ -117,6 +118,15 @@ export async function openRunSession(
         { now: () => clock.now().toISOString() },
         new GitReviewService({
           ...repositoryToolOptions,
+          now: () => clock.now().toISOString(),
+          workspaceRoot: cwd,
+        }),
+        new WriteFileService({
+          stateDirectory,
+          workspaceRoot: cwd,
+        }),
+        new RunCommandService({
+          nativeProcess: repositoryToolOptions.nativeProcess ?? new NativeProcessRunner(),
           now: () => clock.now().toISOString(),
           workspaceRoot: cwd,
         }),

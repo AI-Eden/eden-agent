@@ -444,6 +444,52 @@ const providerStartEvent = {
   task: "Find the native smoke marker and explain where it is used.",
 } as const;
 
+function usableCodingStartEvent() {
+  return {
+    ...providerStartEvent,
+    codingBudget: {
+      grant: {
+        actionProposals: 3,
+        commandOutputBytes: 65_536,
+        journalBytes: 1_048_576,
+        journalRecords: 2_048,
+        modelSteps: 8,
+        modelVisibleToolContentBytes: 131_072,
+        policy: "usable_coding_v1",
+        toolCalls: 10,
+        version: 1,
+        wallTimeMs: 900_000,
+      },
+      policy: {
+        actionProposals: 8,
+        commandOutputBytes: 262_144,
+        commandStderrBytes: 65_536,
+        commandStdoutBytes: 65_536,
+        commandTimeoutMs: 600_000,
+        finalAnswerStep: 12,
+        gitDiffPageBytes: 24_576,
+        gitDiffPages: 4,
+        journalBytes: 2_097_152,
+        journalRecordBytes: 65_536,
+        journalRecords: 4_096,
+        maxReadOnlyCallsPerStep: 4,
+        modelSteps: 12,
+        modelVisibleToolContentBytes: 524_288,
+        newFileBytes: 32_768,
+        profile: "usable_coding_v1",
+        readOnlyConcurrency: 4,
+        toolCalls: 16,
+        version: 1,
+        wallTimeMs: 1_800_000,
+      },
+    },
+    model: {
+      ...providerStartEvent.model,
+      multiCallCapability: "bounded_read_only_v1",
+    },
+  } as const;
+}
+
 test("a provider run owns a complete model-tool-model conversation and ends completed, not succeeded", () => {
   const started = transition(initialRunState, providerStartEvent);
   const firstEffect = onlyEffect(started);
@@ -559,6 +605,268 @@ test("a provider run owns a complete model-tool-model conversation and ends comp
     answer: "The marker is in README.md:1.",
     state: "completed",
   });
+});
+
+test("a usable coding step closes four read calls as one source-ordered batch", () => {
+  const calls = [1, 2, 3, 4].map((index) => ({
+    arguments: { maxBytes: 8, offset: 0, path: `file-${index}.txt` },
+    name: "read_file" as const,
+    toolCallId: `call-${index}`,
+  }));
+  const start = {
+    ...providerStartEvent,
+    codingBudget: {
+      grant: {
+        actionProposals: 3,
+        commandOutputBytes: 65_536,
+        journalBytes: 1_048_576,
+        journalRecords: 2_048,
+        modelSteps: 8,
+        modelVisibleToolContentBytes: 131_072,
+        policy: "usable_coding_v1",
+        toolCalls: 10,
+        version: 1,
+        wallTimeMs: 900_000,
+      },
+      policy: {
+        actionProposals: 8,
+        commandOutputBytes: 262_144,
+        commandStderrBytes: 65_536,
+        commandStdoutBytes: 65_536,
+        commandTimeoutMs: 600_000,
+        finalAnswerStep: 12,
+        gitDiffPageBytes: 24_576,
+        gitDiffPages: 4,
+        journalBytes: 2_097_152,
+        journalRecordBytes: 65_536,
+        journalRecords: 4_096,
+        maxReadOnlyCallsPerStep: 4,
+        modelSteps: 12,
+        modelVisibleToolContentBytes: 524_288,
+        newFileBytes: 32_768,
+        profile: "usable_coding_v1",
+        readOnlyConcurrency: 4,
+        toolCalls: 16,
+        version: 1,
+        wallTimeMs: 1_800_000,
+      },
+    },
+    model: {
+      ...providerStartEvent.model,
+      multiCallCapability: "bounded_read_only_v1",
+    },
+  } as const;
+  const started = transition(initialRunState, start);
+  const modelEffect = onlyEffect(started);
+  const requested = transition(started, { effect: modelEffect, type: "effect.requested" });
+  const attempted = transition(requested, {
+    attemptId: "attempt-batch",
+    effectId: modelEffect.effectId,
+    reason: "initial",
+    type: "model.attempt.started",
+  });
+  const ready = transition(attempted, {
+    effectId: modelEffect.effectId,
+    observation: {
+      attemptId: "attempt-batch",
+      finishStatus: "tool_calls",
+      privateContinuity: null,
+      requestId: "request-batch",
+      status: "completed",
+      text: "Read the independent files.",
+      toolCalls: calls,
+      usage: null,
+      version: 1,
+    },
+    type: "model.step.completed",
+  });
+  const batchEffect = onlyEffect(ready);
+  deepStrictEqual(batchEffect, {
+    calls,
+    effectId: "run-1:repository-tool-batch:1",
+    runId: "run-1",
+    type: "repository.tool.batch.execute",
+  });
+  const batchRequested = transition(ready, { effect: batchEffect, type: "effect.requested" });
+  const allStarted = [0, 1, 2, 3].reduce(
+    (state, index) =>
+      transition(state, {
+        effectId: batchEffect.effectId,
+        index,
+        type: "repository.tool.batch.item.started",
+      }),
+    batchRequested,
+  );
+  const results = calls.map((call, index) =>
+    index === 2
+      ? {
+          error: {
+            code: "fixture_read_failed",
+            message: "One independent read failed.",
+            recoverability: "retry" as const,
+            suggestedActions: ["Continue with the closed sibling results."],
+          },
+          name: "read_file" as const,
+          status: "failed" as const,
+          toolCallId: call.toolCallId,
+        }
+      : {
+          data: {
+            bytesRead: 1,
+            content: String(index + 1),
+            contentHash: `sha256:${String(index + 1).repeat(64)}`,
+            nextOffset: null,
+            offset: 0,
+            sourcePath: call.arguments.path,
+            totalBytes: 1,
+          },
+          name: "read_file" as const,
+          status: "succeeded" as const,
+          toolCallId: call.toolCallId,
+        },
+  );
+  const observed = [3, 2, 1, 0].reduce(
+    (state, index) =>
+      transition(state, {
+        effectId: batchEffect.effectId,
+        index,
+        result: results[index] ?? fail("Missing batch result fixture."),
+        type: "repository.tool.batch.item.completed",
+      }),
+    allStarted,
+  );
+  const continued = transition(observed, {
+    effectId: batchEffect.effectId,
+    type: "repository.tool.batch.closed",
+  });
+
+  strictEqual(onlyEffect(continued).type, "provider.model.step");
+  if (continued.phase !== "executing" || !("model" in continued)) return;
+  deepStrictEqual(
+    continued.conversation
+      .slice(-4)
+      .map((item) => (item.role === "tool" ? item.call.toolCallId : item.role)),
+    calls.map((call) => call.toolCallId),
+  );
+  strictEqual(continued.tools.at(-2)?.result?.status, "failed");
+  strictEqual(continued.tools.filter((tool) => tool.result?.status === "succeeded").length, 3);
+  if (continued.codingBudget === undefined) fail("Expected a durable usable-coding budget.");
+  deepStrictEqual(continued.codingBudget.usage, {
+    actionProposals: 0,
+    commandOutputBytes: 0,
+    journalBytes: 0,
+    journalRecords: 0,
+    modelSteps: 1,
+    modelVisibleToolContentBytes: 1_004,
+    toolCalls: 4,
+    version: 1,
+    wallTimeMs: 0,
+  });
+});
+
+test("a mixed read and effect batch rejects without effect and returns control to the model", () => {
+  const started = transition(initialRunState, usableCodingStartEvent());
+  const modelEffect = onlyEffect(started);
+  const requested = transition(started, { effect: modelEffect, type: "effect.requested" });
+  const attempted = transition(requested, {
+    attemptId: "attempt-mixed",
+    effectId: modelEffect.effectId,
+    reason: "initial",
+    type: "model.attempt.started",
+  });
+  const replanning = transition(attempted, {
+    effectId: modelEffect.effectId,
+    observation: {
+      attemptId: "attempt-mixed",
+      finishStatus: "tool_calls",
+      privateContinuity: null,
+      requestId: "request-mixed",
+      status: "completed",
+      text: "Read and then edit.",
+      toolCalls: [
+        {
+          arguments: { maxBytes: 8, offset: 0, path: "file.txt" },
+          name: "read_file",
+          toolCallId: "call-read",
+        },
+        {
+          arguments: {
+            path: "file.txt",
+            replacements: [{ expectedOccurrences: 1, newText: "new", oldText: "old" }],
+          },
+          name: "anchor_edit",
+          toolCallId: "call-edit",
+        },
+      ],
+      usage: null,
+      version: 1,
+    },
+    type: "model.step.completed",
+  });
+
+  strictEqual(replanning.phase, "executing");
+  if (replanning.phase !== "executing" || !("model" in replanning)) return;
+  strictEqual(replanning.stage, "model-ready");
+  strictEqual(onlyEffect(replanning).type, "provider.model.step");
+  strictEqual(replanning.conversation.filter((item) => item.role === "tool").length, 2);
+  strictEqual(
+    replanning.tools.every((exchange) => exchange.result?.status === "failed"),
+    true,
+  );
+  if (replanning.codingBudget === undefined) fail("Expected a durable usable-coding budget.");
+  strictEqual(replanning.codingBudget.usage.modelSteps, 1);
+  strictEqual(replanning.codingBudget.usage.toolCalls, 0);
+});
+
+test("an over-grant read batch performs no effect and returns the closed rejection to the model", () => {
+  const start = usableCodingStartEvent();
+  const started = transition(initialRunState, {
+    ...start,
+    codingBudget: {
+      ...start.codingBudget,
+      grant: { ...start.codingBudget.grant, toolCalls: 3 },
+    },
+  });
+  const modelEffect = onlyEffect(started);
+  const requested = transition(started, { effect: modelEffect, type: "effect.requested" });
+  const attempted = transition(requested, {
+    attemptId: "attempt-over-grant",
+    effectId: modelEffect.effectId,
+    reason: "initial",
+    type: "model.attempt.started",
+  });
+  const calls = [1, 2, 3, 4].map((index) => ({
+    arguments: { maxBytes: 8, offset: 0, path: `file-${index}.txt` },
+    name: "read_file" as const,
+    toolCallId: `call-over-${index}`,
+  }));
+  const replanning = transition(attempted, {
+    effectId: modelEffect.effectId,
+    observation: {
+      attemptId: "attempt-over-grant",
+      finishStatus: "tool_calls",
+      privateContinuity: null,
+      requestId: "request-over-grant",
+      status: "completed",
+      text: "Read four files.",
+      toolCalls: calls,
+      usage: null,
+      version: 1,
+    },
+    type: "model.step.completed",
+  });
+
+  strictEqual(replanning.phase, "executing");
+  if (replanning.phase !== "executing" || !("model" in replanning)) return;
+  strictEqual(replanning.stage, "model-ready");
+  strictEqual(onlyEffect(replanning).type, "provider.model.step");
+  strictEqual(replanning.tools.length, 4);
+  strictEqual(
+    replanning.tools.every((tool) => tool.result?.status === "failed"),
+    true,
+  );
+  strictEqual(replanning.codingBudget?.usage.modelSteps, 1);
+  strictEqual(replanning.codingBudget?.usage.toolCalls, 0);
 });
 
 test("post-delta interruption requires an explicit fresh attempt without concatenation", () => {

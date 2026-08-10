@@ -168,6 +168,14 @@ export {
   repositoryCheckToolchainImageRepository,
   repositoryCheckToolchainManifest,
 } from "./repository-check-toolchain.ts";
+export {
+  type PrepareRunCommand,
+  RunCommandError,
+  type RunCommandObservation,
+  type RunCommandOutputObservation,
+  RunCommandService,
+  type RunCommandServiceOptions,
+} from "./run-command.ts";
 export type {
   EffectHost,
   JournalRecordMetadata,
@@ -188,3 +196,11 @@ export {
   type ToolResult,
 } from "./tools/index.ts";
 export type { VerificationResult } from "./verification/index.js";
+export {
+  type PrepareWriteFile,
+  WriteFileError,
+  type WriteFileObservation,
+  type WriteFileReconciliation,
+  WriteFileService,
+  type WriteFileServiceOptions,
+} from "./write-file.ts";

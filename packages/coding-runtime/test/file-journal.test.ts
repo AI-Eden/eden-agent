@@ -5,12 +5,14 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import {
+  encodeJournalRecord,
   JournalCorruptionError,
   JournalReadAbortedError,
   journalByteLimit,
   journalRecordByteLimit,
   journalRecordLimit,
   readJournalRecordsBounded,
+  usableCodingJournalByteLimit,
 } from "../src/journal/file-journal.ts";
 import { decodeJournalRecord, FileJournal } from "../src/journal/index.ts";
 import { modelRequestedRecord, startRecord } from "./records.ts";
@@ -56,6 +58,17 @@ test("file journal round-trips committed JSONL records", async () => {
 
   // Then: the complete records round-trip in commit order.
   deepStrictEqual(await reopened.readAll(), [startRecord, modelRequestedRecord]);
+});
+
+test("journal encoder bytes are the exact bytes appended to durable state", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "eden-journal-encoder-"));
+  const filePath = join(directory, "events.jsonl");
+  const journal = await FileJournal.open(filePath, "run-1");
+
+  const encoded = encodeJournalRecord(startRecord);
+  await journal.append(startRecord);
+
+  deepStrictEqual(await readFile(filePath), encoded);
 });
 
 test("file journal rejects an unterminated trailing record", async () => {
@@ -151,6 +164,29 @@ test("append accepts exact journal budgets and rejects every limit plus one", as
   await rejects(
     countJournal.append(cancellationRecord(journalRecordLimit)),
     (error) => error instanceof JournalCorruptionError && error.code === "record_limit",
+  );
+});
+
+test("usable coding journals use the amended 2 MiB profile without widening R2", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "eden-journal-r3-budget-"));
+  const filePath = join(directory, "events.jsonl");
+  const records = Array.from({ length: 31 }, (_, sequence) =>
+    cancellationRecord(sequence, journalRecordByteLimit),
+  );
+  await writeFile(filePath, `${records.map((record) => JSON.stringify(record)).join("\n")}\n`);
+
+  const journal = await FileJournal.open(filePath, "run-1", {
+    create: false,
+    profile: "usable_coding_v1",
+  });
+  await journal.append(cancellationRecord(31, journalRecordByteLimit));
+
+  strictEqual(journalByteLimit, 1_048_576);
+  strictEqual(usableCodingJournalByteLimit, 2_097_152);
+  strictEqual((await readFile(filePath)).byteLength, usableCodingJournalByteLimit);
+  await rejects(
+    journal.append(cancellationRecord(32)),
+    (error) => error instanceof JournalCorruptionError && error.code === "file_too_large",
   );
 });
 

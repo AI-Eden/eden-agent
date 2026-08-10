@@ -2,7 +2,7 @@
 
 ## Status
 
-The owner accepted the R3 direction and ADR 0019 Freeze packet on 2026-08-10. The exact contract below is fixed Build input, but Build remains separately unauthorized.
+The owner accepted the R3 direction and ADR 0019 Freeze packet on 2026-08-10, then accepted the amended Freeze and freshly authorized Build on 2026-08-11. The exact contract below is fixed later-slice input, but Goal lifecycle implementation has not begun because R3-A remains at milestone review and R3-B/R3-C have not started.
 
 ## Purpose
 
@@ -22,6 +22,8 @@ A goal contains:
 - policy for workspace drift and human steering.
 
 `GoalSpecV1` is a closed, canonically identified value bound to one approved `PlanArtifactV1` revision. It contains one to eight required checks, up to eight optional checks, up to sixteen expected artifacts, allowed capability classes, model/tool/action/time/repair budgets, stop conditions, workspace-drift policy, and the v0.1 `checkpoint_only_no_automatic_rollback` strategy. A changed plan or goal revision invalidates the prior approval.
+
+Goal budgets select a durable per-run grant no greater than the active RunProfile policy maxima. They are ceilings, not instructions to spend the full allowance: the model may answer early or use no tool, but it cannot increase a grant. Multi-call batching changes only how eligible read-only calls share one model step; every call still consumes the same tool budget, and no batch may combine or parallelize an approval-bearing or effectful action.
 
 ## Plan lifecycle
 

@@ -239,7 +239,7 @@ typed model proposal
   -> OpenTUI or headless client
 ```
 
-R3-A extends `contracts`, `kernel`, and `coding-runtime` with `git_diff_v1`, exclusive `write_file_v1`, shell-free `run_command_v1`, profile-owned budgets, and recoverable tool observations. The native-process port remains a mechanism: runtime code resolves the executable, closes the environment and action, and obtains policy authority before calling it. The model and renderer never receive raw process authority, and trusted-host execution retains explicit `isolation=none` and `network=host_unrestricted` truth.
+R3-A extends `contracts`, `kernel`, and `coding-runtime` with `git_diff_v1`, exclusive `write_file_v1`, shell-free `run_command_v1`, policy/grant/usage budgets, bounded multi-call batches, and recoverable tool observations. Provider adapters normalize zero to four closed calls but declare and prove their multi-call capability separately. The pure kernel validates eligibility, budget, final-answer reserve, and source order; `coding-runtime` preflights and schedules eligible read-only calls with concurrency at most four, journals actual lifecycle, and restores source-ordered results. Effectful or approval-bearing calls remain singleton and never enter the parallel scheduler. The native-process port remains a mechanism: runtime code resolves the executable, closes the environment and action, and obtains policy authority before calling it. The model and renderer never receive raw process authority, and trusted-host execution retains explicit `isolation=none` and `network=host_unrestricted` truth.
 
 New-file recovery differs from AnchorEdit. Exact created bytes prove completed, proven target absence with the same parent identity proves not started, and any other file or parent state is stale or unknown. Command recovery retains ADR 0015's process rule: durable dispatch without a terminal receipt is unknown and cannot retry automatically.
 
@@ -249,7 +249,7 @@ R3-C activates the existing planning, goals, and verification modules as interna
 
 The v0.1 checkpoint is journal and workspace evidence, not a Git commit, stash, copied worktree, or rollback service. A resume opens one exact journal, replays before I/O, reconciles only an unresolved owning effect, revalidates goal and workspace state, and continues only from a declared safe boundary. An Evidence Pack is persisted under runtime-owned state and content-addressed before the verifier emits success.
 
-R3-D is an optional internal extension after R3-C. If separately activated, one read-only child run owns its own context, journal, budgets, and cancellation while inheriting narrower authority. Web search and fetch remain explicit adapters behind separate network policy. No new package, parallel scheduler, write worker, or generic subagent framework is created for this milestone.
+R3-D is an optional internal extension after R3-C. If separately activated, one read-only child run owns its own context, journal, budgets, and cancellation while inheriting narrower authority. Web search and fetch remain explicit adapters behind separate network policy. R3-A's bounded repository-tool batch scheduler is not a child-agent or general task scheduler; R3-D creates no new package, write worker, nested fan-out, or generic subagent framework.
 
 ## Deferred boundaries
 

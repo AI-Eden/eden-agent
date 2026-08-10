@@ -69,10 +69,23 @@ export function approvalPresentation(action: Action) {
           executionMode: "trusted_host_policy_only" as const,
           isolation: "none" as const,
           lifetime: "single_use_proposal_revision" as const,
-          network: "not_requested" as const,
+          network:
+            action.safeActuation.envelope.operation.type === "run_command"
+              ? ("host_unrestricted" as const)
+              : ("not_requested" as const),
           policyRuleId: action.safeActuation.policy.ruleId,
           policyRuleSetRevision: action.safeActuation.policy.ruleSetRevision,
           proposalRevision: action.safeActuation.envelope.proposalRevision,
+          ...(action.safeActuation.envelope.operation.type === "run_command"
+            ? {
+                process: {
+                  args: [...action.safeActuation.envelope.operation.args],
+                  executablePath: action.safeActuation.envelope.operation.executable.path,
+                  program: action.safeActuation.envelope.operation.program,
+                  timeoutMs: action.safeActuation.envelope.operation.timeoutMs,
+                },
+              }
+            : {}),
         };
   return {
     actionId: action.actionId,
@@ -273,7 +286,8 @@ function safeChangedFiles(
     state.safeReview === undefined ||
     state.action === null ||
     !isSafeAction(state.action) ||
-    state.action.safeActuation.envelope.operation.type !== "anchor_edit"
+    (state.action.safeActuation.envelope.operation.type !== "anchor_edit" &&
+      state.action.safeActuation.envelope.operation.type !== "write_file")
   ) {
     return [];
   }
@@ -283,8 +297,13 @@ function safeChangedFiles(
       .map((entry) => entry.path),
   );
   const path = state.action.safeActuation.envelope.operation.path;
+  const writeFile = state.action.safeActuation.envelope.operation.type === "write_file";
   return state.safeReview.currentGit.statusEntries.flatMap((entry) => {
-    if (entry.kind === "untracked") return [];
+    if (entry.kind === "untracked") {
+      return writeFile && entry.path === path
+        ? [{ attribution: "eden" as const, path: entry.path, status: "added" as const }]
+        : [];
+    }
     const eden = entry.path === path;
     return [
       {
@@ -498,6 +517,30 @@ function budget(state: Exclude<RunState, { readonly phase: "idle" }>) {
   return { total: 10, unit: "actions" as const, used: state.revision };
 }
 
+function codingBudget(
+  state: Exclude<RunState, { readonly phase: "idle" }>,
+): ProductView["codingBudget"] {
+  if (!("model" in state) || state.codingBudget === undefined) return undefined;
+  const { grant, policy, usage } = state.codingBudget;
+  return {
+    grant,
+    policy,
+    remaining: {
+      actionProposals: grant.actionProposals - usage.actionProposals,
+      commandOutputBytes: grant.commandOutputBytes - usage.commandOutputBytes,
+      journalBytes: grant.journalBytes - usage.journalBytes,
+      journalRecords: grant.journalRecords - usage.journalRecords,
+      modelSteps: grant.modelSteps - usage.modelSteps,
+      modelVisibleToolContentBytes:
+        grant.modelVisibleToolContentBytes - usage.modelVisibleToolContentBytes,
+      toolCalls: grant.toolCalls - usage.toolCalls,
+      wallTimeMs: grant.wallTimeMs - usage.wallTimeMs,
+    },
+    usage,
+    version: 1,
+  };
+}
+
 export function projectView(state: RunState): ProductView {
   if (state.phase === "idle") {
     throw new ProjectionError("Idle state has no product run view.");
@@ -513,6 +556,7 @@ export function projectView(state: RunState): ProductView {
   const repositoryCheck = repositoryCheckProjection(state);
   const repositoryAction =
     safeAction?.safeActuation.envelope.kind === "repository_check_v1" ? safeAction : null;
+  const codingBudgetProjection = codingBudget(state);
   return {
     approval: awaitingApproval
       ? {
@@ -526,6 +570,7 @@ export function projectView(state: RunState): ProductView {
         }
       : null,
     budget: budget(state),
+    ...(codingBudgetProjection === undefined ? {} : { codingBudget: codingBudgetProjection }),
     changedFiles: safeAction === null ? [] : safeChangedFiles(state),
     checks: safeAction === null ? checks(terminalOutcome) : safeChecks(state),
     currentAction: terminal || state.action === null ? null : actionSummary(state.action),

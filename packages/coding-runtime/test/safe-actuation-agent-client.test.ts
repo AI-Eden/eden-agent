@@ -49,6 +49,19 @@ class ProposeEditProvider implements ModelStepDriver {
 
   async completeModelStep(request: ModelStepRequestV1): Promise<ModelStepObservationV1> {
     this.calls += 1;
+    if (this.calls > 1) {
+      return {
+        attemptId: request.attemptId,
+        finishStatus: "stop",
+        privateContinuity: null,
+        requestId: "request-safe-final",
+        status: "completed",
+        text: "The approved edit and complete review are ready.",
+        toolCalls: [],
+        usage: null,
+        version: 1,
+      };
+    }
     return {
       attemptId: request.attemptId,
       finishStatus: "tool_calls",
@@ -215,7 +228,7 @@ test("AgentClient exposes exact approval and completed safe-actuation review", a
     if (reviewEvent?.type !== "review.updated") throw new Error("Expected review event.");
     assert.deepEqual(reviewEvent.review, completed.review);
     assert.equal(events.at(-1)?.type, "run.terminal");
-    assert.equal(provider.calls, 1);
+    assert.equal(provider.calls, 2);
     assert.equal(JSON.stringify(completed).includes(credentialCanary), false);
   } finally {
     await client.close();

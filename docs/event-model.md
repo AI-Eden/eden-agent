@@ -154,6 +154,10 @@ and terminal facts in order, and performed no duplicate create or second approva
 
 R3-A keeps one generic lifecycle rule but adds typed facts for run-budget initialization and consumption, semantic Git-diff requests/results, new-file proposal/policy/approval/effect/observation/reconciliation, structured-command proposal/policy/approval/dispatch/observation/reconciliation, and recoverable tool observations. The generic names do not erase action-kind payload validation.
 
+The accepted 2026-08-11 amendment separates a versioned budget policy, one durable per-run grant, and monotonic usage facts. A model step may close with zero to four tool calls, but the final model step exposes no tools. An eligible read-only batch records one batch identity, source-ordered call identities, durable per-call budget consumption, actual started/completed/cancelled lifecycle, and source-ordered closed results. Replay reconstructs both actual lifecycle and model-visible order without provider or tool dispatch.
+
+An effectful, approval-bearing, mixed, dependent, unsupported-provider, or over-budget batch has no transition to effect intent. It closes as a structured rejection and returns control to a later model step. AnchorEdit, new-file, and command proposals remain singleton steps, so batching never creates concurrent approval or mutation authority.
+
 New-file recovery is content and parent-identity derived. Exact approved bytes at the target are completed; proven absence under the same parent identity is not started; any other target or parent state is stale or unknown. Command recovery follows process semantics: after dispatch starts, missing terminal evidence is unknown and cannot create a new dispatch.
 
 Budget consumption is a durable fact before the corresponding model, tool, or action dispatch. A reducer cannot request an effect whose declared observation would exceed model-step, tool, action, time, content, output, record, or journal limits. Replay reconstructs identical remaining budgets without metering external work again.

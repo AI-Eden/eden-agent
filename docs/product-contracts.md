@@ -264,6 +264,10 @@ The R3 protocol adds only closed renderer-neutral commands, events, and views. E
 
 ### Usable coding activity
 
+Budget product truth distinguishes the immutable `usable_coding_v1` policy maxima, the exact durable grant for this run, and monotonically consumed usage. ProductView shows remaining model, tool, action, time, content, output, record, and journal capacity without implying that the model must exhaust any value.
+
+A read-only multi-call step projects one batch with one to four source-ordered calls and per-call pending, running, completed, failed, or cancelled state. Completion order may differ from display and model-context order; both are derived from durable events. An ineligible batch shows a non-effecting rejection reason. Approval, AnchorEdit, new-file, and command cards are never grouped as concurrently executable batch children.
+
 `git_diff_v1` joins repository tool activity as a read-only semantic call with root-relative scope, continuation, current `HEAD`, source/status hashes, complete page identity, and bounded model/product content. It exposes no executable, argv, raw stdout/stderr, external diff driver, textconv, or environment.
 
 `write_file_v1` is a canonical action whose product presentation shows path, target and parent absence identity, complete content length/hash, fixed mode, scope, reason, policy, one-use lifetime, trusted-host truth, and 32 KiB limit. Its result is created, stale, denied, cancelled, failed, or unknown. Product review can show the complete Eden-created patch while keeping the untracked path distinct from the tracked Git patch.

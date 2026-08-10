@@ -46,6 +46,18 @@ function adapter(baseUrl: string) {
   });
 }
 
+function multiCallAdapter(baseUrl: string) {
+  return new OpenAICompatibleProvider({
+    apiKey: "SECRET_CANARY_MODEL_STEP",
+    baseUrl,
+    clock: { now: () => new Date("2026-07-20T00:00:00.000Z") },
+    model: "fixture-model",
+    multiCallCapability: "bounded_read_only_v1",
+    profileId: "fixture-profile",
+    timeoutMilliseconds: 2_000,
+  });
+}
+
 const request = {
   attemptId: "attempt-1",
   conversation: [{ content: "Inspect the repository.", role: "user" }],
@@ -219,6 +231,53 @@ describe("OpenAI-compatible model steps", () => {
     assert.equal(parsedBody.parallel_tool_calls, false);
     assert.equal(parsedBody.stream_options.include_usage, true);
     assert.equal(parsedBody.tools.length, 4);
+  });
+
+  it("normalizes four source-ordered calls only for a proven multi-call profile", async () => {
+    let body = "";
+    const calls = [
+      ["call-list", "list_files", '{"continuation":null,"path":"."}'],
+      ["call-read-a", "read_file", '{"maxBytes":8,"offset":0,"path":"a.txt"}'],
+      ["call-read-b", "read_file", '{"maxBytes":8,"offset":0,"path":"b.txt"}'],
+      ["call-status", "git_status", "{}"],
+    ] as const;
+    const local = await fixture((incoming, response) => {
+      incoming.setEncoding("utf8");
+      incoming.on("data", (value) => (body += value));
+      incoming.on("end", () => {
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        response.end(
+          [
+            chunk(
+              {
+                tool_calls: calls.map(([id, name, arguments_], index) => ({
+                  function: { arguments: arguments_, name },
+                  id,
+                  index,
+                  type: "function",
+                })),
+              },
+              "tool_calls",
+            ),
+            "data: [DONE]\n\n",
+          ].join(""),
+        );
+      });
+    });
+
+    const result = await multiCallAdapter(local.baseUrl).completeModelStep(
+      request,
+      new AbortController().signal,
+    );
+
+    assert.equal(result.status, "completed");
+    if (result.status !== "completed") return;
+    assert.deepEqual(
+      result.toolCalls.map((call) => call.toolCallId),
+      calls.map(([id]) => id),
+    );
+    assert.equal(JSON.parse(body).parallel_tool_calls, true);
+    assert.equal(decodeModelStepObservation(result).ok, true);
   });
 
   for (const [label, delta] of [

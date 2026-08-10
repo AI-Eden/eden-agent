@@ -140,9 +140,13 @@ function failureIdentity(call: unknown): {
   const name =
     "name" in call &&
     (call.name === "anchor_edit" ||
+      call.name === "write_file" ||
       call.name === "read_file" ||
       call.name === "search_repository" ||
-      call.name === "git_status")
+      call.name === "git_diff" ||
+      call.name === "git_status" ||
+      call.name === "run_command" ||
+      call.name === "repository_check")
       ? call.name
       : "list_files";
   const toolCallId =
@@ -156,6 +160,7 @@ function nativeEnvironment(includePath: boolean): Record<string, string> {
   const environment: Record<string, string> = {
     GCM_INTERACTIVE: "Never",
     GIT_CONFIG_NOSYSTEM: "1",
+    GIT_ATTR_NOSYSTEM: "1",
     GIT_OPTIONAL_LOCKS: "0",
     GIT_PAGER: "cat",
     GIT_TERMINAL_PROMPT: "0",
@@ -1087,6 +1092,201 @@ export class RepositoryToolService {
     };
   }
 
+  private async gitIdentity(signal?: AbortSignal): Promise<{
+    readonly head: string;
+    readonly statusHash: string;
+  }> {
+    const headObservation = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: ["--no-optional-locks", "rev-parse", "--verify", "HEAD"],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(true),
+          executable: this.gitExecutable,
+          maxStderrBytes: 64 * 1_024,
+          maxStdoutBytes: 1_024,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "git",
+    );
+    const head = decodeNativeText(headObservation.stdout).trim();
+    if (
+      headObservation.exitCode !== 0 ||
+      headObservation.stderr.byteLength !== 0 ||
+      !/^[a-f0-9]{40,64}$/u.test(head)
+    ) {
+      throw toolError(
+        "git_head_unavailable",
+        "Git diff requires one readable HEAD commit.",
+        "reconfigure",
+        "Create or select a repository commit before requesting a diff.",
+      );
+    }
+    const statusObservation = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: [
+            "--no-optional-locks",
+            "-c",
+            "core.quotepath=false",
+            "-c",
+            "color.ui=false",
+            "-c",
+            "core.fsmonitor=false",
+            "status",
+            "--porcelain=v2",
+            "-z",
+            "--untracked-files=all",
+            "--ignore-submodules=none",
+          ],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(true),
+          executable: this.gitExecutable,
+          maxStderrBytes: 64 * 1_024,
+          maxStdoutBytes: nativeOutputByteLimit,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "git",
+    );
+    if (statusObservation.exitCode !== 0 || statusObservation.stderr.byteLength !== 0) {
+      throw toolError("git_repository_required", "Git diff requires a readable worktree.");
+    }
+    return {
+      head,
+      statusHash: sha256(JSON.stringify(this.parseGitStatus(statusObservation.stdout))),
+    };
+  }
+
+  private async gitDiff(
+    call: Extract<RepositoryToolCall, { readonly name: "git_diff" }>,
+    signal?: AbortSignal,
+  ): Promise<RepositoryToolResult> {
+    abortIfNeeded(signal);
+    await this.verifyRoot();
+    const before = await this.gitIdentity(signal);
+    const continuation = call.arguments.continuation;
+    if (
+      continuation !== null &&
+      (continuation.head !== before.head ||
+        continuation.path !== call.arguments.path ||
+        continuation.statusHash !== before.statusHash)
+    ) {
+      throw toolError(
+        "git_diff_continuation_stale",
+        "The Git diff continuation no longer identifies the current repository state.",
+        "retry",
+        "Restart the Git diff from the first page.",
+      );
+    }
+    const observation = requireExited(
+      await this.nativeProcess.run(
+        {
+          arguments: [
+            "--no-optional-locks",
+            "--no-pager",
+            "-c",
+            "core.quotepath=false",
+            "-c",
+            "color.ui=false",
+            "-c",
+            "core.fsmonitor=false",
+            "diff",
+            "--no-ext-diff",
+            "--no-textconv",
+            "--no-color",
+            "--find-renames",
+            "--full-index",
+            "--src-prefix=a/",
+            "--dst-prefix=b/",
+            "HEAD",
+            "--",
+            call.arguments.path,
+          ],
+          cwd: this.workspaceRoot,
+          environment: nativeEnvironment(true),
+          executable: this.gitExecutable,
+          maxStderrBytes: 64 * 1_024,
+          maxStdoutBytes: 98_305,
+          timeoutMs: nativeToolTimeoutMs,
+        },
+        signal,
+      ),
+      "git",
+    );
+    if (observation.exitCode !== 0 || observation.stderr.byteLength !== 0) {
+      throw toolError("git_diff_failed", "Git could not produce a semantic repository diff.");
+    }
+    const patch = observation.stdout;
+    if (patch.byteLength > 98_304) {
+      throw toolError("git_diff_result_limit", "The complete Git diff exceeds four pages.");
+    }
+    decodeNativeText(patch);
+    const patchHash = sha256(patch);
+    if (continuation !== null && continuation.patchHash !== patchHash) {
+      throw toolError(
+        "git_diff_continuation_stale",
+        "The Git diff continuation no longer identifies the same patch.",
+        "retry",
+        "Restart the Git diff from the first page.",
+      );
+    }
+    const offset = continuation?.nextOffset ?? 0;
+    if (offset >= patch.byteLength && !(offset === 0 && patch.byteLength === 0)) {
+      throw toolError("git_diff_continuation_invalid", "The Git diff offset is outside the patch.");
+    }
+    let end = Math.min(offset + modelContentByteLimit, patch.byteLength);
+    while (end < patch.byteLength && end > offset) {
+      const byte = patch[end];
+      if (byte === undefined || (byte & 0xc0) !== 0x80) break;
+      end -= 1;
+    }
+    if (end === offset && offset < patch.byteLength) {
+      throw toolError("native_output_invalid", "Git diff paging could not preserve UTF-8.");
+    }
+    const pageBytes = patch.subarray(offset, end);
+    const content = decodeNativeText(pageBytes);
+    const after = await this.gitIdentity(signal);
+    if (after.head !== before.head || after.statusHash !== before.statusHash) {
+      throw toolError(
+        "git_diff_snapshot_changed",
+        "The repository changed while the Git diff was being observed.",
+        "retry",
+        "Restart the Git diff after repository activity settles.",
+      );
+    }
+    await this.verifyRoot();
+    return {
+      data: {
+        bytesRead: pageBytes.byteLength,
+        content,
+        contentHash: sha256(pageBytes),
+        continuation:
+          end < patch.byteLength
+            ? {
+                head: before.head,
+                nextOffset: end,
+                patchHash,
+                path: call.arguments.path,
+                statusHash: before.statusHash,
+              }
+            : null,
+        head: before.head,
+        offset,
+        patchHash,
+        sourcePath: call.arguments.path,
+        statusHash: before.statusHash,
+        totalBytes: patch.byteLength,
+      },
+      name: "git_diff",
+      status: "succeeded",
+      toolCallId: call.toolCallId,
+    };
+  }
+
   private async executeProduct(call: unknown, signal?: AbortSignal): Promise<RepositoryToolResult> {
     const identity = failureIdentity(call);
     try {
@@ -1097,6 +1297,8 @@ export class RepositoryToolService {
       let result: RepositoryToolResult;
       switch (decoded.value.name) {
         case "anchor_edit":
+        case "write_file":
+        case "run_command":
         case "repository_check":
           throw toolError(
             "action_proposal_not_executable",
@@ -1113,6 +1315,9 @@ export class RepositoryToolService {
           break;
         case "git_status":
           result = await this.gitStatus(decoded.value, signal);
+          break;
+        case "git_diff":
+          result = await this.gitDiff(decoded.value, signal);
           break;
       }
       const validated = decodeRepositoryToolResult(result);
@@ -1139,9 +1344,11 @@ export class RepositoryToolService {
         ? JSON.stringify({ error: productData.error })
         : productData.name === "read_file"
           ? productData.data.content
-          : productData.name === "search_repository"
-            ? JSON.stringify(productData.data.matches)
-            : JSON.stringify(productData.data.entries);
+          : productData.name === "git_diff"
+            ? productData.data.content
+            : productData.name === "search_repository"
+              ? JSON.stringify(productData.data.matches)
+              : JSON.stringify(productData.data.entries);
     return {
       diagnostics: {
         name: productData.name,

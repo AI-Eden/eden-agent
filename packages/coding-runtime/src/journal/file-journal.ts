@@ -3,15 +3,44 @@ import { lstat, open } from "node:fs/promises";
 import { decodeJournalRecord, type JournalRecordV1 } from "./schema.ts";
 
 export const journalByteLimit = 1_048_576;
+export const usableCodingJournalByteLimit = 2_097_152;
 export const journalRecordByteLimit = 65_536;
 export const journalRecordLimit = 4_096;
 const fatalUtf8Decoder = new TextDecoder("utf-8", { fatal: true });
+
+function serializeJournalRecord(record: JournalRecordV1): Buffer {
+  return Buffer.from(`${JSON.stringify(record)}\n`, "utf8");
+}
+
+function decodeAndEncodeJournalRecord(record: JournalRecordV1): {
+  readonly bytes: Buffer;
+  readonly record: JournalRecordV1;
+} {
+  const decoded = decodeJournalRecord(record);
+  if (!decoded.ok) {
+    throw new JournalCorruptionError("invalid_record", "Journal record failed validation.");
+  }
+  return {
+    bytes: serializeJournalRecord(decoded.value.record),
+    record: decoded.value.record,
+  };
+}
+
+export function encodeJournalRecord(record: JournalRecordV1): Buffer {
+  return decodeAndEncodeJournalRecord(record).bytes;
+}
 
 export type JournalReadOptions = {
   readonly maxBytes?: number;
   readonly maxRecords?: number;
   readonly onCheckpoint?: (stage: "opened" | "before-final-path") => Promise<void>;
+  readonly profile?: "r2" | "usable_coding_v1";
   readonly signal?: AbortSignal;
+};
+
+export type JournalOpenOptions = {
+  readonly create?: boolean;
+  readonly profile?: "r2" | "usable_coding_v1";
 };
 
 export type JournalReadResult = {
@@ -208,16 +237,18 @@ export async function readJournalRecordsBounded(
   runId: string,
   options: JournalReadOptions = {},
 ): Promise<JournalReadResult> {
+  const byteLimit =
+    options.profile === "usable_coding_v1" ? usableCodingJournalByteLimit : journalByteLimit;
   checkAborted(options.signal);
   const before = await lstat(filePath);
   checkAborted(options.signal);
   if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1) {
     throw new JournalCorruptionError("invalid_record", "Journal is not a regular file.");
   }
-  if (before.size > journalByteLimit) {
+  if (before.size > byteLimit) {
     throw new JournalCorruptionError("file_too_large", "Journal exceeds the byte limit.");
   }
-  if (before.size > (options.maxBytes ?? journalByteLimit)) {
+  if (before.size > (options.maxBytes ?? byteLimit)) {
     throw new JournalBudgetExceededError(0, 0);
   }
   checkAborted(options.signal);
@@ -292,14 +323,16 @@ export async function readJournalRecordsBounded(
 export async function readJournalRecords(
   filePath: string,
   runId: string,
+  options: Pick<JournalReadOptions, "profile"> = {},
 ): Promise<readonly JournalRecordV1[]> {
-  return (await readJournalRecordsBounded(filePath, runId)).records;
+  return (await readJournalRecordsBounded(filePath, runId, options)).records;
 }
 
 export class FileJournal {
   private readonly filePath: string;
   private readonly runId: string;
   private readonly records: JournalRecordV1[];
+  private readonly byteLimit: number;
   private identity: Awaited<ReturnType<typeof lstat>>;
 
   private constructor(
@@ -307,24 +340,35 @@ export class FileJournal {
     runId: string,
     records: JournalRecordV1[],
     identity: Awaited<ReturnType<typeof lstat>>,
+    byteLimit: number,
   ) {
     this.filePath = filePath;
     this.runId = runId;
     this.records = records;
     this.identity = identity;
+    this.byteLimit = byteLimit;
   }
 
-  static async open(filePath: string, runId: string, create?: boolean): Promise<FileJournal> {
+  static async open(
+    filePath: string,
+    runId: string,
+    createOrOptions?: boolean | JournalOpenOptions,
+  ): Promise<FileJournal> {
+    const options =
+      typeof createOrOptions === "boolean" ? { create: createOrOptions } : (createOrOptions ?? {});
+    const byteLimit =
+      options.profile === "usable_coding_v1" ? usableCodingJournalByteLimit : journalByteLimit;
+    const readOptions = options.profile === undefined ? {} : { profile: options.profile };
     let records: readonly JournalRecordV1[];
-    if (create === true) {
+    if (options.create === true) {
       const handle = await open(filePath, "wx", 0o600);
       await handle.close();
       records = [];
-    } else if (create === false) {
-      records = await readJournalRecords(filePath, runId);
+    } else if (options.create === false) {
+      records = await readJournalRecords(filePath, runId, readOptions);
     } else {
       try {
-        records = await readJournalRecords(filePath, runId);
+        records = await readJournalRecords(filePath, runId, readOptions);
       } catch (error) {
         if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
         const handle = await open(filePath, "wx", 0o600);
@@ -336,16 +380,12 @@ export class FileJournal {
     if (!identity.isFile() || identity.isSymbolicLink() || identity.nlink !== 1) {
       throw new JournalCorruptionError("invalid_record", "Journal is not a regular file.");
     }
-    return new FileJournal(filePath, runId, [...records], identity);
+    return new FileJournal(filePath, runId, [...records], identity, byteLimit);
   }
 
   async append(record: JournalRecordV1): Promise<void> {
-    const decoded = decodeJournalRecord(record);
-    if (!decoded.ok) {
-      throw new JournalCorruptionError("invalid_record", "Journal record failed validation.");
-    }
-    const source = `${JSON.stringify(decoded.value.record)}\n`;
-    const sourceBytes = Buffer.byteLength(source, "utf8");
+    const encoded = decodeAndEncodeJournalRecord(record);
+    const sourceBytes = encoded.bytes.byteLength;
     if (sourceBytes > journalRecordByteLimit) {
       throw new JournalCorruptionError(
         "record_too_large",
@@ -355,10 +395,10 @@ export class FileJournal {
     if (this.records.length >= journalRecordLimit) {
       throw new JournalCorruptionError("record_limit", "Journal record count exceeds the limit.");
     }
-    if (Number(this.identity.size) + sourceBytes > journalByteLimit) {
+    if (Number(this.identity.size) + sourceBytes > this.byteLimit) {
       throw new JournalCorruptionError("file_too_large", "Journal exceeds the byte limit.");
     }
-    validateSequence([...this.records, decoded.value.record], this.runId);
+    validateSequence([...this.records, encoded.record], this.runId);
     const before = await lstat(this.filePath);
     if (!sameIdentity(this.identity, before)) {
       throw new JournalCorruptionError(
@@ -375,7 +415,7 @@ export class FileJournal {
           "Journal identity changed while opening.",
         );
       }
-      await handle.writeFile(source, "utf8");
+      await handle.writeFile(encoded.bytes);
       await handle.sync();
       const afterHandle = await handle.stat();
       const afterPath = await lstat(this.filePath);
@@ -394,7 +434,7 @@ export class FileJournal {
     } finally {
       await handle.close();
     }
-    this.records.push(decoded.value.record);
+    this.records.push(encoded.record);
   }
 
   async readAll(): Promise<readonly JournalRecordV1[]> {

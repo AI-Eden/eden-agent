@@ -126,6 +126,7 @@ async function observationFor(
   modelDriver: ModelDriver,
   repositoryTools: () => Promise<RepositoryToolService>,
   signal?: AbortSignal,
+  observe?: (event: KernelEvent) => Promise<void>,
 ): Promise<KernelEvent> {
   switch (effect.type) {
     case "provider.model.step":
@@ -188,8 +189,41 @@ async function observationFor(
         type: "repository.tool.completed",
       };
     }
+    case "repository.tool.batch.execute": {
+      if (observe === undefined) {
+        throw new Error("Repository tool batches require durable item observation.");
+      }
+      let observationQueue = Promise.resolve();
+      await Promise.all(
+        effect.calls.map(async (call, index) => {
+          observationQueue = observationQueue.then(() =>
+            observe({
+              effectId: effect.effectId,
+              index,
+              type: "repository.tool.batch.item.started",
+            }),
+          );
+          await observationQueue;
+          const execution = await (await repositoryTools()).execute(call, signal);
+          const event: KernelEvent = {
+            effectId: effect.effectId,
+            index,
+            result: execution.productData,
+            type: "repository.tool.batch.item.completed",
+          };
+          observationQueue = observationQueue.then(() => observe(event));
+          await observationQueue;
+        }),
+      );
+      await observationQueue;
+      return { effectId: effect.effectId, type: "repository.tool.batch.closed" };
+    }
     case "anchor_edit.execute":
     case "anchor_edit.prepare":
+    case "write_file.execute":
+    case "write_file.prepare":
+    case "run_command.execute":
+    case "run_command.prepare":
     case "repository_check.execute":
     case "repository_check.prepare":
     case "review.eden_patch.capture":
@@ -228,11 +262,32 @@ function observationMatches(effect: KernelEffect, observation: KernelEvent): boo
         observation.result.toolCallId === effect.toolCall.toolCallId &&
         observation.result.name === effect.toolCall.name
       );
+    case "repository.tool.batch.execute":
+      return (
+        observation.type === "repository.tool.batch.closed" &&
+        observation.effectId === effect.effectId
+      );
     case "anchor_edit.execute":
       return (
         observation.type === "anchor_edit.completed" && observation.effectId === effect.effectId
       );
     case "anchor_edit.prepare":
+      return (
+        observation.type === "safe.action.proposed" && observation.effectId === effect.effectId
+      );
+    case "write_file.execute":
+      return (
+        observation.type === "write_file.completed" && observation.effectId === effect.effectId
+      );
+    case "write_file.prepare":
+      return (
+        observation.type === "safe.action.proposed" && observation.effectId === effect.effectId
+      );
+    case "run_command.execute":
+      return (
+        observation.type === "run_command.completed" && observation.effectId === effect.effectId
+      );
+    case "run_command.prepare":
       return (
         observation.type === "safe.action.proposed" && observation.effectId === effect.effectId
       );
@@ -336,7 +391,11 @@ export class FakeToolHost implements EffectHost {
     }
   }
 
-  async execute(effect: KernelEffect, signal?: AbortSignal): Promise<KernelEvent> {
+  async execute(
+    effect: KernelEffect,
+    signal?: AbortSignal,
+    observe?: (event: KernelEvent) => Promise<void>,
+  ): Promise<KernelEvent> {
     if (effect.type === "provider.model.step") {
       throw new Error("Provider model effects require executeModelAttempt().");
     }
@@ -354,6 +413,7 @@ export class FakeToolHost implements EffectHost {
       this.modelDriver,
       () => this.openRepositoryTools(),
       signal,
+      observe,
     );
     const path = join(this.receiptsDirectory, receiptName(effect.effectId));
     let handle: FileHandle | undefined;

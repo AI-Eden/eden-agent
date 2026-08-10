@@ -49,13 +49,15 @@ exercised. This milestone does not establish release support.
 
 ## R3 resume-ready product direction
 
-The owner accepted the accelerated R3 direction and complete Freeze packet on 2026-08-10. The packet keeps five named milestones while making `R3-A -> R3-B -> R3-C -> R3-E` the blocking release path:
+The owner accepted the accelerated R3 direction and complete Freeze packet on 2026-08-10, then accepted an R3-A multi-call and durable-budget amendment on 2026-08-11. The packet keeps five named milestones while making `R3-A -> R3-B -> R3-C -> R3-E` the blocking release path:
 
-- R3-A makes the existing real-provider loop usable for a bounded repository task with model-visible diff, exclusive new-file creation, shell-free controlled command execution, structured failures, and non-success `completed` review.
+- R3-A makes the existing real-provider loop usable for a bounded repository task with policy/grant/usage budgets, up to four independent read-only calls per model step, model-visible diff, exclusive new-file creation, shell-free controlled command execution, structured failures, and non-success `completed` review. The model chooses whether to call a tool or answer and may stop early; runtime ceilings, a reserved final-answer step, singleton effectful calls, and exact approval remain outside model authority.
 - R3-B reconstructs the OpenTUI product shell around real runtime truth before Plan and Goal add more states.
 - R3-C adds Plan review and approval, GoalSpec, required checks, bounded repair, checkpointed resume, verifier-owned `succeeded`, and an Evidence Pack.
 - R3-D may add exactly one read-only ExploreAgent plus bounded web search and fetch after R3-C, but requires separate activation and does not block R3-E.
 - R3-E packages and documents the first verified patch journey on the declared reference platform.
+
+The owner approved the amended Freeze and freshly authorized Build plus public-first commit/push on 2026-08-11. The R3-A deterministic implementation candidate is locally green, including real temporary-Git and process adapters plus command/diff TUI contract evidence. Matching real-provider/network and copied packaged TUI journeys remain `not-run`; therefore R3-A remains at milestone review, the accepted production claim remains R2, and R3-B has not started.
 
 The first resume-ready claim requires a packaged owner-operated journey from public instructions in a fresh isolated environment. It must show a normal bounded coding loop, plan approval, a failed required check, repair within budget, verifier success, diff and Evidence Pack review, and one interruption/resume path. It does not require R3-D and does not imply broad release support.
 

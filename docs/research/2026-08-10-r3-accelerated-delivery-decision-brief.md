@@ -1,17 +1,19 @@
 # R3 Accelerated Delivery Decision Brief
 
-- Status: Accepted direction and Freeze packet on 2026-08-10
+- Status: Accepted direction and Freeze packet on 2026-08-10; amended Freeze and Build approved on 2026-08-11; R3-A milestone review pending
 - Date: 2026-08-10
-- Workflow phase: Freeze complete; awaiting separate Build authorization
+- Workflow phase: R3-A deterministic Build candidate complete; matching external and packaged evidence not run
 - Roadmap stage: R3, Verified Goal Product — v0.1
 - Public baseline: `56a05e492a93f54c2a95d51c8eaec387e1283b2b`
-- Decision authority: the owner accepted the direction with R3-D changed to a non-blocking, time-boxed milestone, then accepted the resulting ADR, normative contracts, and executable plan as the Freeze packet. This brief does not authorize Build, provider or network calls, or release publication
+- Decision authority: the owner accepted the direction with R3-D changed to a non-blocking, time-boxed milestone, accepted the resulting Freeze packet, later accepted a bounded multi-call and durable-budget amendment after Slice 0 evidence invalidated the one-call/1 MiB assumptions, then separately approved the amended Freeze and authorized Build plus public-first commits and pushes. Provider/network use, Docker, hosted execution, package publication, release, and R3-D activation remain separate authority.
 
 ## Decision accepted
 
 The owner accepted five named vertical milestones: a usable coding loop, a dedicated TUI product-shell reconstruction, Plan plus verified Goal, one separately activated non-blocking read-only ExploreAgent plus bounded web-tools milestone, and a packaged v0.1 release journey.
 
 The proposal changes delivery order and the v0.1 capability gate. It does not replace Eden's product thesis, kernel architecture, trust boundaries, or verifier-owned completion model.
+
+The 2026-08-11 amendment keeps the 12-model/16-tool/8-action policy maxima but treats them as ceilings rather than quotas: one durable per-run grant selects values at or below policy, the model may stop early or call no tool, and the final model step exposes no tools. One earlier model step may emit up to four source-ordered calls only when all are independent read-only repository tools. Runtime preflights them, consumes budget durably, runs at most four concurrently, journals actual lifecycle, and returns results in source order. Effectful or approval-bearing calls remain singleton. The R3 profile run-journal ceiling becomes 2 MiB while 64 KiB records and 4096 records remain fixed.
 
 ## Relationship to the initial research
 
@@ -47,7 +49,7 @@ This accepted direction supersedes only the R3-plus delivery sequencing in the i
 
 ### R3-A: Usable Coding Loop
 
-Deliver the smallest real-provider loop that can read a repository, modify an existing file or create a new one, run a policy-controlled command or named check, inspect the resulting diff, receive structured failures, and continue within bounded run budgets.
+Deliver the smallest real-provider loop that can read a repository through bounded multi-call batches, modify an existing file or create a new one through singleton approved effects, run a policy-controlled command or named check, inspect the resulting diff, receive structured failures, and continue within durable policy/grant/usage budgets.
 
 Required capability additions are model-visible `git_diff`, policy-controlled `run_command`, and `write_file` limited to new files. Existing files continue to use AnchorEdit. Command requests must bind exact argv, cwd, scrubbed environment, timeout, output limits, network posture, policy decision, and approval where required.
 

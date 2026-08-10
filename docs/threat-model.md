@@ -42,7 +42,8 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
 - Partition run state by the runtime-derived workspace ID, reject symlinked or structurally invalid run
   entries, and never use a catalog scan to append, repair, reconcile, or dispatch.
 - Bound one catalog to 512 visited partition children, 16 MiB and 16384 cumulative journal records; bound
-  each journal to 1 MiB, each record to 64 KiB, and each run to 4096 records.
+  each journal to 1 MiB except the accepted `usable_coding_v1` 2 MiB run profile, each record to 64 KiB,
+  and each run to 4096 records.
 - Reject hardlink trust records and journals, and compare file identity at the documented checkpoints.
 - Serialize cooperating Eden trust changes and run starts with the bounded per-workspace state lock.
 - Keep historical inspection read-only even when its replayed view contains a pending approval or
@@ -124,6 +125,8 @@ The model is untrusted input. Repository text, tool output, plugins, MCP servers
 R2 distinguishes trusted-host execution from Docker isolation. They share policy vocabulary but make different guarantees. Native OS sandboxing is a later per-platform project; the UI must not imply equal isolation where evidence differs.
 
 R3-A structured commands run on the trusted host and therefore have broader real effects than their shell-free syntax suggests. The product must show exact action and non-isolation truth before approval. Goal approval may authorize exact required checks under policy, but it does not transform the host into a sandbox or authorize a different command revision.
+
+R3-A multi-call execution is limited to preflighted read-only repository tools with concurrency at most four. Each result retains source identity, and a later action revalidates current workspace state rather than treating concurrent reads as an atomic filesystem snapshot. Effectful, approval-bearing, dependent, unsupported, or over-budget batches perform no effect. AnchorEdit, new-file creation, and commands are singleton steps, preventing overlapping mutations, approval races, and hidden serialization of stale model intent.
 
 The accepted repository-check profile constrains one Linux container and its repository process. It does
 not constrain a compromised Docker daemon, Docker Desktop VM, host kernel, administrator, or malicious

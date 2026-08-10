@@ -182,6 +182,31 @@ export function evaluateSafeActuationPolicy(
       evaluatedAt,
     };
   }
+  if (decoded.value.kind === "write_file" || decoded.value.kind === "run_command") {
+    return decoded.value.authority.ruleSetRevision === "r3-safe-actuation-v1"
+      ? {
+          actionDigest: digest,
+          decision: "ask",
+          evaluatedAt,
+          reason:
+            decoded.value.kind === "write_file"
+              ? "Exclusive creation of one new UTF-8 file requires one exact approval."
+              : "One shell-free structured trusted-host command requires exact approval.",
+          ruleId:
+            decoded.value.kind === "write_file"
+              ? "r3.write-file.new-utf8-exclusive"
+              : "r3.run-command.structured-trusted-host",
+          ruleSetRevision: "r3-safe-actuation-v1",
+        }
+      : {
+          actionDigest: digest,
+          decision: "deny",
+          evaluatedAt,
+          reason: "The action does not match the accepted R3 safe-actuation rule set.",
+          ruleId: "r3.default-deny",
+          ruleSetRevision: "r3-safe-actuation-v1",
+        };
+  }
   if (decoded.value.authority.ruleSetRevision !== safeActuationRuleSetRevision) {
     return {
       decision: "deny",

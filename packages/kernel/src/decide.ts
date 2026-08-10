@@ -48,9 +48,25 @@ export function decide(state: RunState): readonly KernelEffect[] {
                 type: "repository.tool.execute",
               },
             ];
+          case "tool-batch-ready":
+            if (state.toolBatch === undefined || state.toolBatch.calls.length < 2) {
+              throw new UnreachableKernelStateError(
+                "A ready provider tool batch requires at least two calls.",
+              );
+            }
+            return [
+              {
+                calls: state.toolBatch.calls,
+                effectId: `${state.runId}:repository-tool-batch:${state.modelStep}`,
+                runId: state.runId,
+                type: "repository.tool.batch.execute",
+              },
+            ];
           case "action-prepare-ready": {
             if (
               state.tool?.call.name !== "anchor_edit" &&
+              state.tool?.call.name !== "write_file" &&
+              state.tool?.call.name !== "run_command" &&
               state.tool?.call.name !== "repository_check"
             ) {
               throw new UnreachableKernelStateError(
@@ -69,6 +85,32 @@ export function decide(state: RunState): readonly KernelEffect[] {
                   runId: state.runId,
                   toolCall: state.tool.call,
                   type: "repository_check.prepare",
+                  workspace: state.workspace,
+                },
+              ];
+            }
+            if (state.tool.call.name === "write_file") {
+              return [
+                {
+                  effectId: `${state.runId}:write-file-prepare:${state.tool.call.toolCallId}`,
+                  expectedRevision: state.revision + 12,
+                  proposalRevision: 1,
+                  runId: state.runId,
+                  toolCall: state.tool.call,
+                  type: "write_file.prepare",
+                  workspace: state.workspace,
+                },
+              ];
+            }
+            if (state.tool.call.name === "run_command") {
+              return [
+                {
+                  effectId: `${state.runId}:run-command-prepare:${state.tool.call.toolCallId}`,
+                  expectedRevision: state.revision + 3,
+                  proposalRevision: 1,
+                  runId: state.runId,
+                  toolCall: state.tool.call,
+                  type: "run_command.prepare",
                   workspace: state.workspace,
                 },
               ];
@@ -102,14 +144,32 @@ export function decide(state: RunState): readonly KernelEffect[] {
                     type: "repository_check.execute" as const,
                   },
                 ]
-              : [
-                  {
-                    effectId: `${state.runId}:anchor-edit:${state.action.actionId}`,
-                    envelope: state.action.safeActuation.envelope,
-                    runId: state.runId,
-                    type: "anchor_edit.execute" as const,
-                  },
-                ];
+              : state.action.safeActuation.envelope.kind === "write_file"
+                ? [
+                    {
+                      effectId: `${state.runId}:write-file:${state.action.actionId}`,
+                      envelope: state.action.safeActuation.envelope,
+                      runId: state.runId,
+                      type: "write_file.execute" as const,
+                    },
+                  ]
+                : state.action.safeActuation.envelope.kind === "run_command"
+                  ? [
+                      {
+                        effectId: `${state.runId}:run-command:${state.action.actionId}`,
+                        envelope: state.action.safeActuation.envelope,
+                        runId: state.runId,
+                        type: "run_command.execute" as const,
+                      },
+                    ]
+                  : [
+                      {
+                        effectId: `${state.runId}:anchor-edit:${state.action.actionId}`,
+                        envelope: state.action.safeActuation.envelope,
+                        runId: state.runId,
+                        type: "anchor_edit.execute" as const,
+                      },
+                    ];
           case "eden-patch-ready":
             if (state.action === null) {
               throw new UnreachableKernelStateError("Eden patch capture requires an action.");
@@ -174,6 +234,7 @@ export function decide(state: RunState): readonly KernelEffect[] {
           case "model-in-flight":
           case "safe-action-in-flight":
           case "tool-in-flight":
+          case "tool-batch-in-flight":
             return [];
           default:
             return assertNever(state);

@@ -1,6 +1,6 @@
 # ADR 0019: Deliver R3 Through Resume-Ready Vertical Milestones
 
-- Status: Accepted
+- Status: Accepted; amended 2026-08-11
 - Date: 2026-08-10
 - Decision source: `docs/research/2026-08-10-r3-accelerated-delivery-decision-brief.md`
 - Scope: R3 delivery order, minimum authority boundaries, and release gate
@@ -11,7 +11,7 @@ R0-R2 established a real provider path, durable attempts and replay, bounded rep
 
 Continuing to deliver every narrow mechanism as an isolated horizontal round would preserve strong internal evidence while delaying the first useful coding-agent journey. Pulling child agents, web tools, broad ecosystem support, and release engineering into one mandatory milestone would create the opposite problem: the resume-ready claim would depend on new authority and lifecycle boundaries that are not necessary to prove Eden's central product thesis.
 
-The owner accepted the accelerated direction and this Freeze packet on 2026-08-10 with one amendment: R3-D remains a valid bounded direction but is not a release blocker. This ADR is fixed Build input but does not authorize Build.
+The owner accepted the accelerated direction and this Freeze packet on 2026-08-10 with one amendment: R3-D remains a valid bounded direction but is not a release blocker. Slice 0 then proved that the inherited one-tool-call-per-model-step contract could not reach the accepted 16-tool ceiling within 12 model steps and that the unchanged 1 MiB journal could not establish headroom for the complete R3-A lifecycle. After a bounded comparison with current coding-agent practice, the owner accepted the multi-call and budget amendment on 2026-08-11. The amended ADR is fixed Build input but requires a fresh Build authorization.
 
 ## Decision
 
@@ -31,7 +31,11 @@ R3-A adds three capabilities to the existing semantic tools and AnchorEdit path:
 
 Every `write_file_v1` and `run_command_v1` action is default-denied and evaluates to `ask` only for the closed v1 shape. R3-A trusted-host commands truthfully report `executionMode=trusted_host_policy_only`, `isolation=none`, and `network=host_unrestricted`; environment scrubbing and user approval do not imply filesystem, child-process, or network containment. A later isolated command profile requires its own accepted contract and evidence.
 
-The first `usable_coding_v1` profile freezes hard run ceilings of 12 model steps, 16 tool calls, 8 executable action proposals, 30 minutes wall time, 512 KiB aggregate model-visible tool content, and 256 KiB aggregate command output. Each command permits at most 64 KiB for stdout and 64 KiB for stderr and a timeout no greater than 10 minutes. Each new file is valid UTF-8 and at most 32 KiB. Existing 64 KiB record, 1 MiB journal, and 4096-record limits remain unchanged; dispatch blocks before any limit would be exceeded.
+The first `usable_coding_v1` policy freezes hard maxima of 12 model steps, 16 tool calls, 8 executable action proposals, 30 minutes wall time, 512 KiB aggregate model-visible tool content, and 256 KiB aggregate command output. A closed per-run grant selects values at or below those maxima and becomes durable before the first provider, tool, or action dispatch; later profile or configuration changes cannot alter replay. The model may stop or answer before any ceiling and may choose no tool. It cannot raise a grant. Each command permits at most 64 KiB for stdout and 64 KiB for stderr and a timeout no greater than 10 minutes. Each new file is valid UTF-8 and at most 32 KiB. The per-record and record-count limits remain 64 KiB and 4096, while `usable_coding_v1` raises the run-journal ceiling to 2 MiB. Dispatch blocks before any declared maximum observation would exceed a remaining limit, and the maximum production fixture must fit without truncation or duplicate storage.
+
+One completed model step may contain zero to four closed tool calls. The twelfth model step is final-answer-only with tools disabled, so a completed run always retains one provider turn for a terminal answer. Every call consumes the run's tool budget durably before execution. A batch is accepted only when all calls are read-only repository tools and no call requires approval or can mutate workspace, process, network, provider, or external state. The runtime preflights calls in source order, executes an accepted read-only batch with concurrency no greater than four, records actual lifecycle order, and appends closed tool results to model context in the model's original call order. One failed read does not erase sibling results; cancellation terminates the batch and closes every started call.
+
+AnchorEdit, `write_file_v1`, `run_command_v1`, and any current or future approval-bearing or effectful call must be the sole call in their model step. A mixed, dependent, unsupported-provider, oversized, or otherwise ineligible batch produces a closed non-effecting observation and requires a later model step to re-plan; Eden never serializes such a batch into hidden authority. Matching-provider evidence must prove the provider's multi-call wire behavior before Eden claims the batching capability for that provider.
 
 Tool and action failures become closed observations with recoverability, source identity, and bounded evidence. A failure may continue the model loop when policy and remaining budgets allow, but an unresolved process after durable dispatch remains `unknown`, requires explicit user resolution, and never retries automatically.
 
@@ -88,6 +92,8 @@ R3-E does not require R3-D. ExploreAgent or web evidence appears in release or r
 - **Treat approval or environment scrubbing as containment:** misstates host authority and would make network and child-process claims unverifiable.
 - **Use automatic Git worktrees, commits, stashes, or rollback in v0.1:** expands repository mutation and recovery semantics before the verified loop needs them.
 - **Make R3-D a release blocker:** adds child-run and remote-content trust boundaries to the accelerated critical path without being necessary for Eden's first verified patch claim.
+- **Keep one tool call per model step:** makes the accepted 16-tool budget unreachable within a completed 12-step run and spends provider turns on independent repository reads.
+- **Run every multi-call batch in parallel:** allows stale dependent calls, overlapping effects, and concurrent approvals or mutations without a deterministic authority order.
 - **Call packaged owner evidence broad release support:** conflates one declared reference journey with signing, package-manager publication, update channels, and equal platform support.
 
 ## Consequences
@@ -96,4 +102,4 @@ R3 gains a usable critical path while retaining action identity, policy, approva
 
 The structured command is intentionally more capable and less isolated than R2 named checks. Product copy, approval, tests, and evidence must make that trade-off explicit. A shell language, automatic worktree manager, broad subagent system, second provider family, GUI, local daemon, MCP, LSP, DAP, browser/computer-use, and cross-platform sandbox parity remain outside this ADR.
 
-Approval of this ADR and its companion plan makes them fixed Build input only. Build, provider/network use, Docker use, image or package publication, release, and R3-D activation remain separate authority checkpoints.
+Approval of this amended ADR and its companion plan makes them fixed Build input only. On 2026-08-11 the owner separately approved the amended Freeze, freshly authorized Build, and authorized public-first commits and pushes. Provider/network use, Docker use, hosted execution, image or package publication, release, and R3-D activation remain separate authority checkpoints. The deterministic R3-A candidate does not close the milestone until its required matching-provider and copied packaged TUI evidence are authorized and reviewed.

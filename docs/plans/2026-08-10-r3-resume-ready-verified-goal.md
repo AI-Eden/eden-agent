@@ -1,20 +1,21 @@
 # R3 Resume-Ready Verified Goal Plan
 
-- Status: Accepted Freeze plan; Build not authorized
+- Status: Amended Freeze and Build approved on 2026-08-11; R3-A milestone review pending
 - Date: 2026-08-10
+- Amended: 2026-08-11
 - Roadmap stage: R3, Verified Goal Product - v0.1
 - Baseline: `a5355322b2bedf8562f81d631a268a6764dc88ca`
 - Decision brief: `docs/research/2026-08-10-r3-accelerated-delivery-decision-brief.md`
 - Required ADR: `docs/adr/0019-r3-resume-ready-vertical-delivery.md`
 - Blocking path: R3-A -> R3-B -> R3-C -> R3-E
 - Optional milestone: R3-D after R3-C, only with separate owner activation
-- Human checkpoint: Freeze approved; separately authorize or amend Build entry
+- Human checkpoint: review the R3-A candidate and its explicit `not-run` rows before any R3-B work
 
 ## Authority and entry conditions
 
-The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10. This plan is fixed implementation input, but Freeze approval does not authorize Build, provider or network calls, Docker execution, R3-D activation, image or package publication, release publication, or other external writes.
+The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, and authorized public-first commits and pushes. Provider or network calls, Docker execution, hosted execution, R3-D activation, image or package publication, and release publication remain separately unauthorized.
 
-Build starts only from a clean public `main` whose local HEAD, canonical `origin/main`, GitHub `main`, and tutorial gitlink match the accepted Freeze commit. If Freeze is published later, the public repository is committed and verified first; the tutorial gitlink remains a separate publication step.
+Build restarted only after that fresh authority. Its entry audit recorded and preserved the dirty Slice 0 draft and verified the public local/canonical/GitHub refs plus tutorial gitlink before the first new RED. Publication remains public repository first and tutorial gitlink second.
 
 The first RED test for each new core invariant requires the workflow's human checkpoint before production implementation when it exposes a different authority, recovery, or completion model than this plan. Routine RED tests that instantiate an already approved seam do not create repeated approval gates.
 
@@ -23,6 +24,27 @@ The first RED test for each new core invariant requires the workflow's human che
 Deliver a packaged, resume-ready v0.1 on the declared Linux/WSL2 reference platform. A user can configure a real provider, trust one repository, review and approve a grounded plan, let Eden read, modify an existing file or exclusively create a new one, approve a shell-free structured command, inspect the diff, observe a required check fail, repair within budget, resume across one interruption, reach verifier-owned `succeeded`, and review a content-addressed Evidence Pack through the real OpenTUI product.
 
 The blocking release claim does not require an ExploreAgent or web tools. R3-D may be activated after R3-C, but skipped work remains absent from product, README, demo, and resume claims.
+
+## Accepted Slice 0 amendment
+
+The first contract-budget tracer exposed two plan-changing facts before any R3 capability activation:
+
+- The current provider and kernel accept at most one tool call per model step. A completed run with 12 model steps can therefore execute at most 11 tool calls before the final answer. Reaching the frozen 16-tool ceiling would require a new multi-call scheduling and recovery contract or a different model-step ceiling.
+- Reapplying the existing R2 maximum-fixture wire shapes to four instruction records, 12 model-observation records, and 16 tool-observation records consumes 1,028,308 of the unchanged 1,048,576-byte run limit. This is an entry estimate rather than a final R3 production-record measurement because the R3 action and output schemas do not yet exist. Its remaining 20,268 bytes cannot establish that the accepted eight action proposals plus approval, dispatch, recovery, command-output, and terminal records will fit.
+
+The 2026-08-11 amendment resolves those findings without activating any capability:
+
+- `usable_coding_v1` keeps policy maxima of 12 model steps, 16 tool calls, and 8 action proposals but separates immutable policy, a durable per-run grant at or below policy, and monotonic usage. The model chooses tool use and may stop early; runtime limits are ceilings rather than quotas.
+- One model step may contain zero to four closed tool calls. The twelfth step is final-answer-only. Only a batch composed entirely of independent read-only repository tools is eligible for concurrency, which is capped at four. Effectful or approval-bearing calls are singleton steps; mixed, dependent, unsupported-provider, oversized, or otherwise ineligible batches close without an effect and require re-planning.
+- The `usable_coding_v1` run-journal ceiling becomes 2 MiB. The 64 KiB record and 4096-record limits remain unchanged. Production encoding must prove maximum records and the complete maximum run fit without truncation, duplicate output storage, or an attachment store.
+
+At the Freeze boundary no tool, action, verifier, resume, child, or web authority had been activated. The later Build authority activated only the accepted R3-A variants; verifier, resume, child, web, R3-D, and later-milestone authority remain absent.
+
+## R3-A Build review
+
+The deterministic implementation candidate closes Slices 0-5 at the local code boundary: production encoders prove maximum record/run budgets; an explicitly declared provider capability gates four-call read-only batches; replay preserves source order and blocks partial unknown work; Git diff uses semantic bounded pages with hardened Git configuration; new-file creation is exclusive and recovery-derived; structured commands bind exact executable identity, literal argv, contained cwd, scrubbed environment, bounded split output, process cleanup, and unknown post-dispatch recovery; and a real temporary-Git/Node journey ends in non-success `completed` with zero-effect replay. ProductView and OpenTUI contract tests expose exact command authority, bounded command output, diff identity, and `completed` truth at the accepted narrow, medium, and wide widths.
+
+The local milestone gate includes `pnpm test`, `pnpm typecheck`, `pnpm build`, `pnpm code:check`, `pnpm markdown:check`, `git diff --check`, repository status/ref review, focused R3 contract/runtime/process/recovery tests, and the deterministic integrated journey. Provider/network use was not authorized, so the required matching-provider journey is `not-run`. A copied packaged TUI journey was not produced in this Build slice and is also `not-run`. These two rows prevent R3-A acceptance and closure; this review must stop before R3-B.
 
 ## Current repository facts
 
@@ -34,7 +56,7 @@ The blocking release claim does not require an ExploreAgent or web tools. R3-D m
 - Docker named checks are exact repository-declared processes with immutable tracked snapshots and `network=none`. They remain distinct from trusted-host structured commands.
 - A real provider answer and passing R2 check end in non-success `completed`. GoalSpec, verifier-owned `succeeded`, repair, public resume, and Evidence Pack are not implemented.
 - OpenTUI already has responsive layouts, focus graph, palette/help, history, streaming, approval/recovery, and production PTY seams. Its current composition is R2 evidence-oriented and centered in `apps/eden/src/tui.tsx` plus supporting layout/focus files.
-- Run journals remain bounded to 64 KiB per record, 1 MiB per run, and 4096 records. Any R3 envelope or aggregate budget that cannot fit those accepted limits is a stop condition, not permission to silently truncate or enlarge persistence.
+- Current R2 production journals remain bounded to 64 KiB per record, 1 MiB per run, and 4096 records. The amended R3 Build input raises only the `usable_coding_v1` run ceiling to 2 MiB; it does not change R2 replay, per-record limits, record count, or authorize truncation, duplicate storage, or a new artifact store.
 
 ## Frozen cross-cutting contract
 
@@ -44,7 +66,11 @@ R3-A, R3-B, R3-C, and R3-E are ordered blocking milestones. Each closes with a r
 
 ### Run budgets
 
-`usable_coding_v1` freezes hard ceilings of 12 model steps, 16 tool calls, 8 executable action proposals, 30 minutes wall time, 512 KiB aggregate model-visible tool content, and 256 KiB aggregate command output. Each command has 64 KiB stdout, 64 KiB stderr, and at most 10 minutes. A new file is at most 32 KiB UTF-8. Budget facts are durable before dispatch, replayable, and monotonically consumed.
+`usable_coding_v1` freezes hard policy maxima of 12 model steps, 16 tool calls, 8 executable action proposals, 30 minutes wall time, 512 KiB aggregate model-visible tool content, and 256 KiB aggregate command output. Each run durably records one grant at or below those maxima before the first provider, tool, or action dispatch. The model may stop early or use no tools but cannot raise the grant. Each command has 64 KiB stdout, 64 KiB stderr, and at most 10 minutes. A new file is at most 32 KiB UTF-8. Usage facts are replayable and monotonically consumed.
+
+### Multi-call scheduling
+
+A completed model observation contains zero to four source-ordered tool calls, and model step 12 exposes no tools. Runtime accepts a batch only when every call is a read-only repository tool, requires no approval, and cannot mutate workspace or external state. It preflights the complete batch and declared maximum observations, durably consumes every call budget, executes eligible calls with concurrency at most four, journals actual lifecycle, and appends closed results to model context in original source order. Partial failure preserves sibling results; cancellation closes each started call. AnchorEdit, `write_file_v1`, `run_command_v1`, and every effectful or approval-bearing tool are singleton steps. An ineligible batch produces a closed non-effecting rejection and never becomes hidden serial authority.
 
 ### Authority and recovery
 
@@ -62,27 +88,27 @@ Contracts and runtime own plan, goal, budgets, actions, verification, repair, re
 
 ### Slice 0: baseline, contract budget, and no-authority guards
 
-**Scope:** Reproduce the exact accepted R2 baseline and prove the frozen R3 maximum envelopes fit existing journal limits before activating any R3 variant.
+**Scope:** Reproduce the exact accepted R2 baseline, close the amended policy/grant/batch contracts, and prove the frozen R3 maximum envelopes fit the 64 KiB record, 2 MiB run, and 4096-record limits before activating any R3 variant.
 
 - Public seam: existing package tests, R1/R2 named gates, journal encoder/decoder, copied archive smoke, and production PTY self-test.
-- Observable behavior: R2 behavior and package bytes remain unchanged; maximum R3-A contract fixtures fit 64 KiB records and an estimated maximum run fits 1 MiB/4096 records; no R3 action, verifier, resume, child, or web effect can dispatch.
-- Independent expected result: hand-calculated byte totals from serialized maximum fixtures plus existing journal constants, compared with the production encoder length rather than a duplicated helper.
-- RED: add maximum closed fixtures and no-authority tests that fail because R3 schemas and explicit denial guards do not exist.
+- Observable behavior: R2 behavior remains unchanged; policy maxima decode separately from a lower durable grant; maximum batch, action, lifecycle, command-output, and terminal fixtures each fit 64 KiB; one complete maximum run fits 2 MiB/4096 records; no R3 action, verifier, resume, child, or web effect can dispatch.
+- Independent expected result: a table of maximum event counts and independently constructed bytes is compared with the exact production encoder output; command output is stored once and only its admitted model-visible projection also consumes the aggregate tool-content budget.
+- RED: add policy/grant/usage, zero-to-four-call model observation, final-answer reserve, maximum closed fixtures, single-storage, and no-authority tests that fail because the amended contracts and explicit denial guards do not exist.
 - Permitted fakes: deterministic clocks/IDs and maximum-value contract fixtures only; no fake persistence length or bypassed encoder.
 - Matching surface: current copied archive completes the accepted R2 safe-actuation and Docker self-test paths with all R3 commands absent or explicitly unsupported.
-- Stop conditions: any maximum record exceeds 64 KiB, estimated run exceeds 1 MiB, baseline regression appears, or a new artifact store becomes necessary.
+- Stop conditions: any maximum record exceeds 64 KiB, the complete encoded run exceeds 2 MiB/4096 records, output must be duplicated or truncated, the R2 baseline regresses, or a new artifact store becomes necessary.
 
-### Slice 1: profile-owned usable-loop budgets and recoverable observations
+### Slice 1: profile-owned budgets, bounded multi-call scheduling, and recoverable observations
 
-**Scope:** Activate `RunBudgetV1` and replace the fixed four-step/four-tool branch with the frozen `usable_coding_v1` accounting without adding new tools yet.
+**Scope:** Activate policy/grant/usage accounting, replace the fixed four-step/four-tool branch, and add the bounded multi-call scheduler for existing read-only repository tools without adding new tool kinds yet.
 
-- Public seam: contracts decoders, kernel reducer/decision tests, journal replay, provider-loop fixture, AgentClient, ProductView budget projection, and headless NDJSON.
-- Observable behavior: 12/16/8/time/content/output ceilings are initialized from the selected profile, consumed before dispatch, projected consistently, and replayed exactly; a closed recoverable tool failure may continue while `unknown` blocks.
-- Independent expected result: a table-driven ledger calculates remaining counters and bytes from committed event sizes and fixture timestamps, not from reducer output.
-- RED: the fifth current tool/model step should be permitted under the new profile, the seventeenth tool and thirteenth model step should be denied, and replay should reproduce the same remaining budget.
+- Public seam: contracts decoders, provider adapter fixtures, kernel reducer/decision tests, runtime batch scheduler, journal replay, provider-loop fixture, AgentClient, ProductView budget/batch projection, and headless NDJSON.
+- Observable behavior: policy maxima and the exact per-run grant are distinct and replayable; zero to four eligible read-only calls consume budget before dispatch, run with concurrency at most four, retain actual lifecycle, and return results in source order; early final answers use no quota beyond actual usage; step 12 is final-answer-only; effectful, mixed, dependent, unsupported-provider, oversized, or over-budget batches perform no effect; a closed recoverable read failure preserves sibling results while `unknown` blocks.
+- Independent expected result: a table-driven ledger calculates remaining counters and bytes from committed event sizes and fixture timestamps, while controlled deferred ports independently establish start/completion order and source-ordered model results.
+- RED: cover an early zero-tool final answer; four eligible reads with reversed completion order; one failed sibling; batch cancellation; a fifth same-step call; mixed read/effect and two-effect batches; unsupported provider capability; a tool request on step 12; the seventeenth run tool; a grant above policy; and replay with no redispatch.
 - Permitted fakes: deterministic provider and semantic tool ports at their existing boundaries; real journal encoding remains required.
-- Matching surface: headless deterministic fixture shows multiple read/failure/continue steps and exact remaining budgets without provider network.
-- Stop conditions: accounting depends on ephemeral renderer/provider state, a dispatch can occur before durable consumption, or limits require changing accepted journal bounds.
+- Matching surface: a local OpenAI-compatible wire fixture proves zero-to-four-call normalization without network, and the headless deterministic journey shows one read batch, partial failure, source-ordered results, a later singleton action proposal, and exact remaining budgets.
+- Stop conditions: provider capability is guessed rather than proved, a dependent/effectful call can enter a batch, result order depends on completion timing, accounting depends on ephemeral renderer/provider state, dispatch can occur before durable consumption, or limits require changing accepted journal bounds.
 
 ### Slice 2: model-visible semantic Git diff
 
@@ -293,7 +319,8 @@ Provider, public web, Docker, hosted, commit, push, package publication, and rel
 
 - Stop if structured commands require shell-language parsing, inherited secrets, hidden network authority, or a sandbox claim.
 - Stop if new-file usefulness requires overwrite, recursive directory creation, delete, rename, chmod, or staging.
-- Stop if a maximum event or run cannot fit existing journal limits without truncation or a new artifact/persistence contract.
+- Stop if a maximum event or run cannot fit the amended 64 KiB record, 2 MiB run, and 4096-record limits without truncation, duplicate output storage, or a new artifact/persistence contract.
+- Stop if multi-call execution admits an effectful, approval-bearing, dependent, unsupported-provider, or unbudgeted call, or if replay/result order depends on completion timing.
 - Stop if a plan, TUI, or model can approve a goal/action, change budgets, or create completion truth.
 - Stop if checkpoint/resume requires automatic Git commits, stashes, worktrees, reset, checkout, rollback, or duplicate dispatch.
 - Stop if verifier success depends on model judgment, stale evidence, optional checks, or an Evidence Pack not yet persisted.
@@ -314,15 +341,15 @@ Provider, public web, Docker, hosted, commit, push, package publication, and rel
 
 ## Rollback and amendment policy
 
-This accepted plan is fixed implementation input. Before Build authorization, amendment requires an explicit owner decision and a visible document revision. If Build evidence later invalidates an authority, recovery, product, platform, or completion decision, stop the current slice and propose a visible ADR/plan amendment; do not silently widen the action, raise a budget, weaken a check, change checkpoint semantics, or move R3-D into the release gate.
+This plan includes the owner-accepted 2026-08-11 Freeze amendment and became fixed implementation input after its review. Fresh Build authority and public-first commit/push authority were granted on 2026-08-11. If later evidence invalidates an authority, recovery, product, platform, batching, persistence, or completion decision, stop the current slice and propose another visible ADR/plan amendment; do not silently widen the action, raise a budget, weaken a check, change checkpoint semantics, or move R3-D into the release gate.
 
 Implementation remains reviewable one slice at a time. No Build step may discard unrelated user changes or rewrite history. Publication, if separately authorized later, remains public first and tutorial gitlink second.
 
 ## Human checkpoints
 
-1. **Freeze approval complete:** ADR 0019, normative/focused contracts, and this complete plan were accepted on 2026-08-10. No Build follows automatically.
-2. **Build authorization:** separately authorize the blocking plan and any first-core-invariant RED review requirements.
-3. **External authority:** separately authorize any real provider/network, Docker, hosted, commit, push, package, or release action.
+1. **Freeze amendment review:** completed on 2026-08-11 when the owner accepted the amended ADR, normative/focused contracts, and complete plan as one packet.
+2. **Build reauthorization:** granted on 2026-08-11 for implementation from the amended packet.
+3. **External authority:** public-first commit and push were granted on 2026-08-11; real provider/network, Docker, hosted, package, and release actions still require separate authority.
 4. **R3-D activation:** after R3-C evidence, explicitly activate or skip the non-blocking milestone.
 5. **Milestone review:** review each runnable R3-A, R3-B, and R3-C outcome before the next blocking milestone when the accepted plan names a key-node checkpoint.
 6. **Release candidate:** review the first verified patch, evidence matrix, support claims, and residual risks before any public release claim.

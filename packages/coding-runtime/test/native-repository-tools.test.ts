@@ -56,6 +56,23 @@ const gitCall = {
   toolCallId: "git-status-1",
 } as const;
 
+function gitDiffCall(
+  continuation: null | {
+    readonly head: string;
+    readonly nextOffset: number;
+    readonly patchHash: string;
+    readonly path: string;
+    readonly statusHash: string;
+  } = null,
+  path = ".",
+) {
+  return {
+    arguments: { continuation, path },
+    name: "git_diff",
+    toolCallId: `git-diff-${continuation?.nextOffset ?? "start"}`,
+  } as const;
+}
+
 function runGit(cwd: string, arguments_: readonly string[]): string {
   const result = spawnSync("git", [...arguments_], {
     cwd,
@@ -291,6 +308,91 @@ describe("native repository semantic tools", () => {
     assert.equal("rawStdout" in result.productData, false);
     assert.equal("rawStderr" in result.productData, false);
     assert.equal(await treeDigest(join(root, ".git")), before);
+  });
+
+  it("returns a semantic real Git diff without external diff or textconv execution", async () => {
+    const root = await mkdtemp(join(tmpdir(), "eden-native-diff-"));
+    runGit(root, ["init", "--quiet"]);
+    runGit(root, ["config", "user.email", "eden@example.invalid"]);
+    runGit(root, ["config", "user.name", "Eden Test"]);
+    await writeFile(join(root, ".gitattributes"), "*.txt diff=sentinel\n");
+    await writeFile(join(root, "tracked.txt"), "before 你好\n");
+    await writeFile(join(root, "old.txt"), "rename me\n");
+    await writeFile(join(root, "binary.bin"), Buffer.from([0, 1, 2, 3]));
+    await writeFile(join(root, "sentinel.sh"), "#!/bin/sh\necho EXTERNAL_DIFF_SENTINEL\n");
+    if (process.platform !== "win32") await chmod(join(root, "sentinel.sh"), 0o755);
+    runGit(root, ["add", ".gitattributes", "tracked.txt", "old.txt", "binary.bin"]);
+    runGit(root, ["commit", "--quiet", "-m", "fixture"]);
+    runGit(root, ["config", "diff.external", join(root, "sentinel.sh")]);
+    runGit(root, ["config", "diff.sentinel.textconv", join(root, "sentinel.sh")]);
+    await writeFile(join(root, "tracked.txt"), "after 你好\n");
+    await rename(join(root, "old.txt"), join(root, "new.txt"));
+    await writeFile(join(root, "binary.bin"), Buffer.from([0, 9, 2, 3]));
+    const before = await treeDigest(join(root, ".git"));
+
+    const service = await RepositoryToolService.open({ workspaceRoot: root });
+    const result = await service.execute(gitDiffCall());
+
+    assert.equal(result.productData.status, "succeeded");
+    assert.equal(result.productData.name, "git_diff");
+    if (result.productData.status !== "succeeded" || result.productData.name !== "git_diff") {
+      return;
+    }
+    assert.match(result.productData.data.content, /after 你好/u);
+    assert.match(result.productData.data.content, /Binary files/u);
+    assert.doesNotMatch(result.productData.data.content, /EXTERNAL_DIFF_SENTINEL/u);
+    assert.equal(result.modelContent, result.productData.data.content);
+    assert.equal(result.productData.data.continuation, null);
+    assert.equal(result.productData.data.contentHash, result.productData.data.patchHash);
+    assert.equal(await treeDigest(join(root, ".git")), before);
+  });
+
+  it("paginates one stable Git diff and rejects a continuation after repository drift", async () => {
+    const root = await mkdtemp(join(tmpdir(), "eden-native-diff-page-"));
+    runGit(root, ["init", "--quiet"]);
+    runGit(root, ["config", "user.email", "eden@example.invalid"]);
+    runGit(root, ["config", "user.name", "Eden Test"]);
+    await writeFile(join(root, "large.txt"), "before\n");
+    await writeFile(join(root, "other.txt"), "stable\n");
+    runGit(root, ["add", "large.txt", "other.txt"]);
+    runGit(root, ["commit", "--quiet", "-m", "fixture"]);
+    await writeFile(
+      join(root, "large.txt"),
+      Array.from(
+        { length: 2_000 },
+        (_, index) => `${index.toString().padStart(4, "0")} 你好\n`,
+      ).join(""),
+    );
+    const service = await RepositoryToolService.open({ workspaceRoot: root });
+    const first = await service.execute(gitDiffCall());
+    assert.equal(first.productData.status, "succeeded");
+    assert.equal(first.productData.name, "git_diff");
+    if (first.productData.status !== "succeeded" || first.productData.name !== "git_diff") return;
+    assert.equal(first.productData.data.bytesRead, 24_576);
+    assert.notEqual(first.productData.data.continuation, null);
+    const continuation = first.productData.data.continuation;
+    if (continuation === null) return;
+    const second = await service.execute(gitDiffCall(continuation));
+    assert.equal(second.productData.status, "succeeded");
+    if (second.productData.status !== "succeeded" || second.productData.name !== "git_diff") return;
+    assert.equal(second.productData.data.offset, continuation.nextOffset);
+    assert.equal(second.productData.data.patchHash, first.productData.data.patchHash);
+    assert.doesNotThrow(() =>
+      decoder.decode(Buffer.from(first.modelContent + second.modelContent)),
+    );
+
+    await writeFile(join(root, "other.txt"), "drifted\n");
+    const stale = await service.execute(gitDiffCall(continuation));
+    assert.equal(stale.productData.status, "failed");
+    if (stale.productData.status !== "failed") return;
+    assert.equal(stale.productData.error.code, "git_diff_continuation_stale");
+
+    const controller = new AbortController();
+    controller.abort();
+    const cancelled = await service.execute(gitDiffCall(), controller.signal);
+    assert.equal(cancelled.productData.status, "failed");
+    if (cancelled.productData.status !== "failed") return;
+    assert.equal(cancelled.productData.error.code, "operation_aborted");
   });
 
   it("uses frozen native argv and a scrubbed environment", async () => {

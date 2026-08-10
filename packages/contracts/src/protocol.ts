@@ -1,6 +1,5 @@
 import Type from "typebox";
 import Schema from "typebox/schema";
-
 import type {
   DeleteProviderProfileCommand,
   ProviderProfileCatalog,
@@ -10,6 +9,7 @@ import type {
   SelectProviderProfileCommand,
 } from "./provider-profiles.ts";
 import { ProviderProfileSummarySchema } from "./provider-profiles.ts";
+import { UsableCodingBudgetProductViewV1Schema } from "./r3-budget.ts";
 import {
   RepositoryCheckBudgetsSchema,
   RepositoryCheckDockerCompatibilityV1Schema,
@@ -187,10 +187,21 @@ const TrustedHostApprovalAuthoritySchema = Type.Object(
     executionMode: Type.Literal("trusted_host_policy_only"),
     isolation: Type.Literal("none"),
     lifetime: Type.Literal("single_use_proposal_revision"),
-    network: Type.Literal("not_requested"),
+    network: Type.Union([Type.Literal("not_requested"), Type.Literal("host_unrestricted")]),
     policyRuleId: Type.String(identifierOptions),
     policyRuleSetRevision: Type.String(identifierOptions),
     proposalRevision: RevisionSchema,
+    process: Type.Optional(
+      Type.Object(
+        {
+          args: Type.Array(Type.String({ maxLength: 4_096 }), { maxItems: 64 }),
+          executablePath: Type.String({ maxLength: 4_096, minLength: 1 }),
+          program: Type.String({ maxLength: 128, minLength: 1 }),
+          timeoutMs: Type.Integer({ maximum: 600_000, minimum: 1 }),
+        },
+        closed,
+      ),
+    ),
   },
   closed,
 );
@@ -382,6 +393,30 @@ export const GitStatusToolCallSchema = Type.Object(
   },
   closed,
 );
+const GitDiffContinuationSchema = Type.Object(
+  {
+    head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }),
+    nextOffset: Type.Integer({ maximum: 98_304, minimum: 1 }),
+    patchHash: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+    path: RepositoryPathSchema,
+    statusHash: Type.String({ pattern: "^sha256:[a-f0-9]{64}$" }),
+  },
+  closed,
+);
+export const GitDiffToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      {
+        continuation: Type.Union([GitDiffContinuationSchema, Type.Null()]),
+        path: RepositoryPathSchema,
+      },
+      closed,
+    ),
+    name: Type.Literal("git_diff"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
 export const AnchorEditToolCallSchema = Type.Refine(
   Type.Object(
     {
@@ -410,6 +445,45 @@ export const AnchorEditToolCallSchema = Type.Refine(
   (call) =>
     new TextEncoder().encode(JSON.stringify(call.arguments.replacements)).byteLength <= 16_384,
 );
+export const WriteFileToolCallSchema = Type.Refine(
+  Type.Object(
+    {
+      arguments: Type.Object(
+        {
+          content: Type.String({ maxLength: 32_768 }),
+          path: RepositoryPathSchema,
+        },
+        closed,
+      ),
+      name: Type.Literal("write_file"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (call) => new TextEncoder().encode(call.arguments.content).byteLength <= 32_768,
+);
+const CommandArgumentSchema = Type.Refine(
+  Type.String({ maxLength: 4_096 }),
+  (value) => !value.includes("\0"),
+);
+export const RunCommandToolCallSchema = Type.Object(
+  {
+    arguments: Type.Object(
+      {
+        args: Type.Array(CommandArgumentSchema, { maxItems: 64 }),
+        cwd: RepositoryPathSchema,
+        network: Type.Literal("host_unrestricted"),
+        program: Type.String({ pattern: "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$" }),
+        reason: boundedText(),
+        timeoutMs: Type.Integer({ maximum: 600_000, minimum: 1 }),
+      },
+      closed,
+    ),
+    name: Type.Literal("run_command"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
 export const RepositoryCheckToolCallSchema = Type.Object(
   {
     arguments: Type.Object(
@@ -426,7 +500,10 @@ export const RepositoryToolCallSchema = Type.Union([
   ReadFileToolCallSchema,
   SearchRepositoryToolCallSchema,
   GitStatusToolCallSchema,
+  GitDiffToolCallSchema,
   AnchorEditToolCallSchema,
+  WriteFileToolCallSchema,
+  RunCommandToolCallSchema,
   RepositoryCheckToolCallSchema,
 ]);
 export type RepositoryToolCall = Type.Static<typeof RepositoryToolCallSchema>;
@@ -582,6 +659,42 @@ export const GitStatusToolSuccessSchema = Type.Refine(
   ),
   (value) => new TextEncoder().encode(JSON.stringify(value.data.entries)).byteLength <= 24_576,
 );
+export const GitDiffToolSuccessSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          bytesRead: Type.Integer({ maximum: 24_576, minimum: 0 }),
+          content: Type.String({ maxLength: 24_576 }),
+          contentHash: contentHashSchema,
+          continuation: Type.Union([GitDiffContinuationSchema, Type.Null()]),
+          head: Type.String({ pattern: "^[a-f0-9]{40,64}$" }),
+          offset: Type.Integer({ maximum: 98_304, minimum: 0 }),
+          patchHash: contentHashSchema,
+          sourcePath: RepositoryPathSchema,
+          statusHash: contentHashSchema,
+          totalBytes: Type.Integer({ maximum: 98_304, minimum: 0 }),
+        },
+        closed,
+      ),
+      name: Type.Literal("git_diff"),
+      status: Type.Literal("succeeded"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (value) =>
+    new TextEncoder().encode(value.data.content).byteLength === value.data.bytesRead &&
+    value.data.offset + value.data.bytesRead <= value.data.totalBytes &&
+    (value.data.continuation === null
+      ? value.data.offset + value.data.bytesRead === value.data.totalBytes
+      : value.data.continuation.nextOffset === value.data.offset + value.data.bytesRead &&
+        value.data.continuation.nextOffset < value.data.totalBytes &&
+        value.data.continuation.head === value.data.head &&
+        value.data.continuation.patchHash === value.data.patchHash &&
+        value.data.continuation.path === value.data.sourcePath &&
+        value.data.continuation.statusHash === value.data.statusHash),
+);
 export const RepositoryToolFailureSchema = Type.Object(
   {
     error: ProductErrorSchema,
@@ -590,7 +703,10 @@ export const RepositoryToolFailureSchema = Type.Object(
       Type.Literal("read_file"),
       Type.Literal("search_repository"),
       Type.Literal("git_status"),
+      Type.Literal("git_diff"),
       Type.Literal("anchor_edit"),
+      Type.Literal("write_file"),
+      Type.Literal("run_command"),
       Type.Literal("repository_check"),
     ]),
     status: Type.Literal("failed"),
@@ -612,6 +728,70 @@ export const AnchorEditDeniedResultSchema = Type.Object(
     toolCallId: Type.String(identifierOptions),
   },
   closed,
+);
+export const WriteActionCompletedResultSchema = Type.Object(
+  {
+    data: Type.Object(
+      {
+        actionId: ActionIdSchema,
+        byteLength: Type.Integer({ maximum: 1_048_576, minimum: 0 }),
+        contentHash: contentHashSchema,
+        path: RepositoryPathSchema,
+        reviewStatus: Type.Union([Type.Literal("passed"), Type.Literal("diagnostics")]),
+      },
+      closed,
+    ),
+    name: Type.Union([Type.Literal("anchor_edit"), Type.Literal("write_file")]),
+    status: Type.Literal("completed"),
+    toolCallId: Type.String(identifierOptions),
+  },
+  closed,
+);
+export const RunCommandCompletedResultSchema = Type.Refine(
+  Type.Object(
+    {
+      data: Type.Object(
+        {
+          actionId: ActionIdSchema,
+          cleanupStatus: Type.Union([
+            Type.Literal("complete"),
+            Type.Literal("failed"),
+            Type.Literal("unknown"),
+          ]),
+          completedAt: Type.String({ format: "date-time" }),
+          cwd: RepositoryPathSchema,
+          executablePath: Type.String({ maxLength: 4_096, minLength: 1 }),
+          exitCode: Type.Union([Type.Integer({ maximum: 255, minimum: 0 }), Type.Null()]),
+          outcome: Type.Union([
+            Type.Literal("exited"),
+            Type.Literal("timed_out"),
+            Type.Literal("cancelled"),
+            Type.Literal("output_overflow"),
+            Type.Literal("cleanup_failed"),
+            Type.Literal("spawn_failed"),
+            Type.Literal("invalid_output"),
+          ]),
+          startedAt: Type.String({ format: "date-time" }),
+          stderr: Type.String({ maxLength: 65_536 }),
+          stderrBytes: Type.Integer({ maximum: 65_536, minimum: 0 }),
+          stderrSha256: contentHashSchema,
+          stdout: Type.String({ maxLength: 65_536 }),
+          stdoutBytes: Type.Integer({ maximum: 65_536, minimum: 0 }),
+          stdoutSha256: contentHashSchema,
+        },
+        closed,
+      ),
+      name: Type.Literal("run_command"),
+      status: Type.Literal("completed"),
+      toolCallId: Type.String(identifierOptions),
+    },
+    closed,
+  ),
+  (value) =>
+    new TextEncoder().encode(value.data.stdout).byteLength === value.data.stdoutBytes &&
+    new TextEncoder().encode(value.data.stderr).byteLength === value.data.stderrBytes &&
+    Date.parse(value.data.startedAt) <= Date.parse(value.data.completedAt) &&
+    (value.data.outcome === "exited" ? value.data.exitCode !== null : value.data.exitCode === null),
 );
 export const RepositoryCheckCompletedResultSchema = Type.Object(
   {
@@ -661,12 +841,24 @@ export const RepositoryToolResultSchema = Type.Union([
   ReadFileToolSuccessSchema,
   SearchRepositoryToolSuccessSchema,
   GitStatusToolSuccessSchema,
+  GitDiffToolSuccessSchema,
   AnchorEditDeniedResultSchema,
+  WriteActionCompletedResultSchema,
+  RunCommandCompletedResultSchema,
   RepositoryCheckCompletedResultSchema,
   RepositoryCheckDeniedResultSchema,
   RepositoryToolFailureSchema,
 ]);
 export type RepositoryToolResult = Type.Static<typeof RepositoryToolResultSchema>;
+
+export function repositoryToolModelContent(input: unknown): string {
+  const result = input as RepositoryToolResult;
+  if (result.status !== "completed" || result.name !== "run_command") {
+    return JSON.stringify(result);
+  }
+  const { stderr, stdout, ...metadata } = result.data;
+  return `${JSON.stringify({ ...result, data: metadata })}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`;
+}
 
 export const ToolActivitySchema = Type.Refine(
   Type.Object(
@@ -719,7 +911,7 @@ export const ModelAttemptSummarySchema = Type.Object(
       Type.Literal("interrupted"),
       Type.Literal("unknown"),
     ]),
-    step: Type.Integer({ maximum: 4, minimum: 1 }),
+    step: Type.Integer({ maximum: 12, minimum: 1 }),
     usage: ModelUsageSummarySchema,
   },
   closed,
@@ -1006,8 +1198,8 @@ const ProductReviewPatchSchema = Type.Union([
   Type.Refine(
     Type.Object(
       {
-        byteLength: Type.Integer({ maximum: 24_576, minimum: 0 }),
-        content: Type.String({ maxLength: 24_576 }),
+        byteLength: Type.Integer({ maximum: 57_344, minimum: 0 }),
+        content: Type.String({ maxLength: 57_344 }),
         contentHash: contentHashSchema,
         state: Type.Literal("complete"),
       },
@@ -1124,13 +1316,14 @@ const ProductViewObjectSchema = Type.Object(
     changedFiles: Type.Array(ChangedFileSchema, { maxItems: 256 }),
     checks: Type.Array(CheckResultSchema, { maxItems: 128 }),
     budget: BudgetSummarySchema,
+    codingBudget: Type.Optional(UsableCodingBudgetProductViewV1Schema),
     nextActions: Type.Array(shortText(), { maxItems: 16 }),
     residualRisk: Type.Union([boundedText(), Type.Null()]),
     terminalOutcome: Type.Union([TerminalOutcomeSchema, Type.Null()]),
     context: Type.Optional(ContextAdmissionSummarySchema),
-    tools: Type.Optional(Type.Array(ToolActivitySchema, { maxItems: 4 })),
-    attempts: Type.Optional(Type.Array(ModelAttemptSummarySchema, { maxItems: 12 })),
-    conversation: Type.Optional(Type.Array(ConversationTurnSchema, { maxItems: 9 })),
+    tools: Type.Optional(Type.Array(ToolActivitySchema, { maxItems: 16 })),
+    attempts: Type.Optional(Type.Array(ModelAttemptSummarySchema, { maxItems: 36 })),
+    conversation: Type.Optional(Type.Array(ConversationTurnSchema, { maxItems: 13 })),
     retry: Type.Optional(RetrySummarySchema),
     repositoryCheck: Type.Optional(RepositoryCheckProductViewV1Schema),
   },
