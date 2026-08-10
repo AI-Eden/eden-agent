@@ -762,7 +762,7 @@ function validateModelStepInput(input: ModelStepRequestV1): void {
     input.maxOutputTokens > 8_192 ||
     input.conversation.length === 0 ||
     input.conversation.length > 64 ||
-    input.enabledTools.length > 6 ||
+    input.enabledTools.length > 9 ||
     new Set(input.enabledTools).size !== input.enabledTools.length
   ) {
     throw new Error("invalid model-step input");

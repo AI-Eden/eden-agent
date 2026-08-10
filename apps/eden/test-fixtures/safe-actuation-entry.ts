@@ -25,6 +25,19 @@ class AcceptanceModel {
 
   async completeModelStep(request: { readonly attemptId: string }) {
     const call = this.#calls++;
+    if (call > 0 && scenario !== "deny-narrow") {
+      return {
+        attemptId: request.attemptId,
+        finishStatus: "stop",
+        privateContinuity: null,
+        requestId: `acceptance-request-${call + 1}`,
+        status: "completed",
+        text: "The bounded edit and review are complete.",
+        toolCalls: [],
+        usage: null,
+        version: 1,
+      } as const;
+    }
     const replacements =
       scenario === "deny-narrow" && call === 0
         ? [

@@ -174,6 +174,42 @@ describe("OpenAI-compatible model steps", () => {
     assert.equal(local.requests(), 1);
   });
 
+  it("sends the complete nine-tool R3-A surface through the real adapter", async () => {
+    let body = "";
+    const local = await fixture((incoming, response) => {
+      incoming.setEncoding("utf8");
+      incoming.on("data", (value) => (body += value));
+      incoming.on("end", () => {
+        response.writeHead(200, { "content-type": "text/event-stream" });
+        response.end(
+          [
+            chunk({ content: "The complete R3-A surface is available." }, "stop"),
+            "data: [DONE]\n\n",
+          ].join(""),
+        );
+      });
+    });
+    const result = await adapter(local.baseUrl).completeModelStep(
+      {
+        ...request,
+        enabledTools: [
+          "list_files",
+          "read_file",
+          "search_repository",
+          "git_diff",
+          "git_status",
+          "anchor_edit",
+          "write_file",
+          "run_command",
+          "repository_check",
+        ],
+      },
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "completed");
+    assert.equal(JSON.parse(body).tools.length, 9);
+  });
+
   it("coalesces split tool-call identity, name, and arguments into one closed call", async () => {
     let body = "";
     const local = await fixture((incoming, response) => {

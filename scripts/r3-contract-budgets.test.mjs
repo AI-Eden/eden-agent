@@ -1,8 +1,8 @@
 import { strictEqual } from "node:assert";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 
 import { AnchorEditService } from "../packages/coding-runtime/src/anchor-edit.ts";
@@ -47,18 +47,28 @@ function modelCompleted(toolCalls, text = "x".repeat(4_096)) {
   };
 }
 
+async function copyCommandFixture(root) {
+  const directory = join(root, "bin");
+  const program = process.platform === "win32" ? "eden-node-fixture.exe" : "eden-node-fixture";
+  await mkdir(directory);
+  await copyFile(process.execPath, join(directory, program));
+  if (process.platform !== "win32") await chmod(join(directory, program), 0o755);
+  return { directory, program };
+}
+
 test("R3 maximum production event fixtures fit one exact journal record", async () => {
   const root = await mkdtemp(join(tmpdir(), "eden-r3-budget-"));
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
   await mkdir(join(root, "src"));
+  const commandFixture = await copyCommandFixture(root);
   try {
     const safe = new SafeActuationEffectHost(
       new AnchorEditService({ stateDirectory, workspaceRoot: root }),
       { now: () => time },
       undefined,
       new WriteFileService({ stateDirectory, workspaceRoot: root }),
-      new RunCommandService({ path: dirname(process.execPath), workspaceRoot: root }),
+      new RunCommandService({ path: commandFixture.directory, workspaceRoot: root }),
     );
     const workspace = {
       name: "fixture",
@@ -71,7 +81,7 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
         args: Array.from({ length: 12 }, () => "x".repeat(4_096)),
         cwd: ".",
         network: "host_unrestricted",
-        program: basename(process.execPath),
+        program: commandFixture.program,
         reason: "r".repeat(4_096),
         timeoutMs: 600_000,
       },
@@ -205,13 +215,14 @@ test("the independently counted complete R3-A maximum fixture fits 2 MiB and 409
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
   await mkdir(join(root, "src"));
+  const commandFixture = await copyCommandFixture(root);
   try {
     const safe = new SafeActuationEffectHost(
       new AnchorEditService({ stateDirectory, workspaceRoot: root }),
       { now: () => time },
       undefined,
       new WriteFileService({ stateDirectory, workspaceRoot: root }),
-      new RunCommandService({ path: dirname(process.execPath), workspaceRoot: root }),
+      new RunCommandService({ path: commandFixture.directory, workspaceRoot: root }),
     );
     const workspace = { name: "fixture", root, trust: "trusted", workspaceId: "workspace-r3-run" };
     const writeCall = {
@@ -233,7 +244,7 @@ test("the independently counted complete R3-A maximum fixture fits 2 MiB and 409
         args: Array.from({ length: 12 }, () => "x".repeat(4_096)),
         cwd: ".",
         network: "host_unrestricted",
-        program: basename(process.execPath),
+        program: commandFixture.program,
         reason: "r".repeat(4_096),
         timeoutMs: 600_000,
       },

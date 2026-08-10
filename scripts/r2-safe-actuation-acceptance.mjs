@@ -434,6 +434,11 @@ async function runScenario(name) {
     }
     if (name === "deny-narrow") {
       terminal.write("d");
+      for (let index = 0; index < 32; index += 1) {
+        if (compactTerminal(screen()).includes("proposalrevision2")) break;
+        terminal.write("\u001B[B");
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
+      }
       await waitFor(
         screen,
         (value) => compactTerminal(value).includes("proposalrevision2"),
@@ -519,7 +524,9 @@ async function runScenario(name) {
       view.review?.edenPatch.state !== "complete" ||
       view.review.currentTrackedPatch.state !== "complete"
     ) {
-      throw new Error(`${name} did not expose one complete non-success review.`);
+      throw new Error(
+        `${name} did not expose one complete non-success review: outcome=${view.terminalOutcome?.state ?? "none"} code=${view.terminalOutcome?.state === "blocked" ? view.terminalOutcome.error.code : "none"} review=${view.review === undefined ? "none" : `${view.review.edenPatch.state}/${view.review.currentTrackedPatch.state}`}.`,
+      );
     }
     if (name === "check-failure" && view.review.currentCheck.status !== "failed") {
       throw new Error("The check-failure scenario did not retain its failed check.");
