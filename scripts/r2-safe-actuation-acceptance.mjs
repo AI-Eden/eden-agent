@@ -442,12 +442,10 @@ async function runScenario(name) {
         },
         "narrow child proposal",
       );
-      for (let attempt = 0; attempt < 5; attempt += 1) {
+      for (let attempt = 0; attempt < 48; attempt += 1) {
         if (compactTerminal(screen()).includes("proposalrevision2")) break;
-        await waitForTerminalQuiet(session, 100);
-        const previousTranscript = session.transcript;
-        terminal.write("\u001B[F");
-        await waitForTerminalActivity(session, previousTranscript, 1_000);
+        terminal.write("\u001B[B");
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
       }
       await waitFor(
         screen,

@@ -154,7 +154,9 @@ describe("exclusive write-file action", () => {
     assert.deepEqual(await service.reconcile(envelope), { state: "unknown" });
   });
 
-  it("blocks metadata drift without chmod, append, or replacement authority", async () => {
+  it("blocks metadata drift without chmod, append, or replacement authority", {
+    skip: process.platform === "win32" ? "Windows does not expose POSIX mode bits." : false,
+  }, async () => {
     const { root, service } = await fixture();
     const envelope = await prepare(service, root);
     if (envelope.operation.type !== "write_file") return;
