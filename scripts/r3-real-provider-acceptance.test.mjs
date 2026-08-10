@@ -14,7 +14,9 @@ test("R3 real-provider evidence rejects fake, secret-bearing, or incomplete resu
   strictEqual(result.status, 0, result.stderr || result.stdout);
 });
 
-test("R3 real-provider failure writes a sanitized artifact before cleanup", () => {
+test("R3 real-provider failure writes a sanitized artifact before cleanup", {
+  skip: process.platform !== "linux",
+}, () => {
   const directory = mkdtempSync(join(tmpdir(), "eden-r3-real-provider-failure-test-"));
   const output = join(directory, "evidence.json");
   const credential = "SECRET_CANARY_R3_FAILURE_ARTIFACT";

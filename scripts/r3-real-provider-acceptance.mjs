@@ -240,10 +240,6 @@ const commandExecutable = join(binDirectory, commandProgram);
 const requireFromHarness = createRequire(
   new URL("../spikes/terminal-framework/harness/package.json", import.meta.url),
 );
-const { spawn } = requireFromHarness("node-pty");
-const { terminatePtyProcessGroup } = await import(
-  "../spikes/terminal-framework/harness/dist/src/pty-cleanup.js"
-);
 let externalNetworkAttempted = false;
 let failureStage = "package_copy";
 let packageCopied = false;
@@ -410,6 +406,11 @@ try {
     PATH: `${binDirectory}:${process.env.PATH ?? ""}`,
     TERM: "xterm-256color",
   };
+  failureStage = "pty_setup";
+  const { spawn } = requireFromHarness("node-pty");
+  const { terminatePtyProcessGroup } = await import(
+    "../spikes/terminal-framework/harness/dist/src/pty-cleanup.js"
+  );
   let transcript = "";
   const terminal = spawn("/bin/sh", ["-c", shellScript], {
     cols: 100,
