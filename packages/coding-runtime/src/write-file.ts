@@ -147,11 +147,11 @@ export class WriteFileService {
     }
     const canonicalParent = await realpath(parentPath);
     const canonicalRoot = await realpath(this.#workspaceRoot);
-    if (
-      canonicalParent !== parentPath ||
-      canonicalRoot !== this.#workspaceRoot ||
-      !isInside(canonicalRoot, canonicalParent)
-    ) {
+    const expectedCanonicalParent = resolve(
+      canonicalRoot,
+      relative(this.#workspaceRoot, parentPath),
+    );
+    if (canonicalParent !== expectedCanonicalParent || !isInside(canonicalRoot, canonicalParent)) {
       throw new WriteFileError(
         "write_parent_linked",
         "The new-file parent cannot cross a linked path.",

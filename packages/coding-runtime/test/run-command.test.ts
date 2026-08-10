@@ -125,6 +125,28 @@ describe("approved structured run command", () => {
     );
   });
 
+  it("accepts a workspace-root alias while rejecting a linked cwd inside it", async () => {
+    const actualRoot = await mkdtemp(join(tmpdir(), "eden-run-command-actual-"));
+    const aliasParent = await mkdtemp(join(tmpdir(), "eden-run-command-alias-"));
+    const aliasRoot = join(aliasParent, "workspace");
+    await mkdir(join(actualRoot, "sub"));
+    await symlink(actualRoot, aliasRoot, "dir");
+    const service = new RunCommandService({
+      path: dirname(process.execPath),
+      workspaceRoot: aliasRoot,
+    });
+
+    const envelope = await prepare(service, aliasRoot);
+    assert.equal(envelope.kind, "run_command");
+
+    await symlink(join(actualRoot, "sub"), join(actualRoot, "linked"), "dir");
+    await assert.rejects(
+      prepare(service, aliasRoot, { cwd: "linked" }),
+      (error) =>
+        error instanceof RunCommandError && error.productError.code === "command_cwd_invalid",
+    );
+  });
+
   it("closes overflow and malformed UTF-8 as bounded semantic outcomes", async () => {
     for (const [nativeObservation, expected] of [
       [{ status: "output-overflow" as const }, "output_overflow"],

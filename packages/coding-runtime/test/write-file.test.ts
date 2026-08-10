@@ -118,6 +118,27 @@ describe("exclusive write-file action", () => {
     );
   });
 
+  it("accepts a workspace-root alias while rejecting a linked parent inside it", async () => {
+    const actualRoot = await mkdtemp(join(tmpdir(), "eden-write-file-actual-"));
+    const aliasParent = await mkdtemp(join(tmpdir(), "eden-write-file-alias-"));
+    const aliasRoot = join(aliasParent, "workspace");
+    const stateDirectory = join(actualRoot, ".state");
+    await mkdir(stateDirectory);
+    await mkdir(join(actualRoot, "src"));
+    await symlink(actualRoot, aliasRoot, "dir");
+    const service = new WriteFileService({ stateDirectory, workspaceRoot: aliasRoot });
+
+    const envelope = await prepare(service, aliasRoot);
+    assert.equal(envelope.kind, "write_file");
+
+    await symlink(join(actualRoot, "src"), join(actualRoot, "linked"), "dir");
+    await assert.rejects(
+      prepare(service, aliasRoot, "linked/new.ts"),
+      (error) =>
+        error instanceof WriteFileError && error.productError.code === "write_parent_linked",
+    );
+  });
+
   it("never overwrites a competing file created after approval", async () => {
     let target = "";
     const { root, service } = await fixture(async () => {

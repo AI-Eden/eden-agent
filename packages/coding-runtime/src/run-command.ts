@@ -155,10 +155,10 @@ export class RunCommandService {
     }
     const canonicalRoot = await realpath(this.#workspaceRoot);
     const canonical = await realpath(resolved).catch(() => null);
+    const expectedCanonical = resolve(canonicalRoot, relative(this.#workspaceRoot, resolved));
     if (
       canonical === null ||
-      canonicalRoot !== this.#workspaceRoot ||
-      canonical !== resolved ||
+      canonical !== expectedCanonical ||
       !isInside(canonicalRoot, canonical)
     ) {
       throw new RunCommandError(
@@ -166,14 +166,14 @@ export class RunCommandService {
         "The command cwd must be one existing real workspace directory.",
       );
     }
-    const metadata = await lstat(resolved, { bigint: true });
+    const metadata = await lstat(canonical, { bigint: true });
     if (!metadata.isDirectory() || metadata.isSymbolicLink()) {
       throw new RunCommandError(
         "command_cwd_invalid",
         "The command cwd must be one real directory.",
       );
     }
-    return { device: metadata.dev.toString(), inode: metadata.ino.toString(), path: resolved };
+    return { device: metadata.dev.toString(), inode: metadata.ino.toString(), path: canonical };
   }
 
   async #bindExecutable(program: string): Promise<BoundFile> {
