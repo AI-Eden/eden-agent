@@ -157,6 +157,56 @@ async function waitFor(read, predicate, label) {
   );
 }
 
+function waitForTerminalQuiet(terminal, quietMs = 250) {
+  return new Promise((resolveWait, reject) => {
+    let quietTimer;
+    const deadline = setTimeout(() => {
+      clearTimeout(quietTimer);
+      subscription.dispose();
+      reject(new Error("Timed out waiting for a stable repository-check input boundary."));
+    }, timeoutMs);
+    const settle = () => {
+      clearTimeout(deadline);
+      subscription.dispose();
+      resolveWait();
+    };
+    const armQuietTimer = () => {
+      clearTimeout(quietTimer);
+      quietTimer = setTimeout(settle, quietMs);
+    };
+    const subscription = terminal.onData(armQuietTimer);
+    armQuietTimer();
+  });
+}
+
+function waitForTerminalActivity(terminal, readTranscript, previousTranscript) {
+  if (readTranscript() !== previousTranscript) return Promise.resolve(true);
+  return new Promise((resolveWait) => {
+    const timer = setTimeout(() => {
+      subscription.dispose();
+      resolveWait(false);
+    }, 2_000);
+    const subscription = terminal.onData(() => {
+      if (readTranscript() === previousTranscript) return;
+      clearTimeout(timer);
+      subscription.dispose();
+      resolveWait(true);
+    });
+  });
+}
+
+async function pressUntil(terminal, readTranscript, input, read, predicate, label) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (predicate(read())) return;
+    await waitForTerminalQuiet(terminal);
+    const previousTranscript = readTranscript();
+    terminal.write(input);
+    if (!(await waitForTerminalActivity(terminal, readTranscript, previousTranscript))) continue;
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+  }
+  await waitFor(read, predicate, label);
+}
+
 function compact(value) {
   return value.replaceAll(/\s+/gu, "");
 }
@@ -409,8 +459,10 @@ try {
         await waitFor(screen, (value) => value.includes("trust: trusted"), `${label} trust`);
       }
       if (screen().includes("Current-workspace history")) {
-        terminal.write("b");
-        await waitFor(
+        await pressUntil(
+          terminal,
+          () => transcript,
+          "b",
           screen,
           (value) => value.includes("Enter focuses task"),
           `${label} workspace return`,
@@ -429,8 +481,14 @@ try {
         (value) => value.includes("focus: workspace.composer"),
         `${label} composer`,
       );
-      terminal.write("\r");
-      await waitFor(screen, (value) => value.includes("Enter submits"), `${label} editor`);
+      await pressUntil(
+        terminal,
+        () => transcript,
+        "\r",
+        screen,
+        (value) => value.includes("Enter submits"),
+        `${label} editor`,
+      );
       const task = `Run the closed ${label} acceptance step.`;
       terminal.write(`\u001B[200~${task}\u001B[201~`);
       await waitFor(screen, (value) => value.includes(task), `${label} task`);

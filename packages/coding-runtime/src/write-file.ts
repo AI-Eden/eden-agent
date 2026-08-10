@@ -96,6 +96,10 @@ function checkAborted(signal?: AbortSignal): void {
   }
 }
 
+function matchesRequestedMode(actualMode: bigint, requestedMode: number): boolean {
+  return process.platform === "win32" || Number(actualMode & 0o777n) === requestedMode;
+}
+
 export class WriteFileService {
   readonly #beforeOpen: (() => Promise<void>) | undefined;
   readonly #now: () => string;
@@ -280,7 +284,7 @@ export class WriteFileService {
       await this.#beforeOpen?.();
       const handle = await open(parent.targetPath, "wx", operation.mode);
       try {
-        await handle.chmod(operation.mode);
+        if (process.platform !== "win32") await handle.chmod(operation.mode);
         await handle.writeFile(new TextEncoder().encode(operation.content));
         await handle.sync();
         const opened = await handle.stat({ bigint: true });
@@ -298,7 +302,7 @@ export class WriteFileService {
         !observed.isFile() ||
         observed.isSymbolicLink() ||
         observed.nlink !== 1n ||
-        Number(observed.mode & 0o777n) !== operation.mode
+        !matchesRequestedMode(observed.mode, operation.mode)
       ) {
         throw new WriteFileError(
           "write_verification_failed",
@@ -354,7 +358,7 @@ export class WriteFileService {
           !metadata.isFile() ||
           metadata.isSymbolicLink() ||
           metadata.nlink !== 1n ||
-          Number(metadata.mode & 0o777n) !== operation.mode
+          !matchesRequestedMode(metadata.mode, operation.mode)
         ) {
           return { state: "unknown" };
         }
