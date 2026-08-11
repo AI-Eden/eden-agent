@@ -281,7 +281,12 @@ function showsPendingApproval(value) {
 
 function showsCompletedReview(value) {
   const normalized = compact(value);
-  return normalized.includes("phase:review") && normalized.includes("focus:run.review");
+  return (
+    normalized.includes("phase:review") &&
+    (normalized.includes("focus:run.review") ||
+      normalized.includes("focus:run.exit") ||
+      normalized.includes("outcome:completed"))
+  );
 }
 
 async function findJournal(directory, runId) {
@@ -331,6 +336,9 @@ if (process.argv[2] === "--self-test") {
   }
   if (!showsCompletedReview("phase: review · focus: run.review")) {
     throw new Error("Repository-check terminal review matching is not layout-independent.");
+  }
+  if (!showsCompletedReview("phase: review · focus: run.exit · outcome: completed")) {
+    throw new Error("Repository-check terminal exit matching is not layout-independent.");
   }
   process.stdout.write('{"status":"passed","test":"r2-docker-repository-check-driver"}\n');
   process.exit(0);
