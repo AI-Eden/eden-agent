@@ -279,6 +279,11 @@ function showsPendingApproval(value) {
   return normalized.includes("approvalpending") || normalized.includes("approval:pending");
 }
 
+function showsCompletedReview(value) {
+  const normalized = compact(value);
+  return normalized.includes("phase:review") && normalized.includes("focus:run.review");
+}
+
 async function findJournal(directory, runId) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -323,6 +328,9 @@ if (process.argv[2] === "--self-test") {
     !showsPendingApproval("approval: pending")
   ) {
     throw new Error("Repository-check approval state matching is not layout-independent.");
+  }
+  if (!showsCompletedReview("phase: review · focus: run.review")) {
+    throw new Error("Repository-check terminal review matching is not layout-independent.");
   }
   process.stdout.write('{"status":"passed","test":"r2-docker-repository-check-driver"}\n');
   process.exit(0);
@@ -629,11 +637,7 @@ try {
         "approve",
         `${label} approval`,
       );
-      await waitFor(
-        screen,
-        (value) => compact(value).includes("outcome:completed"),
-        `${label} completed non-success outcome`,
-      );
+      await waitFor(screen, showsCompletedReview, `${label} completed non-success review`);
       terminal.write("q");
       const exitCode = await Promise.race([
         exit,
