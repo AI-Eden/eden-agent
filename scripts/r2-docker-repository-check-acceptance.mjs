@@ -274,6 +274,11 @@ function compact(value) {
   return value.replaceAll(/\s+/gu, "");
 }
 
+function showsPendingApproval(value) {
+  const normalized = compact(value);
+  return normalized.includes("approvalpending") || normalized.includes("approval:pending");
+}
+
 async function findJournal(directory, runId) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
@@ -312,6 +317,12 @@ if (process.argv[2] === "--self-test") {
     activeRunPaletteMoveCount("deny") !== 7
   ) {
     throw new Error("Repository-check approval palette positions changed unexpectedly.");
+  }
+  if (
+    !showsPendingApproval("URGENT · approval pending") ||
+    !showsPendingApproval("approval: pending")
+  ) {
+    throw new Error("Repository-check approval state matching is not layout-independent.");
   }
   process.stdout.write('{"status":"passed","test":"r2-docker-repository-check-driver"}\n');
   process.exit(0);
@@ -564,7 +575,7 @@ try {
       terminal.write(`\u001B[200~${task}\u001B[201~`);
       await waitFor(screen, (value) => value.includes(task), `${label} task`);
       terminal.write("\r");
-      await waitFor(screen, (value) => value.includes("approval: pending"), `${label} approval`);
+      await waitFor(screen, showsPendingApproval, `${label} approval`);
       const previousTranscript = transcript;
       screenColumns = 60;
       terminal.resize(screenColumns, rows);
