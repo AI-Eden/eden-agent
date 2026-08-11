@@ -4,7 +4,7 @@
 - Scope: bounded failure-artifact and TLS-environment diagnosis after the failed R3-A matching-provider row
 - Network activity: none
 - Provider retry authority: not granted
-- Milestone effect: none; R3-A remains open and R3-B remains not started
+- Milestone effect: superseded as the current matching row by one separately authorized passing fixture; retained as failure history
 
 ## Confirmed findings
 
@@ -26,4 +26,4 @@ The offline CLI test sets a credential canary and `NODE_TLS_REJECT_UNAUTHORIZED=
 
 The failed live attempt's temporary workspace and raw SDK cause were intentionally cleaned by the old driver, so offline inspection cannot distinguish DNS, egress, transparent-proxy, TCP, or TLS-handshake failure. No DNS lookup, HTTPS probe, readiness request, or provider retry was performed during this diagnosis. A future matching fixture is the only accepted way to test the repaired copied-package path, and it requires fresh owner network authority.
 
-The next authorized fixture must run the then-current exact public candidate, retain either passing evidence or the new sanitized failure artifact, keep normal TLS verification, and perform no automatic retry. Until that row passes, the milestone recommendation remains do not accept or close R3-A.
+The owner later authorized exactly one new fixture at public candidate `468c4ba0f726715c2f190b3c2842f798992e8543`. It passed against `https://api.deepseek.com` with `deepseek-v4-pro`, retained machine-readable evidence, kept normal TLS verification, did not forward the TLS-disable variable, and made no automatic fixture retry. The updated milestone review therefore recommends accepting and closing R3-A while retaining this document and the earlier failed row as historical evidence.

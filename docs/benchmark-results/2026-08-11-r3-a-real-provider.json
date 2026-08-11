@@ -1,0 +1,80 @@
+{
+  "journey": {
+    "approvals": 3,
+    "attempts": 6,
+    "budget": {
+      "actionProposals": 3,
+      "commandOutputBytes": 159,
+      "journalBytes": 0,
+      "journalRecords": 0,
+      "modelSteps": 6,
+      "modelVisibleToolContentBytes": 2420,
+      "toolCalls": 5,
+      "version": 1,
+      "wallTimeMs": 0
+    },
+    "exactUsageAttempts": 6,
+    "exitCode": 0,
+    "oracle": {
+      "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+      "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+      "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+      "testExitCode": 0
+    },
+    "runId": "run-af2d7299-f045-4a89-87a0-135c823705d3",
+    "terminalOutcome": "completed",
+    "terminalRestoration": "restored",
+    "tools": [
+      {
+        "name": "read_file",
+        "status": "succeeded",
+        "toolCallId": "call_00_onIOZyIb5CrtBXEDIbWk7307"
+      },
+      {
+        "name": "anchor_edit",
+        "status": "completed",
+        "toolCallId": "call_00_hziQzfDbxM8538bv4Pjo7599"
+      },
+      {
+        "name": "write_file",
+        "status": "completed",
+        "toolCallId": "call_00_X2CI105wUyjjBFcV2Z6k3092"
+      },
+      {
+        "name": "run_command",
+        "status": "completed",
+        "toolCallId": "call_00_umufpsB1IytCY5pXKKhN3992"
+      },
+      {
+        "name": "git_diff",
+        "status": "succeeded",
+        "toolCallId": "call_00_EKBnk53CDO8jqr0VH5zK0649"
+      }
+    ],
+    "transcriptSha256": "sha256:23bb29ebb1f7e307a5ea21ed793e4470af10e9db9537d6c5164100d8b228a5e1"
+  },
+  "package": {
+    "applicationHash": "sha256:fe077d3ff844fd13273da2ef2d44f690b6bb916391eeb842f6fe64523eccb05b",
+    "copied": true,
+    "manifestHash": "sha256:31fd4300b3854fd71cbca7fde99ae758defaac9467948bf4fece68171a8cecab",
+    "sourceDirectory": "dist",
+    "sourceTreeRequiredAtRuntime": false
+  },
+  "platform": {
+    "architecture": "x64",
+    "os": "linux"
+  },
+  "provider": {
+    "baseUrl": "https://api.deepseek.com",
+    "externalNetwork": true,
+    "kind": "real_openai_compatible",
+    "model": "deepseek-v4-pro",
+    "profileId": "r3-real",
+    "secretCanaryExposed": false,
+    "tlsDisableEnvironmentForwarded": false,
+    "tlsVerification": "normal"
+  },
+  "sourceSha": "468c4ba0f726715c2f190b3c2842f798992e8543",
+  "status": "passed",
+  "verifierSuccessClaimed": false
+}
