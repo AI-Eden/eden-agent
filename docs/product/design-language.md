@@ -22,9 +22,13 @@ R2 adds a persistent authority strip, profile/readiness block, context-source su
 and read-only semantic-tool card. Spacing, borders, semantic status, emphasis, density, focus,
 disabled/awaiting state, and narrow fallbacks use shared tokens rather than component-local decoration.
 
-R3-B turns these elements into one composable product shell: session navigation, transcript, persistent multiline composer, authority/status bar, contextual review drawer, overlays, and a typed tool-card registry. The shared tokens cover semantic color, spacing, border, typography hierarchy, focus, density, disabled state, awaiting state, and theme variants. Component-local values require a measured exception rather than becoming a second design language.
+R3-B turns these elements into one composable product shell built around a conversation spine and contextual evidence lens: session navigation, transcript, persistent multiline composer, authority/status bar, evidence, overlays, and a typed tool-card registry. The shared tokens cover semantic color, spacing, border, typography hierarchy, focus, density, disabled state, awaiting state, and theme variants. Component-local values require a measured exception rather than becoming a second design language.
 
 User input and complete model answers remain the primary reading flow. Repository, command, diff, check, approval, recovery, and evidence activity use compact summaries with progressive detail. A shared card envelope controls hierarchy and interaction but never erases typed authority, source, budget, outcome, or recovery facts.
+
+Wide terminals show session navigation, conversation, and contextual evidence. Medium terminals keep conversation plus evidence and move sessions into an overlay. Narrow terminals use a minimal single stream with explicit Chat, Action, Review, and History switching, while an urgent-action rail remains visible in every view. Resize preserves the active approval, pending input, evidence selection, draft, focus, expansion, and scroll anchors rather than merely preserving pane geometry.
+
+The visual identity is a calm evidence instrument: dark and quiet surfaces, restrained typography, semantic color only for focus/status/authority, thin separation, and no decorative powerline or card grid. External and generated references may inform density and hierarchy but do not define Eden's product names, exact palette, pane ratios, component values, or runtime copy.
 
 ## Accessibility
 

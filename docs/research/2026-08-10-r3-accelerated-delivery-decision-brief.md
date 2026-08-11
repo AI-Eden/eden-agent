@@ -1,11 +1,11 @@
 # R3 Accelerated Delivery Decision Brief
 
-- Status: Accepted direction and Freeze packet on 2026-08-10; amended Freeze and Build approved on 2026-08-11; R3-A review recommends acceptance after the repaired matching-provider pass
+- Status: Accepted direction and Freeze packet on 2026-08-10; amended Freeze and Build approved on 2026-08-11; R3-A accepted and closed; R3-B focused Freeze packet accepted, Build not authorized
 - Date: 2026-08-10
-- Workflow phase: R3-A milestone checkpoint; deterministic, copied packaged, exact-candidate hosted, and repaired matching real-provider evidence passed; owner decision pending
+- Workflow phase: R3-B Freeze accepted; ADR 0020 and the focused plan are fixed implementation input; Build not authorized
 - Roadmap stage: R3, Verified Goal Product — v0.1
 - Public baseline: `56a05e492a93f54c2a95d51c8eaec387e1283b2b`
-- Decision authority: the owner accepted the direction with R3-D changed to a non-blocking, time-boxed milestone, accepted the resulting Freeze packet, later accepted a bounded multi-call and durable-budget amendment after Slice 0 evidence invalidated the one-call/1 MiB assumptions, then separately approved the amended Freeze and authorized Build plus public-first commits and pushes. The owner accepted the deterministic candidate, authorized copied packaged TUI evidence, consumed one failed matching-provider authority, accepted the recommendation to keep R3-A open, and authorized the bounded offline failure-artifact/TLS diagnosis. The owner then granted one fresh matching-provider authority for exact public candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; that fixture passed and consumed the authority. Any new provider attempt, R3-B work, package publication, release, or R3-D activation requires separate authority.
+- Decision authority: the owner accepted the direction with R3-D changed to a non-blocking, time-boxed milestone, accepted the resulting Freeze packet, later accepted a bounded multi-call and durable-budget amendment after Slice 0 evidence invalidated the one-call/1 MiB assumptions, then separately approved the amended Freeze and authorized Build plus public-first commits and pushes. The owner accepted the deterministic candidate, authorized copied packaged TUI evidence, consumed one failed matching-provider authority, accepted the recommendation to keep R3-A open, and authorized the bounded offline failure-artifact/TLS diagnosis. The owner then granted one fresh matching-provider authority for exact public candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; that fixture passed and consumed the authority. The owner subsequently accepted and closed R3-A, selected the R3-B conversation-spine/evidence-lens direction with the minimal-stream/action-overlay narrow fallback, and authorized documentation-only Freeze. Any new provider attempt, R3-B Build, package publication, release, or R3-D activation requires separate authority.
 
 ## Decision accepted
 
@@ -45,7 +45,7 @@ This accepted direction supersedes only the R3-plus delivery sequencing in the i
 - The TUI and headless CLI consume the same contracts and runtime truth.
 - Desktop, a local service, broad ecosystem compatibility, and large multi-agent systems remain outside the resume-ready critical path.
 
-## Proposed R3 delivery sequence
+## Accepted R3 delivery sequence
 
 ### R3-A: Usable Coding Loop
 

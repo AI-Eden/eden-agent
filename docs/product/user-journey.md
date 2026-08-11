@@ -12,7 +12,7 @@
 7. The user revises or approves the plan and its authority.
 8. Eden executes while the product shows phase, current action, changed files, budget, and blockers.
 9. A risky action produces a scoped approval card. Rejection becomes a recoverable observation.
-10. The user may steer, pause, cancel, exit, or resume at defined boundaries.
+10. During an active run, the persistent multiline composer lets the user submit a typed steering message for the current turn or queue a FIFO follow-up after the current answer. Input never resolves approval, triggers retry, cancels an in-flight effect, or invents pause/resume authority. The user may still cancel or exit at defined boundaries; pause and resume arrive only with their accepted milestone.
 11. Eden verifies the current workspace and enters review only with current evidence.
 12. The user inspects diff, checks, artifacts, exceptions, and residual risk.
 13. They accept, request another repair, open the changes in an editor, or export a sanitized diagnostic bundle.

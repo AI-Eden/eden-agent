@@ -1,6 +1,6 @@
 # R3 Resume-Ready Verified Goal Plan
 
-- Status: R3-A milestone review completed on 2026-08-11; recommendation is accept and close, pending owner decision
+- Status: R3-A accepted and closed on 2026-08-11; focused R3-B Freeze packet accepted, Build not authorized
 - Date: 2026-08-10
 - Amended: 2026-08-11
 - Roadmap stage: R3, Verified Goal Product - v0.1
@@ -9,11 +9,11 @@
 - Required ADR: `docs/adr/0019-r3-resume-ready-vertical-delivery.md`
 - Blocking path: R3-A -> R3-B -> R3-C -> R3-E
 - Optional milestone: R3-D after R3-C, only with separate owner activation
-- Human checkpoint: owner acceptance of the passing R3-A review is required before any R3-B work
+- Human checkpoint: separately authorize or decline R3-B Build from accepted ADR 0020 and `docs/plans/2026-08-11-r3-b-terminal-product-shell.md`
 
 ## Authority and entry conditions
 
-The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, authorized public-first commits and pushes, accepted the deterministic candidate, and authorized copied packaged TUI evidence. After the first matching-provider row failed and the owner-authorized offline repair completed, the owner authorized one fresh matching-provider fixture at exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; it passed and consumed that authority. Another provider or network call requires fresh owner authority. R3-D activation, image or package publication, release publication, and R3-B work remain separately unauthorized.
+The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, authorized public-first commits and pushes, accepted the deterministic candidate, and authorized copied packaged TUI evidence. After the first matching-provider row failed and the owner-authorized offline repair completed, the owner authorized one fresh matching-provider fixture at exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; it passed and consumed that authority. The owner accepted and closed R3-A, then authorized R3-B documentation-only Freeze. ADR 0020 and the focused R3-B plan now refine and supersede only this plan's R3-B Slice 6-7 detail. R3-B Build, another provider or network call, R3-D activation, image or package publication, and release publication remain separately unauthorized.
 
 Build restarted only after that fresh authority. Its entry audit recorded and preserved the dirty Slice 0 draft and verified the public local/canonical/GitHub refs plus tutorial gitlink before the first new RED. Publication remains public repository first and tutorial gitlink second.
 
@@ -48,7 +48,7 @@ The local milestone gate includes `pnpm test`, `pnpm typecheck`, `pnpm build`, `
 
 The first owner-authorized matching real-provider attempt used the copied package, `https://api.deepseek.com`, and `deepseek-v4-pro` at `092f9a107e93112b401a1c9e48dcad04ff064529`. It stopped before terminal completion at the explicit `network` retry boundary; the runtime performed no automatic retry and the old driver emitted no passing JSON before cleaning its temporary directory. Later offline diagnosis found that the old driver had forwarded `NODE_TLS_REJECT_UNAUTHORIZED=0`, so that failed historical row cannot establish normal TLS.
 
-After accepting the recommendation to keep R3-A open, the owner authorized a bounded offline failure-artifact/TLS diagnosis. The repair makes every post-preflight failure write a schema-validated sanitized artifact before cleanup, uses a typed product retry-boundary error, excludes credential/raw-provider/transcript content, and removes inherited `NODE_TLS_REJECT_UNAUTHORIZED` from the copied-package child environment. A later, separately authorized single fixture at exact public candidate `468c4ba0f726715c2f190b3c2842f798992e8543` passed the complete copied-package coding journey against `https://api.deepseek.com` and `deepseek-v4-pro`. It proved normal TLS, did not forward the disable variable, performed no automatic fixture retry, ended non-success `completed`, restored the terminal, passed the independent repository oracle, and exposed no credential canary. The machine-readable evidence is `docs/benchmark-results/2026-08-11-r3-a-real-provider.json`. The milestone review now recommends accepting and closing R3-A, pending the owner's explicit decision; stop before R3-B.
+After accepting the recommendation to keep R3-A open, the owner authorized a bounded offline failure-artifact/TLS diagnosis. The repair makes every post-preflight failure write a schema-validated sanitized artifact before cleanup, uses a typed product retry-boundary error, excludes credential/raw-provider/transcript content, and removes inherited `NODE_TLS_REJECT_UNAUTHORIZED` from the copied-package child environment. A later, separately authorized single fixture at exact public candidate `468c4ba0f726715c2f190b3c2842f798992e8543` passed the complete copied-package coding journey against `https://api.deepseek.com` and `deepseek-v4-pro`. It proved normal TLS, did not forward the disable variable, performed no automatic fixture retry, ended non-success `completed`, restored the terminal, passed the independent repository oracle, and exposed no credential canary. The machine-readable evidence is `docs/benchmark-results/2026-08-11-r3-a-real-provider.json`. The owner accepted and closed R3-A on 2026-08-11. R3-B now waits on approval of its focused Freeze packet before Build.
 
 ## Current repository facts
 
@@ -163,6 +163,8 @@ Contracts and runtime own plan, goal, budgets, actions, verification, repair, re
 - Stop conditions: provider/tool state bypasses the journal, successful completion requires Goal semantics early, or the journey cannot fit frozen budgets.
 
 ### Slice 6: R3-B shell boundaries and design tokens
+
+**Focused plan:** ADR 0020 and `docs/plans/2026-08-11-r3-b-terminal-product-shell.md` supersede the R3-B implementation detail in this slice and Slice 7. This parent slice remains the milestone summary and does not authorize Build.
 
 **Scope:** Split the current TUI into app shell, session navigation, transcript, persistent composer, authority/status bar, review drawer, overlays, and typed card registry without changing runtime behavior.
 

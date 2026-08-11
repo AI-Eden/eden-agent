@@ -276,6 +276,38 @@ A read-only multi-call step projects one batch with one to four source-ordered c
 
 Tool and action failures carry stable code, recoverability, bounded evidence identity, and suggested next actions. A recoverable result may return to model context within budget. `unknown` process recovery never does; it projects a user decision boundary.
 
+### R3-B shell and active-run input
+
+R3-B adds two closed run-bound ProductCommands:
+
+```ts
+type ConversationSteerCommand = RunCommandEnvelope & {
+  type: "conversation.steer";
+  content: string;
+};
+
+type ConversationQueueCommand = RunCommandEnvelope & {
+  type: "conversation.queue";
+  content: string;
+};
+```
+
+`content` is non-empty well-formed Unicode with a 4 KiB UTF-8 byte ceiling. Runtime assigns a durable message identity at acceptance and correlates it with the command identity. One run accepts at most eight active-run inputs and 16 KiB aggregate bytes, with at most one pending steering message and three pending queued messages. Acceptance validates the current run/revision and reserves one remaining model step before appending. No valid command may raise the immutable run grant. Duplicate command identity is idempotent and cannot append content or consume a reservation twice.
+
+Pending reservations reduce ordinary dispatchable capacity. A provider step for the current turn may start only while at least one unreserved step remains. When it consumes the last unreserved current-turn step, tools are disabled; a pending queued message therefore cannot lose its reserved answer slot to additional tool work.
+
+An accepted steering message waits until the current provider, accepted read-only batch, or effect closes, then enters the durable conversation before the next provider request. It never cancels dispatched work. Pending approval or awaiting retry delays delivery; steering does not resolve the approval or request retry.
+
+An accepted queued message waits FIFO for a complete assistant `stop`. Runtime persists that assistant answer as a non-terminal conversation turn, delivers the oldest queued user turn, and uses its reserved provider step. A `stop` becomes terminal non-success `completed` only when no steering or queued input is deliverable. Cancellation, blocking, failure, or another terminal boundary closes undelivered input with a structured reason.
+
+`conversation.input.updated` projects `accepted`, `delivered`, and `closed` lifecycle updates. `ProductView.conversationInput` exposes submission availability, pending and closed message summaries, accepted/pending counts, remaining input bytes, and model-step reservation truth. A delivered message becomes a typed user conversation turn that records whether it was the initial task, steering, or queued follow-up. Draft content, cursor, selection, and editor history are not protocol values.
+
+This is additive protocol v1 evolution. The commands and event are new closed union variants, and `ProductView.conversationInput` is an optional field so pre-R3-B snapshots and journals remain decodable; an active R3-B run must populate it. Existing required shapes and existing durable conversation meanings do not change. A Build discovery that requires either change stops for protocol amendment.
+
+The TUI consumes those facts through AgentClient. Keyboard bindings and layout are renderer concerns, but they may choose only between the two explicit commands; they cannot submit an ambiguous local mode or maintain a renderer-only queue. Headless clients may submit the same commands programmatically once their CLI/API surface is explicitly added, but R3-B adds no broad preapproval or automatic retry flag.
+
+The R3-B shell composes session navigation, transcript, active composer, authority/status, contextual evidence, overlays, and an exhaustive typed activity registry. Presentation selection and expansion remain ephemeral. No registry entry may create a generic execution schema, infer authority from text, or predeclare Plan/Goal/child/web/verifier/Evidence Pack state.
+
 ### Plan and Goal activity
 
 New commands create or revise a journal-local `PlanArtifactV1`, approve its exact revision, select execution context policy, approve one `GoalSpecV1`, request pause/cancel/resume, and resolve existing exact action approvals. No command can forge plan approval, goal approval, consumed authority, verifier observations, Evidence Pack identity, or terminal success.
@@ -383,6 +415,7 @@ Fixtures must prove that:
 - snapshots plus cursor events reconstruct the current view;
 - internal events cannot leak unredacted secrets;
 - clients cannot forge approval or terminal facts.
+- active-run input fixtures prove idempotent acceptance, exact reservation and delivery order, structured closure, protocol-v1 backward decoding, and rejection without mutation for stale, invalid, over-budget, over-capacity, or unreservable commands;
 - plan, goal, checkpoint, repair, Evidence Pack, and verifier fixtures reject renderer- or model-forged authority;
 - structured command fixtures reject shell text, environment injection, stale executable identity, broader network claims, and automatic retry after unknown dispatch;
 - new-file fixtures reject overwrite, missing-parent creation, link or parent drift, over-budget content, and untracked/attributed-patch conflation;

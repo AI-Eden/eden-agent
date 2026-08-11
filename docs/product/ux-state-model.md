@@ -64,17 +64,21 @@ recovery-required and exits without mutation. Interactive recovery either closes
 
 For R3-A, command approval prioritizes resolved executable identity, literal argv, cwd, reason, scrubbed-environment identity, timeout/output budgets, `network=host_unrestricted`, `executionMode=trusted_host_policy_only`, `isolation=none`, digest, policy, and one-use lifetime. New-file approval prioritizes path, target/parent absence, content length/hash, fixed mode, scope, and exclusive-create truth. Neither card uses sandbox wording.
 
+For R3-B, the conversation spine is the default reading state. A persistent active-run composer exposes two distinct ProductCommands: steering for the current agent turn and FIFO queueing after its complete answer. ProductView, not the editor, supplies availability, pending identity/content, reserved-step truth, counts, byte budget, delivery, and closure reasons. Approval and awaiting-retry states keep draft and pending input visible, but input cannot resolve approval or trigger retry. An already dispatched provider/tool/action continues to its durable boundary before steering may enter model context.
+
 For R3-C, planning shows artifact revision, assumptions, risks, acceptance checks, capabilities, and approval state. Goal execution keeps objective, scope, required checks, remaining model/tool/action/time/repair budgets, current checkpoint, and blockers visible. Verifying and repairing are distinct states; a failed required check cannot be styled as success, and an Evidence Pack appears only from persisted verifier facts.
 
 Resume is an explicit action on one eligible exact run, not a control on read-only historical inspection. The resume surface shows the last safe checkpoint, workspace drift, unresolved effects, approvals requiring review, and the next permitted transition before any dispatch.
 
 ## Responsive terminal layout
 
-- Narrow: one primary column with explicit view switching.
-- Medium: timeline plus contextual drawer.
-- Wide: session navigation, timeline, and review pane.
+- Narrow: one primary conversation stream with explicit Chat, Action, Review, and History switching; a compact urgent-action rail stays visible in every view.
+- Medium: conversation plus contextual evidence; session navigation opens as an overlay.
+- Wide: session navigation, conversation, and contextual evidence.
 
 Width changes must preserve current focus and action safety. Three permanent panes are not assumed.
+
+R3-B additionally preserves the active approval, pending-input identity, evidence selection, composer draft/cursor, expansion, and transcript/evidence scroll anchors. When a region disappears, focus moves to its nearest semantic equivalent without activating a command. The default active-composer mapping is Enter steer, Alt+Enter queue, and Shift+Enter newline; paste never submits, and the command palette exposes equivalent actions.
 
 R2 navigation uses one focus graph: `Tab` and `Shift+Tab` move between focusable regions, arrows move within
 a collection, `Enter` activates, `Esc` returns or collapses, `Ctrl+P` opens the command palette, and `?`
