@@ -18,6 +18,7 @@ import { KeymapProvider } from "@opentui/keymap/react";
 import { useAppContext, useRenderer, useTerminalDimensions } from "@opentui/react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
+  activeComposerOwnsKey,
   commandForFocus,
   commandForKey,
   layoutModeForViewport,
@@ -698,8 +699,7 @@ function EdenTuiSurface({
   };
 
   const handleGraphKey = (key: KeyEvent) => {
-    const activeComposerFocused =
-      view?.conversationInput !== undefined && focusId === "run.composer";
+    const activeComposerFocused = activeComposerOwnsKey(focusContext, focusId);
     if (
       (composerFocused || activeComposerFocused) &&
       !(key.ctrl && (key.name === "c" || key.name === "p"))

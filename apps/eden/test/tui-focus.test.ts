@@ -8,6 +8,7 @@ import { act, createElement, useMemo } from "react";
 import { densityForLayout, tuiDesignTokens } from "../src/tui-design.ts";
 import {
   activeComposerActionForKey,
+  activeComposerOwnsKey,
   commandForKey,
   focusOrder,
   layoutModeForViewport,
@@ -120,6 +121,27 @@ test("active composer chords keep newline distinct from steer and queue", () => 
   expect(activeComposerActionForKey({ name: "return", option: true })).toBe("queue");
   expect(activeComposerActionForKey({ name: "return", shift: true })).toBe("newline");
   expect(activeComposerActionForKey({ name: "a" })).toBe(null);
+});
+
+test("terminal keys bypass a stale active-composer focus", () => {
+  expect(
+    activeComposerOwnsKey(
+      { ...trustedWorkspace, hasConversationInput: true, runState: "active" },
+      "run.composer",
+    ),
+  ).toBe(true);
+  expect(
+    activeComposerOwnsKey(
+      { ...trustedWorkspace, hasConversationInput: true, runState: "terminal" },
+      "run.composer",
+    ),
+  ).toBe(false);
+  expect(
+    commandForKey(
+      { ...trustedWorkspace, hasConversationInput: true, runState: "terminal" },
+      { name: "q" },
+    ),
+  ).toEqual({ commandId: "exit", type: "invoke" });
 });
 
 test("run and history states expose only actions that can execute", () => {

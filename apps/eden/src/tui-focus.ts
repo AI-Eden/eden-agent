@@ -78,6 +78,18 @@ export type TuiKey = {
 
 export type ActiveComposerAction = "newline" | "queue" | "steer";
 
+export function activeComposerOwnsKey(
+  context: TuiFocusContext,
+  focusId: TuiFocusId | null,
+): boolean {
+  return (
+    context.hasConversationInput === true &&
+    context.runState !== "none" &&
+    context.runState !== "terminal" &&
+    focusId === "run.composer"
+  );
+}
+
 export function activeComposerActionForKey(key: TuiKey): ActiveComposerAction | null {
   if (key.name !== "return" || key.ctrl) return null;
   if (key.shift) return "newline";
