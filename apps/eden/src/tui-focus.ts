@@ -90,6 +90,13 @@ export function activeComposerOwnsKey(
   );
 }
 
+export function leaveActiveComposerFocus(
+  context: TuiFocusContext,
+  focusId: TuiFocusId | null,
+): TuiFocusId | null {
+  return activeComposerOwnsKey(context, focusId) ? moveFocus(context, focusId, 1) : focusId;
+}
+
 export function activeComposerActionForKey(key: TuiKey): ActiveComposerAction | null {
   if (key.name !== "return" || key.ctrl) return null;
   if (key.shift) return "newline";

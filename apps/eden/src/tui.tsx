@@ -22,6 +22,7 @@ import {
   commandForFocus,
   commandForKey,
   layoutModeForViewport,
+  leaveActiveComposerFocus,
   moveFocus,
   paletteEntries,
   reconcileFocus,
@@ -707,7 +708,11 @@ function EdenTuiSurface({
       if (key.name === "escape") {
         key.preventDefault();
         key.stopPropagation();
-        setComposerFocused(false);
+        if (activeComposerFocused) {
+          setFocusId((current) => leaveActiveComposerFocus(focusContext, current));
+        } else {
+          setComposerFocused(false);
+        }
       }
       return;
     }

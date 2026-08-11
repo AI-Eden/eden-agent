@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, join, resolve, win32 } from "node:path";
 
+import { paletteEntries } from "../apps/eden/src/tui-focus.ts";
 import { decodeRunCatalog, decodeRunInspection } from "../packages/contracts/src/index.ts";
 import { validateSafeActuationEvidence } from "./r2-safe-actuation-evidence.mjs";
 import { terminalScreenText } from "./terminal-screen.mjs";
@@ -85,6 +86,66 @@ async function pressAcknowledgedInputUntil(
   throw new Error(`Input did not reach ${label}.`);
 }
 
+function activeRunPaletteMoveCount(commandId) {
+  const index = paletteEntries({
+    canQueueInput: true,
+    canSteerInput: true,
+    hasConversationInput: true,
+    hasProfile: true,
+    hasRepositoryReview: true,
+    hasReview: true,
+    hasTools: true,
+    overlay: "palette",
+    runState: "approval",
+    surface: "workspace",
+    workspaceState: "trusted",
+  }).findIndex((entry) => entry.commandId === commandId);
+  if (index >= 0) return index;
+  throw new Error(`The active-run palette does not expose ${commandId}.`);
+}
+
+async function invokeActiveRunPaletteCommand(session, read, commandId, label) {
+  await pressAcknowledgedInputUntil(
+    session,
+    "\u0010",
+    read,
+    (value) => value.includes("focus: overlay.palette"),
+    `${label} command palette`,
+  );
+  for (let index = 0; index < activeRunPaletteMoveCount(commandId); index += 1) {
+    session.terminal.write("\u001B[B");
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 30));
+  }
+  session.terminal.write("\r");
+  await waitFor(
+    read,
+    (value) => !value.includes("focus: overlay.palette"),
+    `${label} command activation`,
+  );
+}
+
+async function focusApprovalReview(session, read, label) {
+  if (read().includes("focus: run.composer")) {
+    await pressAcknowledgedInputUntil(
+      session,
+      "\u001B",
+      read,
+      (value) => value.includes("focus: run.cancel"),
+      `${label} leave active composer`,
+    );
+  }
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (read().includes("focus: run.approve")) return;
+    session.terminal.write("\t");
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+  }
+  await waitFor(read, (value) => value.includes("focus: run.approve"), `${label} approval review`);
+}
+
+async function resolveApprovalThroughPalette(session, read, decision, label) {
+  await invokeActiveRunPaletteCommand(session, read, decision, label);
+}
+
 if (process.argv[2] === "--self-test") {
   const windows = packageManagerInvocation(
     ["--filter", "@eden/cli", "exec", "bun", "--version"],
@@ -137,6 +198,19 @@ if (process.argv[2] === "--self-test") {
   if (writes !== 2) {
     throw new Error("Safe-actuation input acknowledgement duplicated or lost an accepted input.");
   }
+  if (
+    activeRunPaletteMoveCount("show-recovery") !== 4 ||
+    activeRunPaletteMoveCount("approve") !== 6 ||
+    activeRunPaletteMoveCount("deny") !== 7
+  ) {
+    throw new Error("Safe-actuation approval palette positions changed unexpectedly.");
+  }
+  if (
+    !showsPendingApproval("URGENT · approval pending") ||
+    !showsPendingApproval("approval: pending")
+  ) {
+    throw new Error("Safe-actuation approval state matching is not layout-independent.");
+  }
   process.exit(0);
 }
 
@@ -169,6 +243,11 @@ async function hashFile(path) {
 
 function compactTerminal(value) {
   return value.replaceAll(/\s+/gu, "");
+}
+
+function showsPendingApproval(value) {
+  const compact = compactTerminal(value);
+  return compact.includes("approvalpending") || compact.includes("approval:pending");
 }
 
 function run(command, arguments_, options = {}) {
@@ -296,10 +375,11 @@ async function runScenario(name) {
   }
   const before = await readFile(join(workspace, "tracked.txt"));
   let transcript = "";
-  const columns = name === "narrow-review" ? 60 : 120;
+  const initialColumns = name === "narrow-review" ? 60 : 120;
   const initialRows = name === "narrow-review" ? 20 : 60;
+  let screenColumns = initialColumns;
   let screenRows = initialRows;
-  const screen = () => terminalScreenText(transcript, columns, screenRows);
+  const screen = () => terminalScreenText(transcript, screenColumns, screenRows);
   const approvalSurface = {
     base: false,
     digest: false,
@@ -322,7 +402,7 @@ async function runScenario(name) {
     approvalSurface.scope ||= compact.includes("scope:tracked.txt");
   };
   const terminal = spawn(harnessExecutable, [], {
-    cols: columns,
+    cols: initialColumns,
     cwd: workspace,
     env: {
       ...process.env,
@@ -384,68 +464,57 @@ async function runScenario(name) {
       session,
       "\r",
       screen,
-      (value) => value.includes("approval: pending"),
+      showsPendingApproval,
       `${name} approval`,
     );
+    if (screenColumns !== 60 || screenRows !== 100) {
+      const previousTranscript = session.transcript;
+      screenColumns = 60;
+      screenRows = 100;
+      terminal.resize(screenColumns, screenRows);
+      await waitForTerminalActivity(session, previousTranscript, 2_000);
+      await waitFor(
+        screen,
+        (value) => value.includes("view: recovery") && value.includes("Ctrl+P switches"),
+        `${name} narrow approval layout`,
+      );
+    }
+    await invokeActiveRunPaletteCommand(session, screen, "show-recovery", `${name} recovery view`);
+    await focusApprovalReview(session, screen, name);
     observeApproval();
-    for (let index = 0; index < 16; index += 1) {
-      const compact = compactTerminal(screen());
-      if (compact.includes("digest:") && compact.includes("policy:")) break;
+    for (let index = 0; index < 64; index += 1) {
+      if (Object.values(approvalSurface).every(Boolean)) break;
       terminal.write("\u001B[B");
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
       observeApproval();
     }
-    await waitFor(
-      screen,
-      (value) => {
-        const compact = compactTerminal(value);
-        return compact.includes("digest:") && compact.includes("policy:");
-      },
-      `${name} digest and policy`,
-    );
-    observeApproval();
-    for (let index = 0; index < 16; index += 1) {
-      const compact = compactTerminal(screen());
-      if (compact.includes("proposalrevision") && compact.includes("isolationnone")) break;
-      terminal.write("\u001B[B");
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 20));
-      observeApproval();
-    }
-    await waitFor(
-      screen,
-      (value) => {
-        const compact = compactTerminal(value);
-        return compact.includes("proposalrevision") && compact.includes("isolationnone");
-      },
-      `${name} lifetime and isolation`,
-    );
-    observeApproval();
     terminal.write("\u001B[F");
-    await waitFor(
-      screen,
-      (value) => {
-        const compact = compactTerminal(value);
-        return compact.includes("not_requested") && compact.includes("base:tracked.txt");
-      },
-      `${name} complete approval authority`,
-    );
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
     observeApproval();
+    const missingApprovalFields = Object.entries(approvalSurface)
+      .filter(([, observed]) => !observed)
+      .map(([field]) => field);
+    if (missingApprovalFields.length > 0) {
+      throw new Error(
+        `${name} did not display approval fields: ${missingApprovalFields.join(", ")}.`,
+      );
+    }
     if (name === "stale") {
       await writeFile(join(workspace, "tracked.txt"), "concurrent user bytes\n", "utf8");
     }
     if (name === "deny-narrow") {
-      terminal.write("d");
+      await resolveApprovalThroughPalette(session, screen, "deny", "parent denial");
       await waitFor(
         screen,
         (value) => {
           const compact = compactTerminal(value);
-          return compact.includes("approval:pending") && compact.includes("tools2");
+          return showsPendingApproval(value) && compact.includes("proposalrevision2");
         },
         "narrow child proposal",
       );
       const previousTranscript = session.transcript;
       screenRows = 100;
-      terminal.resize(columns, screenRows);
+      terminal.resize(screenColumns, screenRows);
       await waitForTerminalActivity(session, previousTranscript, 2_000);
       for (let attempt = 0; attempt < 48; attempt += 1) {
         if (compactTerminal(screen()).includes("proposalrevision2")) break;
@@ -457,14 +526,15 @@ async function runScenario(name) {
         (value) => compactTerminal(value).includes("proposalrevision2"),
         "narrow child approval",
       );
-      terminal.write("d");
+      await focusApprovalReview(session, screen, "child denial");
+      await resolveApprovalThroughPalette(session, screen, "deny", "child denial");
       await waitFor(
         screen,
         (value) => compactTerminal(value).includes("deniallineagealreadyused"),
         "second denial closure",
       );
     } else {
-      terminal.write("a");
+      await resolveApprovalThroughPalette(session, screen, "approve", `${name} approval`);
       if (name === "stale") {
         await waitFor(
           screen,

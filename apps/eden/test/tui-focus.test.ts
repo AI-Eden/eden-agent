@@ -12,6 +12,7 @@ import {
   commandForKey,
   focusOrder,
   layoutModeForViewport,
+  leaveActiveComposerFocus,
   moveFocus,
   paletteEntries,
   reconcileFocus,
@@ -142,6 +143,21 @@ test("terminal keys bypass a stale active-composer focus", () => {
       { name: "q" },
     ),
   ).toEqual({ commandId: "exit", type: "invoke" });
+});
+
+test("Escape can leave the active composer for an executable run control", () => {
+  expect(
+    leaveActiveComposerFocus(
+      { ...trustedWorkspace, hasConversationInput: true, runState: "active" },
+      "run.composer",
+    ),
+  ).toBe("run.cancel");
+  expect(
+    leaveActiveComposerFocus(
+      { ...trustedWorkspace, hasConversationInput: true, runState: "approval" },
+      "run.composer",
+    ),
+  ).toBe("run.cancel");
 });
 
 test("run and history states expose only actions that can execute", () => {

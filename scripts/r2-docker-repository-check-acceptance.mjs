@@ -16,6 +16,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, relative, resolve } from "node:path";
 
+import { paletteEntries } from "../apps/eden/src/tui-focus.ts";
 import { decodeRunCatalog, decodeRunInspection } from "../packages/contracts/src/index.ts";
 import {
   dockerRepositoryCheckEvidenceConstants,
@@ -207,6 +208,68 @@ async function pressUntil(terminal, readTranscript, input, read, predicate, labe
   await waitFor(read, predicate, label);
 }
 
+function activeRunPaletteMoveCount(commandId) {
+  const index = paletteEntries({
+    canQueueInput: true,
+    canSteerInput: true,
+    hasConversationInput: true,
+    hasProfile: true,
+    hasRepositoryReview: true,
+    hasReview: true,
+    hasTools: true,
+    overlay: "palette",
+    runState: "approval",
+    surface: "workspace",
+    workspaceState: "trusted",
+  }).findIndex((entry) => entry.commandId === commandId);
+  if (index >= 0) return index;
+  throw new Error(`The active-run palette does not expose ${commandId}.`);
+}
+
+async function invokeActiveRunPaletteCommand(terminal, readTranscript, read, commandId, label) {
+  await pressUntil(
+    terminal,
+    readTranscript,
+    "\u0010",
+    read,
+    (value) => value.includes("focus: overlay.palette"),
+    `${label} command palette`,
+  );
+  for (let index = 0; index < activeRunPaletteMoveCount(commandId); index += 1) {
+    terminal.write("\u001B[B");
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 30));
+  }
+  terminal.write("\r");
+  await waitFor(
+    read,
+    (value) => !value.includes("focus: overlay.palette"),
+    `${label} command activation`,
+  );
+}
+
+async function focusApprovalReview(terminal, readTranscript, read, label) {
+  if (read().includes("focus: run.composer")) {
+    await pressUntil(
+      terminal,
+      readTranscript,
+      "\u001B",
+      read,
+      (value) => value.includes("focus: run.cancel"),
+      `${label} leave active composer`,
+    );
+  }
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (read().includes("focus: run.approve")) return;
+    terminal.write("\t");
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 50));
+  }
+  await waitFor(read, (value) => value.includes("focus: run.approve"), `${label} approval review`);
+}
+
+async function resolveApprovalThroughPalette(terminal, readTranscript, read, decision, label) {
+  await invokeActiveRunPaletteCommand(terminal, readTranscript, read, decision, label);
+}
+
 function compact(value) {
   return value.replaceAll(/\s+/gu, "");
 }
@@ -242,6 +305,13 @@ function parseJsonBytes(bytes, label) {
 if (process.argv[2] === "--self-test") {
   if (!contextPattern.test("eden-r2-ci") || contextPattern.test("unix:///tmp/docker.sock")) {
     throw new Error("Repository-check acceptance context grammar is not closed.");
+  }
+  if (
+    activeRunPaletteMoveCount("show-recovery") !== 4 ||
+    activeRunPaletteMoveCount("approve") !== 6 ||
+    activeRunPaletteMoveCount("deny") !== 7
+  ) {
+    throw new Error("Repository-check approval palette positions changed unexpectedly.");
   }
   process.stdout.write('{"status":"passed","test":"r2-docker-repository-check-driver"}\n');
   process.exit(0);
@@ -417,12 +487,13 @@ try {
     const existingIds = new Set(decodedExisting.value.entries.map((entry) => entry.runId));
     const auditPath = join(dirname(stateDirectory), `${label}-model-audit.json`);
     let transcript = "";
-    const columns = 120;
+    const initialColumns = 120;
     const rows = 100;
-    const screen = () => terminalScreenText(transcript, columns, rows);
+    let screenColumns = initialColumns;
+    const screen = () => terminalScreenText(transcript, screenColumns, rows);
     let approvalText = "";
     const terminal = spawn(harnessExecutable, [], {
-      cols: columns,
+      cols: initialColumns,
       cwd: workspace,
       env: {
         ...process.env,
@@ -494,6 +565,23 @@ try {
       await waitFor(screen, (value) => value.includes(task), `${label} task`);
       terminal.write("\r");
       await waitFor(screen, (value) => value.includes("approval: pending"), `${label} approval`);
+      const previousTranscript = transcript;
+      screenColumns = 60;
+      terminal.resize(screenColumns, rows);
+      await waitForTerminalActivity(terminal, () => transcript, previousTranscript);
+      await waitFor(
+        screen,
+        (value) => value.includes("view: recovery") && value.includes("Ctrl+P switches"),
+        `${label} narrow approval layout`,
+      );
+      await invokeActiveRunPaletteCommand(
+        terminal,
+        () => transcript,
+        screen,
+        "show-recovery",
+        `${label} recovery view`,
+      );
+      await focusApprovalReview(terminal, () => transcript, screen, label);
       const approvalFrames = [];
       for (let index = 0; index < 48; index += 1) {
         approvalFrames.push(screen());
@@ -523,7 +611,13 @@ try {
           `${label} did not display the closed Docker compatibility authority: ${approvalText.slice(-4_000)}`,
         );
       }
-      terminal.write("a");
+      await resolveApprovalThroughPalette(
+        terminal,
+        () => transcript,
+        screen,
+        "approve",
+        `${label} approval`,
+      );
       await waitFor(
         screen,
         (value) => compact(value).includes("outcome:completed"),
