@@ -1,0 +1,116 @@
+{
+  "journeys": [
+    {
+      "activeInput": {
+        "acceptedCount": 2,
+        "cjkMultiline": true,
+        "pending": 0,
+        "sources": ["steer", "queue"]
+      },
+      "rapidResize": "not-run",
+      "budget": {
+        "actionProposals": 3,
+        "modelSteps": 8,
+        "toolCalls": 6
+      },
+      "exactUsageAttempts": 8,
+      "exitCode": 0,
+      "finalAnswerSha256": "sha256:79961fcc7ba825b45fdc9787eb939b86e8355702786a6dd6eb253d10a848f04a",
+      "oracle": {
+        "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+        "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+        "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+        "testExitCode": 0
+      },
+      "runId": "run-cb39000b-8e2b-4fa2-b34e-e7d18510e5fb",
+      "status": "passed",
+      "terminalOutcome": "completed",
+      "terminalRestoration": "restored",
+      "tools": ["list_files", "read_file", "anchor_edit", "write_file", "run_command", "git_diff"],
+      "transcriptSha256": "sha256:44064b2652665eadb354f0af9af4c2f7b8074b66b2f5e374a433e3c16fb8f684",
+      "viewport": "60x20"
+    },
+    {
+      "activeInput": {
+        "acceptedCount": 2,
+        "cjkMultiline": true,
+        "pending": 0,
+        "sources": ["steer", "queue"]
+      },
+      "rapidResize": "not-run",
+      "budget": {
+        "actionProposals": 3,
+        "modelSteps": 8,
+        "toolCalls": 6
+      },
+      "exactUsageAttempts": 8,
+      "exitCode": 0,
+      "finalAnswerSha256": "sha256:79961fcc7ba825b45fdc9787eb939b86e8355702786a6dd6eb253d10a848f04a",
+      "oracle": {
+        "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+        "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+        "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+        "testExitCode": 0
+      },
+      "runId": "run-de4df013-61b2-481e-bcf0-3c31f7dadd77",
+      "status": "passed",
+      "terminalOutcome": "completed",
+      "terminalRestoration": "restored",
+      "tools": ["list_files", "read_file", "anchor_edit", "write_file", "run_command", "git_diff"],
+      "transcriptSha256": "sha256:225a3089aa49afd309158b11ca4b80ea1c09d4de2187d8328e7ab2831c0e03fa",
+      "viewport": "80x24"
+    },
+    {
+      "activeInput": {
+        "acceptedCount": 2,
+        "cjkMultiline": true,
+        "pending": 0,
+        "sources": ["steer", "queue"]
+      },
+      "rapidResize": "passed",
+      "budget": {
+        "actionProposals": 3,
+        "modelSteps": 8,
+        "toolCalls": 6
+      },
+      "exactUsageAttempts": 8,
+      "exitCode": 0,
+      "finalAnswerSha256": "sha256:79961fcc7ba825b45fdc9787eb939b86e8355702786a6dd6eb253d10a848f04a",
+      "oracle": {
+        "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+        "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+        "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+        "testExitCode": 0
+      },
+      "runId": "run-a2118b92-c3a0-4bb8-9971-d5394b695d9b",
+      "status": "passed",
+      "terminalOutcome": "completed",
+      "terminalRestoration": "restored",
+      "tools": ["list_files", "read_file", "anchor_edit", "write_file", "run_command", "git_diff"],
+      "transcriptSha256": "sha256:6667c891abd2c581d68fbc59e2f5e4b3a9f8ac93b7e3b6673443dc627e41b14b",
+      "viewport": "100x30"
+    }
+  ],
+  "package": {
+    "applicationHash": "sha256:afc978e1369eae0c42b976a5d6ede352f7b21188eeab71febccae1b463bc2a2e",
+    "copied": true,
+    "manifestHash": "sha256:7b57cfac48e7009de56f4611b86216f42c8754c9b3e8436043d3f7765ba36802",
+    "sourceDirectory": "dist",
+    "sourceTreeRequiredAtRuntime": false
+  },
+  "platform": {
+    "architecture": "x64",
+    "os": "linux"
+  },
+  "milestone": "R3-B",
+  "provider": {
+    "externalNetwork": false,
+    "kind": "local_openai_compatible_fixture",
+    "readinessRequestsPerJourney": 1,
+    "secretCanaryExposed": false,
+    "taskRequestsPerJourney": 8
+  },
+  "sourceSha": "9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0",
+  "status": "passed",
+  "verifierSuccessClaimed": false
+}

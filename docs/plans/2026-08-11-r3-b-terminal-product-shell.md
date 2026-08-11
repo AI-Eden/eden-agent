@@ -1,11 +1,11 @@
 # R3-B Terminal Product Shell Plan
 
-- Status: Slices 0-4 implementation candidate and copied-package diagnostic locally green; formal Slice 5 evidence pending
+- Status: Slices 0-5 locally complete at exact evidence candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0`; owner milestone review pending
 - Date: 2026-08-11
 - Milestone: R3-B, after accepted R3-A and before R3-C
 - Architecture decision: `docs/adr/0020-r3-b-conversation-spine-and-typed-intervention.md`
 - Parent plan: `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md`
-- Human checkpoint: authorize an exact public candidate, then review formal copied-package evidence before R3-C
+- Human checkpoint: review the formal copied-package evidence before R3-C
 
 ## Goal and user-visible outcome
 
@@ -17,21 +17,22 @@ This plan refines and supersedes only the R3-B implementation detail in Slices 6
 
 - The published Build-entry baseline is `b80bb10ae3a1942a76eab96cdf5c07f2c0f8e22f`; the tutorial gitlink points to that exact commit.
 - R3-A is owner-accepted. Its exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543` has passing copied-package, normal-TLS matching-provider, and exact-candidate hosted R1/R2 evidence.
-- The current candidate adds closed `conversation.steer` and `conversation.queue` submission through `AgentClient`, while pause and resume remain unsupported.
+- Exact evidence candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0` adds closed `conversation.steer` and `conversation.queue` submission through `AgentClient`, while pause and resume remain unsupported.
 - `ProductView` now projects typed active-input availability, reservation, pending, delivered, and closed truth in addition to existing conversation, tool, approval, review, check, budget, retry, and repository-check facts. The renderer does not invent durable state.
 - Provider context now receives delivered steering before the next safe provider request and queued input after a complete model stop. Both paths are journaled and replayable; terminal `completed` still remains non-success.
 - The TUI remains on Bun, OpenTUI 0.4.3, React 19.2.7, one focus graph, and the frozen narrow/medium/wide thresholds. A managed multiline textarea is pinned below a bounded conversation viewport during every active provider run.
 - Pinned OpenTUI React types expose textarea and scrollbox primitives but no assumed intrinsic diff component. R3-B must use capabilities proven in the installed version.
 - Two private generated images are accepted only as non-normative density and hierarchy references. Public source, tests, and runtime behavior cannot depend on those files.
 
-## Current Build candidate
+## Current Build evidence
 
 - Slice 0 remains green for the unchanged baseline, maximum input fixture, ProductView inventory, and 2 MiB journal/context ledger.
 - Slice 1 is implemented through additive protocol v1 commands/events/view projection, kernel reservation and lifecycle state, serialized journal commits, replay, provider-context ordering, and AgentClient concurrent acceptance.
 - Slices 2-4 are implemented through an exhaustive typed tool registry, compact routine activity, persistent managed textarea, steer/queue and legacy newline chords, stable focus/palette access, urgent authority rails, history switching, responsive transcript containment, and existing evidence/review surfaces.
 - Typecheck, build, code formatting, contract/kernel/runtime targets, and affected TUI regressions are locally green.
-- A copied-package diagnostic passed `60x20`, `80x24`, and `100x30`; each journey delivered one exact multiline CJK steer and one queued follow-up, consumed eight exact model attempts, executed six expected tools with three approvals, passed the independent repository oracle, and restored the parent terminal. The `100x30` journey also passed rapid `60x20 -> 80x24 -> 100x30` resize.
-- The diagnostic was built from an uncommitted worktree and is not milestone evidence. Slice 5 remains open until one exact committed candidate produces the validated public evidence record.
+- The first exact-source run exposed a terminal-exit focus race: a stale `run.composer` focus could briefly swallow `q` after durable completion. Candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0` narrows the composer key guard to non-terminal runs and adds a regression proving terminal keys bypass stale composer focus.
+- The validated copied-package record at `docs/benchmark-results/2026-08-11-r3-b-packaged-tui-local.json` binds that exact candidate and passes `60x20`, `80x24`, and `100x30`. Each journey delivered one exact multiline CJK steer and one queued follow-up, consumed eight exact model attempts, executed six expected tools with three approvals, passed the independent repository oracle, exited zero, and restored the parent terminal. The `100x30` journey also passed rapid `60x20 -> 80x24 -> 100x30` resize; the provider was a deterministic local fixture with no external network and no verifier-success claim.
+- Slice 5 local evidence is complete. R3-B remains at the owner milestone-review checkpoint; R3-C has not started.
 
 ## Frozen product contract
 
