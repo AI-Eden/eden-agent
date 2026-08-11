@@ -2,7 +2,7 @@
 
 ## Status
 
-The owner accepted the R3 direction and ADR 0019 Freeze packet on 2026-08-10, then accepted the amended Freeze and freshly authorized Build on 2026-08-11. R3-A is owner-accepted and closed, and the focused R3-B Freeze packet and Build are separately authorized. R3-B Slices 0-5 are locally complete with validated copied-package evidence bound to exact candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0`; owner milestone review remains pending. The exact Goal contract below remains fixed later-slice input, and R3-C has not started.
+The owner accepted the R3 direction and ADR 0019 Freeze packet on 2026-08-10, then accepted the amended Freeze and freshly authorized Build on 2026-08-11. R3-A is owner-accepted and closed. Fresh copied-package evidence bound to final source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5` passed after the last R3-B product change; R3-B is owner-accepted and closed. The exact Goal contract below remains fixed later-slice input, and R3-C has not started.
 
 ## Purpose
 

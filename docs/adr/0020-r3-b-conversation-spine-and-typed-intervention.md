@@ -1,6 +1,6 @@
 # ADR 0020: Use a Conversation Spine and Typed Active-Run Intervention
 
-- Status: Accepted; Build authorized; Slices 0-5 local evidence green; owner milestone review pending
+- Status: Accepted; R3-B is owner-accepted and closed
 - Date: 2026-08-11
 - Decision source: R3-B TUI Explore and owner design-direction checkpoint on 2026-08-11
 - Scope: R3-B terminal information architecture, responsive degradation, and active-run input authority

@@ -1,11 +1,11 @@
 # R3-B Terminal Product Shell Plan
 
-- Status: Slices 0-5 locally complete at exact evidence candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0`; owner milestone review pending
+- Status: R3-B is owner-accepted and closed; final copied-package evidence source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5`
 - Date: 2026-08-11
 - Milestone: R3-B, after accepted R3-A and before R3-C
 - Architecture decision: `docs/adr/0020-r3-b-conversation-spine-and-typed-intervention.md`
 - Parent plan: `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md`
-- Human checkpoint: review the formal copied-package evidence before R3-C
+- Human checkpoint: completed on 2026-08-11; R3-C remains separately gated and not started
 
 ## Goal and user-visible outcome
 
@@ -17,7 +17,7 @@ This plan refines and supersedes only the R3-B implementation detail in Slices 6
 
 - The published Build-entry baseline is `b80bb10ae3a1942a76eab96cdf5c07f2c0f8e22f`; the tutorial gitlink points to that exact commit.
 - R3-A is owner-accepted. Its exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543` has passing copied-package, normal-TLS matching-provider, and exact-candidate hosted R1/R2 evidence.
-- Exact evidence candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0` adds closed `conversation.steer` and `conversation.queue` submission through `AgentClient`, while pause and resume remain unsupported.
+- Implementation candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0` added closed `conversation.steer` and `conversation.queue` submission through `AgentClient`; final evidence source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5` retains that implementation with the later active-composer escape fix and acceptance-driver hardening. Pause and resume remain unsupported.
 - `ProductView` now projects typed active-input availability, reservation, pending, delivered, and closed truth in addition to existing conversation, tool, approval, review, check, budget, retry, and repository-check facts. The renderer does not invent durable state.
 - Provider context now receives delivered steering before the next safe provider request and queued input after a complete model stop. Both paths are journaled and replayable; terminal `completed` still remains non-success.
 - The TUI remains on Bun, OpenTUI 0.4.3, React 19.2.7, one focus graph, and the frozen narrow/medium/wide thresholds. A managed multiline textarea is pinned below a bounded conversation viewport during every active provider run.
@@ -30,9 +30,10 @@ This plan refines and supersedes only the R3-B implementation detail in Slices 6
 - Slice 1 is implemented through additive protocol v1 commands/events/view projection, kernel reservation and lifecycle state, serialized journal commits, replay, provider-context ordering, and AgentClient concurrent acceptance.
 - Slices 2-4 are implemented through an exhaustive typed tool registry, compact routine activity, persistent managed textarea, steer/queue and legacy newline chords, stable focus/palette access, urgent authority rails, history switching, responsive transcript containment, and existing evidence/review surfaces.
 - Typecheck, build, code formatting, contract/kernel/runtime targets, and affected TUI regressions are locally green.
-- The first exact-source run exposed a terminal-exit focus race: a stale `run.composer` focus could briefly swallow `q` after durable completion. Candidate `9dd9e0d9fa8fa3696bfc0e25c129d0e93cb3a8c0` narrows the composer key guard to non-terminal runs and adds a regression proving terminal keys bypass stale composer focus.
-- The validated copied-package record at `docs/benchmark-results/2026-08-11-r3-b-packaged-tui-local.json` binds that exact candidate and passes `60x20`, `80x24`, and `100x30`. Each journey delivered one exact multiline CJK steer and one queued follow-up, consumed eight exact model attempts, executed six expected tools with three approvals, passed the independent repository oracle, exited zero, and restored the parent terminal. The `100x30` journey also passed rapid `60x20 -> 80x24 -> 100x30` resize; the provider was a deterministic local fixture with no external network and no verifier-success claim.
-- Slice 5 local evidence is complete. R3-B remains at the owner milestone-review checkpoint; R3-C has not started.
+- The first exact-source run exposed a terminal-exit focus race: a stale `run.composer` focus could briefly swallow `q` after durable completion. Commit `b0c5d0d75f761a98f96b2d48afd00a45262f63c9` makes Escape leave active composer focus, narrows the composer key guard to non-terminal runs, and adds regressions proving terminal keys bypass stale composer focus.
+- The refreshed copied-package record at `docs/benchmark-results/2026-08-11-r3-b-packaged-tui-local.json` binds final source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5` and passes `60x20`, `80x24`, and `100x30`. Each journey delivered one exact multiline CJK steer and one queued follow-up, consumed eight exact model attempts, executed six expected tools with three approvals, passed the independent repository oracle, exited zero, and restored the parent terminal. The `100x30` journey also passed rapid `60x20 -> 80x24 -> 100x30` resize; the provider was a deterministic local fixture with no external network and no verifier-success claim.
+- Hosted R1 run [`31498375172`](https://github.com/AI-Eden/eden-agent/actions/runs/31498375172) passed the last product change at `b0c5d0d75f761a98f96b2d48afd00a45262f63c9`, and hosted R2 run [`31501285574`](https://github.com/AI-Eden/eden-agent/actions/runs/31501285574) passed final source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5`.
+- Slice 5 and the milestone review are complete. R3-B is owner-accepted and closed; R3-C remains not started.
 
 ## Frozen product contract
 
@@ -192,7 +193,7 @@ These are forecast boundaries, not permission to edit every listed file.
 - Every current R3-A tool/action/check has typed presentation with no generic authority-erasing fallback.
 - Renderer state remains ephemeral and resize preserves the frozen identities and anchors.
 - Automated, production PTY, copied-package, independent oracle, and evidence-validator rows pass after the last relevant change.
-- R3-B ends at owner milestone review. R3-C, Build beyond this plan, external actions, publication, and release remain separately gated.
+- R3-B ended at the completed owner milestone review. R3-C, Build beyond this plan, external actions, package publication, and release remain separately gated.
 
 ## Verification commands
 
@@ -245,5 +246,5 @@ No Build step may discard unrelated user changes. Commit, push, provider/network
 1. **Freeze review:** completed on 2026-08-11 when the owner accepted ADR 0020, the focused contract changes, and this plan as one R3-B packet.
 2. **Build authorization:** granted separately on 2026-08-11 after Freeze publication.
 3. **First core RED:** completed when the owner approved continuation and autonomous work within the frozen R3-B boundary.
-4. **Exact candidate authority:** pending; commit and push remain separately gated.
-5. **Milestone review:** review the formal copied-package R3-B evidence before R3-C begins.
+4. **Exact candidate authority:** completed through the authorized public-first implementation and evidence publication chain; final evidence source is `f98e8b3d87b530d46aa7e33664290a02a75ad1a5`.
+5. **Milestone review:** completed on 2026-08-11 when the owner accepted the formal evidence and authorized R3-B complete closeout. R3-C remains not started.
