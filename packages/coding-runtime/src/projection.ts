@@ -31,6 +31,7 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
     if (!decoded.ok) {
       throw new ProjectionError("Projection received an invalid journal record.");
     }
+    const previousState = state;
     const transition = reduce(state, decoded.value.event);
     if (!transition.ok) {
       throw new ProjectionError("Projection encountered an illegal transition.");
@@ -239,6 +240,58 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         });
         cursor += 1;
         break;
+      case "conversation.input.accepted":
+      case "conversation.input.delivered": {
+        const inputEvent = decoded.value.event;
+        if (!("model" in state)) {
+          throw new ProjectionError("Conversation input requires a provider run.");
+        }
+        const input = state.conversationInputs.find(
+          (candidate) => candidate.messageId === inputEvent.messageId,
+        );
+        if (input === undefined) {
+          throw new ProjectionError("Conversation input lifecycle is missing its durable state.");
+        }
+        const productInput =
+          input.state === "closed"
+            ? {
+                ...input,
+                closureReason: {
+                  ...input.closureReason,
+                  suggestedActions: [...input.closureReason.suggestedActions],
+                },
+                reservation: { ...input.reservation },
+              }
+            : { ...input, reservation: { ...input.reservation } };
+        events.push({
+          ...base,
+          cursor,
+          eventId: `${record.eventId}:product:0`,
+          input: productInput,
+          type: "conversation.input.updated",
+        });
+        cursor += 1;
+        if (inputEvent.type === "conversation.input.delivered") {
+          const turn = view.conversation?.find(
+            (candidate) =>
+              candidate.role === "user" &&
+              "messageId" in candidate &&
+              candidate.messageId === inputEvent.messageId,
+          );
+          if (turn === undefined) {
+            throw new ProjectionError("Delivered input requires one typed user turn.");
+          }
+          events.push({
+            ...base,
+            cursor,
+            eventId: `${record.eventId}:product:1`,
+            turn,
+            type: "conversation.updated",
+          });
+          cursor += 1;
+        }
+        break;
+      }
       case "approval.resolved":
         if (state.phase === "terminal") {
           events.push({
@@ -431,16 +484,45 @@ export function projectJournal(records: readonly JournalRecordV1[]): ProjectionR
         break;
       }
       case "run.cancelled":
-      case "run.blocked":
+      case "run.blocked": {
+        let productIndex = 0;
+        if ("model" in previousState && "model" in state) {
+          const pendingIds = new Set(
+            previousState.conversationInputs
+              .filter((input) => input.state === "accepted")
+              .map((input) => input.messageId),
+          );
+          for (const input of state.conversationInputs) {
+            if (input.state !== "closed" || !pendingIds.has(input.messageId)) continue;
+            const productInput = {
+              ...input,
+              closureReason: {
+                ...input.closureReason,
+                suggestedActions: [...input.closureReason.suggestedActions],
+              },
+              reservation: { ...input.reservation },
+            };
+            events.push({
+              ...base,
+              cursor,
+              eventId: `${record.eventId}:product:${productIndex}`,
+              input: productInput,
+              type: "conversation.input.updated",
+            });
+            cursor += 1;
+            productIndex += 1;
+          }
+        }
         events.push({
           ...base,
           cursor,
-          eventId: `${record.eventId}:product:0`,
+          eventId: `${record.eventId}:product:${productIndex}`,
           outcome: requireTerminal(view),
           type: "run.terminal",
         });
         cursor += 1;
         break;
+      }
       default:
         assertNever(decoded.value.event);
     }

@@ -1,6 +1,6 @@
 # ADR 0020: Use a Conversation Spine and Typed Active-Run Intervention
 
-- Status: Accepted on 2026-08-11; Build not authorized
+- Status: Accepted; Build authorized; first-core RED reviewed; Slices 0-4 candidate locally green
 - Date: 2026-08-11
 - Decision source: R3-B TUI Explore and owner design-direction checkpoint on 2026-08-11
 - Scope: R3-B terminal information architecture, responsive degradation, and active-run input authority
@@ -55,7 +55,7 @@ R3-B is not a visual-only refactor. The active composer extends ProductCommand, 
 
 The design keeps Eden's identity as a calm evidence instrument: conversation is the main reading flow, semantic color communicates status rather than decoration, and evidence expands at decision boundaries. The accepted reference images may guide density and hierarchy, but copied product names, logos, powerlines, exact colors, exact pane ratios, and generated text defects are excluded.
 
-R3-B does not activate pause/resume, Plan, Goal, verifier success, repair, child agents, web tools, a general shell, a renderer replacement, or a protocol-independent TUI source of truth. Approval of this ADR and its companion plan authorizes neither Build nor external actions.
+R3-B does not activate pause/resume, Plan, Goal, verifier success, repair, child agents, web tools, a general shell, a renderer replacement, or a protocol-independent TUI source of truth. Approval of this ADR and its companion plan did not itself authorize Build or external actions. The owner separately authorized Build and reviewed the first-core RED on 2026-08-11. Commit, push, provider/network, package publication, and release authority remain separately gated.
 
 ## Rejected alternatives
 

@@ -490,6 +490,116 @@ function usableCodingStartEvent() {
   } as const;
 }
 
+test("active-run input acceptance reserves one future model step exactly once", () => {
+  const started = transition(initialRunState, usableCodingStartEvent());
+  const acceptedEvent = {
+    byteLength: 25,
+    commandId: "command-steer-1",
+    content: "Inspect the failing test.",
+    messageId: "message-steer-1",
+    mode: "steer",
+    modelStep: 8,
+    order: 0,
+    type: "conversation.input.accepted",
+  } as const;
+  const accepted = transition(started, acceptedEvent);
+
+  strictEqual(accepted.phase, "executing");
+  if (accepted.phase !== "executing" || !("model" in accepted)) return;
+  deepStrictEqual(accepted.conversationInputs, [
+    {
+      byteLength: acceptedEvent.byteLength,
+      closureReason: null,
+      commandId: acceptedEvent.commandId,
+      content: acceptedEvent.content,
+      deliveredTurnId: null,
+      messageId: acceptedEvent.messageId,
+      mode: acceptedEvent.mode,
+      order: acceptedEvent.order,
+      reservation: { modelStep: acceptedEvent.modelStep, state: "reserved" },
+      state: "accepted",
+    },
+  ]);
+  strictEqual(reduce(accepted, acceptedEvent).ok, false);
+});
+
+test("a pending steer waits for the current provider result and then becomes one durable user turn", () => {
+  const started = transition(initialRunState, usableCodingStartEvent());
+  const effect = onlyEffect(started);
+  const requested = transition(started, { effect, type: "effect.requested" });
+  const attempted = transition(requested, {
+    attemptId: "attempt-before-steer",
+    effectId: effect.effectId,
+    reason: "initial",
+    type: "model.attempt.started",
+  });
+  const accepted = transition(attempted, {
+    byteLength: 25,
+    commandId: "command-steer-1",
+    content: "Inspect the failing test.",
+    messageId: "message-steer-1",
+    mode: "steer",
+    modelStep: 8,
+    order: 0,
+    type: "conversation.input.accepted",
+  });
+  const stopped = transition(accepted, {
+    effectId: effect.effectId,
+    observation: {
+      attemptId: "attempt-before-steer",
+      finishStatus: "stop",
+      privateContinuity: null,
+      requestId: "request-before-steer",
+      status: "completed",
+      text: "The current turn reached its safe answer boundary.",
+      toolCalls: [],
+      usage: null,
+      version: 1,
+    },
+    type: "model.step.completed",
+  });
+
+  strictEqual(stopped.phase, "executing");
+  if (stopped.phase !== "executing" || !("model" in stopped)) return;
+  const delivered = transition(stopped, {
+    messageId: "message-steer-1",
+    turnId: "turn-steer-1",
+    type: "conversation.input.delivered",
+  });
+  if (delivered.phase !== "executing" || !("model" in delivered)) return;
+  deepStrictEqual(delivered.conversation.at(-1), {
+    content: "Inspect the failing test.",
+    messageId: "message-steer-1",
+    role: "user",
+    source: "steer",
+    turnId: "turn-steer-1",
+  });
+  strictEqual(delivered.conversationInputs[0]?.state, "delivered");
+  strictEqual(delivered.conversationInputs[0]?.reservation.state, "consumed");
+  strictEqual(delivered.modelStep, 2);
+});
+
+test("terminalization closes every undelivered input and releases its reservation", () => {
+  const started = transition(initialRunState, usableCodingStartEvent());
+  const accepted = transition(started, {
+    byteLength: 16,
+    commandId: "command-queue-close",
+    content: "Follow up later.",
+    messageId: "message-queue-close",
+    mode: "queue",
+    modelStep: 8,
+    order: 0,
+    type: "conversation.input.accepted",
+  });
+  const cancelled = transition(accepted, { type: "run.cancelled" });
+
+  strictEqual(cancelled.phase, "terminal");
+  if (cancelled.phase !== "terminal" || !("model" in cancelled)) return;
+  strictEqual(cancelled.conversationInputs[0]?.state, "closed");
+  strictEqual(cancelled.conversationInputs[0]?.reservation.state, "released");
+  strictEqual(cancelled.conversationInputs[0]?.closureReason?.code, "run_cancelled");
+});
+
 test("a provider run owns a complete model-tool-model conversation and ends completed, not succeeded", () => {
   const started = transition(initialRunState, providerStartEvent);
   const firstEffect = onlyEffect(started);

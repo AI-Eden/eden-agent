@@ -30,12 +30,38 @@ function terminal(
       action: state.action,
       attempts: state.attempts,
       conversation: state.conversation,
+      conversationInputs: state.conversationInputs.map((input) =>
+        input.state !== "accepted"
+          ? input
+          : {
+              ...input,
+              closureReason:
+                outcome.state === "cancelled"
+                  ? {
+                      code: "run_cancelled",
+                      message: "The run ended before this input could be delivered.",
+                      recoverability: "ask-user" as const,
+                      suggestedActions: ["Start a new run if this follow-up is still needed."],
+                    }
+                  : outcome.state === "blocked" || outcome.state === "failed"
+                    ? outcome.error
+                    : {
+                        code: "run_ended",
+                        message: "The run ended before this input could be delivered.",
+                        recoverability: "ask-user" as const,
+                        suggestedActions: ["Start a new run if this follow-up is still needed."],
+                      },
+              reservation: { ...input.reservation, state: "released" as const },
+              state: "closed" as const,
+            },
+      ),
       context: state.context,
       correlationId: state.correlationId,
       inFlightEffect: null,
       model: state.model,
       modelStep: state.modelStep,
       phase: "terminal",
+      queueDeliveryReady: false,
       revision: state.revision + 1,
       runId: state.runId,
       task: state.task,
@@ -294,12 +320,14 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
                   },
                 }),
             conversation: [{ content: event.task, role: "user" }],
+            conversationInputs: [],
             context: [],
             correlationId: event.correlationId,
             inFlightEffect: null,
             model: event.model,
             modelStep: 1,
             phase: "executing",
+            queueDeliveryReady: false,
             revision: 1,
             runId: event.runId,
             stage: "model-ready",
@@ -485,6 +513,93 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           stage: "action-ready",
         },
       };
+    case "conversation.input.accepted": {
+      if (
+        state.phase === "idle" ||
+        !("model" in state) ||
+        state.codingBudget === undefined ||
+        state.conversationInputs.length >= 8 ||
+        state.conversationInputs.some(
+          (input) => input.commandId === event.commandId || input.messageId === event.messageId,
+        ) ||
+        event.order !== state.conversationInputs.length ||
+        state.conversationInputs.reduce((total, input) => total + input.byteLength, 0) +
+          event.byteLength >
+          16_384
+      ) {
+        return illegal(state, event);
+      }
+      const pending = state.conversationInputs.filter((input) => input.state === "accepted");
+      if (
+        (event.mode === "steer" && pending.some((input) => input.mode === "steer")) ||
+        (event.mode === "queue" && pending.filter((input) => input.mode === "queue").length >= 3) ||
+        event.modelStep !== state.codingBudget.grant.modelSteps - pending.length ||
+        event.modelStep <= state.codingBudget.usage.modelSteps
+      ) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          conversationInputs: [
+            ...state.conversationInputs,
+            {
+              byteLength: event.byteLength,
+              closureReason: null,
+              commandId: event.commandId,
+              content: event.content,
+              deliveredTurnId: null,
+              messageId: event.messageId,
+              mode: event.mode,
+              order: event.order,
+              reservation: { modelStep: event.modelStep, state: "reserved" },
+              state: "accepted",
+            },
+          ],
+          revision: state.revision + 1,
+        },
+      };
+    }
+    case "conversation.input.delivered": {
+      if (state.phase !== "executing" || !("model" in state) || state.stage !== "model-ready") {
+        return illegal(state, event);
+      }
+      const accepted = state.conversationInputs.filter((input) => input.state === "accepted");
+      const nextSteer = accepted.find((input) => input.mode === "steer");
+      const next = nextSteer ?? (state.queueDeliveryReady ? accepted[0] : undefined);
+      if (next === undefined || next.messageId !== event.messageId) {
+        return illegal(state, event);
+      }
+      return {
+        ok: true,
+        state: {
+          ...state,
+          conversation: [
+            ...state.conversation,
+            {
+              content: next.content,
+              messageId: next.messageId,
+              role: "user",
+              source: next.mode,
+              turnId: event.turnId,
+            },
+          ],
+          conversationInputs: state.conversationInputs.map((input) =>
+            input.messageId !== event.messageId || input.state !== "accepted"
+              ? input
+              : {
+                  ...input,
+                  deliveredTurnId: event.turnId,
+                  reservation: { ...input.reservation, state: "consumed" as const },
+                  state: "delivered" as const,
+                },
+          ),
+          queueDeliveryReady: false,
+          revision: state.revision + 1,
+        },
+      };
+    }
     case "safe.action.proposed": {
       const providerProposal =
         state.phase === "executing" &&
@@ -1586,6 +1701,28 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
             : { ...state, attempts, codingBudget };
         if (event.observation.finishStatus === "stop") {
           if (event.observation.text.length === 0) return illegal(state, event);
+          if (state.conversationInputs.some((input) => input.state === "accepted")) {
+            return {
+              ok: true,
+              state: {
+                ...budgetedState,
+                conversation: [
+                  ...state.conversation,
+                  {
+                    content: event.observation.text,
+                    privateContinuity: event.observation.privateContinuity,
+                    role: "assistant",
+                    toolCalls: [],
+                  },
+                ],
+                inFlightEffect: null,
+                modelStep: state.modelStep + 1,
+                queueDeliveryReady: true,
+                revision: state.revision + 1,
+                stage: "model-ready",
+              },
+            };
+          }
           return {
             ok: true,
             state: terminal(budgetedState, { answer: event.observation.text, state: "completed" }),
@@ -1809,6 +1946,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           action: null,
           attempts,
           conversation: state.conversation,
+          conversationInputs: state.conversationInputs,
           context: state.context,
           correlationId: state.correlationId,
           inFlightEffect: state.inFlightEffect,
@@ -1816,6 +1954,7 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           model: state.model,
           modelStep: state.modelStep,
           phase: "awaiting-retry",
+          queueDeliveryReady: state.queueDeliveryReady,
           revision: state.revision + 1,
           runId: state.runId,
           task: state.task,
@@ -1836,12 +1975,14 @@ export function reduce(state: RunState, event: KernelEvent): TransitionResult {
           action: null,
           attempts: state.attempts,
           conversation: state.conversation,
+          conversationInputs: state.conversationInputs,
           context: state.context,
           correlationId: state.correlationId,
           inFlightEffect: state.inFlightEffect,
           model: state.model,
           modelStep: state.modelStep,
           phase: "executing",
+          queueDeliveryReady: state.queueDeliveryReady,
           revision: state.revision + 1,
           runId: state.runId,
           stage: "model-awaiting-attempt",

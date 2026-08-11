@@ -352,7 +352,7 @@ async function trustWorkspace(fixture: Awaited<ReturnType<typeof setup>>) {
   });
   await act(async () => fixture.renderer.flush());
   const frame = fixture.renderer.captureCharFrame();
-  expect(frame).toContain("Eden R2");
+  expect(frame).toContain("Eden R3-B");
   expect(frame).toContain("trust: trusted");
   expect(frame).toContain("Describe the fake task");
 }
@@ -776,9 +776,16 @@ test("one fake model read round trip renders the complete bounded result and pro
   try {
     await trustWorkspace(fixture);
     await enterTask(fixture);
-    const frame = fixture.renderer.captureCharFrame();
+    let frame = fixture.renderer.captureCharFrame();
 
-    expect(frame).toContain("repository tool: read_file · completed");
+    expect(frame).toContain("read file · read_file · completed");
+    expect(frame).toContain("tool details: folded");
+    await act(async () => {
+      fixture.renderer.mockInput.pressKey("e");
+      await delay(100);
+      await fixture.renderer.flush();
+    });
+    frame = fixture.renderer.captureCharFrame();
     expect(frame).toContain("source: nested/answer.txt · authority:");
     expect(frame).toContain("bounded read-only");
     expect(frame).toContain("repository result:");
@@ -1389,8 +1396,10 @@ test("the command palette switches narrow run panes without changing approval au
       await fixture.renderer.flush();
     });
     await act(async () => {
-      fixture.renderer.mockInput.pressArrow("down");
-      await delay(100);
+      for (let index = 0; index < 3; index += 1) {
+        fixture.renderer.mockInput.pressArrow("down");
+        await delay(100);
+      }
       await fixture.renderer.flush();
     });
     await act(async () => {
@@ -1409,10 +1418,10 @@ test("the command palette switches narrow run panes without changing approval au
       await fixture.renderer.flush();
     });
     await act(async () => {
-      fixture.renderer.mockInput.pressArrow("down");
-      await delay(100);
-      fixture.renderer.mockInput.pressArrow("down");
-      await delay(100);
+      for (let index = 0; index < 4; index += 1) {
+        fixture.renderer.mockInput.pressArrow("down");
+        await delay(100);
+      }
       await fixture.renderer.flush();
     });
     await act(async () => {

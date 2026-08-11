@@ -45,6 +45,7 @@ async function hashFile(path) {
 }
 
 function validateEvidence(evidence) {
+  const activeInputMode = evidence.milestone === "R3-B";
   if (evidence.status !== "passed" || !/^[a-f0-9]{40}$/u.test(evidence.sourceSha)) {
     throw new Error("R3 packaged TUI evidence requires passing status and one exact source SHA.");
   }
@@ -69,13 +70,25 @@ function validateEvidence(evidence) {
       journey.exitCode !== 0 ||
       journey.oracle?.testExitCode !== 0 ||
       journey.budget?.actionProposals !== 3 ||
-      journey.budget.modelSteps !== 7 ||
+      journey.budget.modelSteps !== (activeInputMode ? 8 : 7) ||
       journey.budget.toolCalls !== 6 ||
-      journey.exactUsageAttempts !== 7 ||
+      journey.exactUsageAttempts !== (activeInputMode ? 8 : 7) ||
       JSON.stringify(journey.tools) !== JSON.stringify(requiredTools)
     ) {
       throw new Error(`R3 packaged TUI journey is incomplete for ${expected.viewport}.`);
     }
+    if (
+      activeInputMode &&
+      (journey.activeInput?.acceptedCount !== 2 ||
+        journey.activeInput.pending !== 0 ||
+        JSON.stringify(journey.activeInput.sources) !== JSON.stringify(["steer", "queue"]) ||
+        journey.activeInput.cjkMultiline !== true)
+    ) {
+      throw new Error(`R3-B active input evidence is incomplete for ${expected.viewport}.`);
+    }
+  }
+  if (activeInputMode && !evidence.journeys.some((journey) => journey.rapidResize === "passed")) {
+    throw new Error("R3-B copied TUI evidence requires one rapid resize row.");
   }
 }
 
@@ -103,6 +116,37 @@ if (process.argv[2] === "--self-test") {
     verifierSuccessClaimed: false,
   };
   validateEvidence(evidence);
+  const r3bEvidence = {
+    ...evidence,
+    journeys: evidence.journeys.map((journey, index) => ({
+      ...journey,
+      activeInput: {
+        acceptedCount: 2,
+        cjkMultiline: true,
+        pending: 0,
+        sources: ["steer", "queue"],
+      },
+      budget: { ...journey.budget, modelSteps: 8 },
+      exactUsageAttempts: 8,
+      rapidResize: index === 0 ? "passed" : "not-run",
+    })),
+    milestone: "R3-B",
+  };
+  validateEvidence(r3bEvidence);
+  let invalidR3bRejected = false;
+  try {
+    validateEvidence({
+      ...r3bEvidence,
+      journeys: r3bEvidence.journeys.map((journey, index) =>
+        index === 0 ? { ...journey, activeInput: { ...journey.activeInput, pending: 1 } } : journey,
+      ),
+    });
+  } catch {
+    invalidR3bRejected = true;
+  }
+  if (!invalidR3bRejected) {
+    throw new Error("R3-B packaged TUI evidence accepted incomplete active input.");
+  }
   for (const mutation of [
     { journeys: evidence.journeys.slice(1) },
     { provider: { ...evidence.provider, externalNetwork: true } },
@@ -129,8 +173,16 @@ if (process.platform !== "linux") {
 }
 
 const source = resolve(process.argv[2] ?? "apps/eden/dist");
+const evidenceMode = process.argv[5] ?? "--r3-a";
+if (evidenceMode !== "--r3-a" && evidenceMode !== "--r3-b") {
+  throw new Error("R3 copied packaged TUI evidence mode must be --r3-a or --r3-b.");
+}
+const activeInputMode = evidenceMode === "--r3-b";
 const outputPath = resolve(
-  process.argv[3] ?? "docs/benchmark-results/2026-08-11-r3-a-packaged-tui-local.json",
+  process.argv[3] ??
+    (activeInputMode
+      ? "docs/benchmark-results/2026-08-11-r3-b-packaged-tui-local.json"
+      : "docs/benchmark-results/2026-08-11-r3-a-packaged-tui-local.json"),
 );
 const sourceSha = process.argv[4] ?? "";
 if (!/^[a-f0-9]{40}$/u.test(sourceSha)) {
@@ -216,12 +268,22 @@ function streamChunk(delta, finishReason = null, usage) {
   })}\n\n`;
 }
 
-async function providerFixture(secret, commandProgram) {
+async function providerFixture(secret, commandProgram, withActiveInput) {
   let readinessRequests = 0;
   let taskRequests = 0;
   let authorizationMatched = true;
   let secretEnteredPrompt = false;
   let parallelRequested = false;
+  let queueObserved = false;
+  let releaseFirstTask = () => undefined;
+  let resolveFirstTaskStarted = () => undefined;
+  let steerObserved = false;
+  const firstTaskRelease = new Promise((resolveRelease) => {
+    releaseFirstTask = resolveRelease;
+  });
+  const firstTaskStarted = new Promise((resolveStarted) => {
+    resolveFirstTaskStarted = resolveStarted;
+  });
   const observations = [
     ["call-list", "list_files", { continuation: null, path: "." }, "Inspect repository files."],
     [
@@ -271,8 +333,10 @@ async function providerFixture(secret, commandProgram) {
     let body = "";
     request.setEncoding("utf8");
     request.on("data", (chunk) => (body += chunk));
-    request.on("end", () => {
+    request.on("end", async () => {
       secretEnteredPrompt ||= body.includes(secret);
+      steerObserved ||= body.includes("Steer 中文") && body.includes("second line");
+      queueObserved ||= body.includes("Queue after current answer.");
       const parsed = JSON.parse(body);
       response.writeHead(200, {
         "content-type": "text/event-stream",
@@ -291,6 +355,10 @@ async function providerFixture(secret, commandProgram) {
       }
       parallelRequested ||= parsed.parallel_tool_calls !== false;
       const index = taskRequests++;
+      if (withActiveInput && index === 0) {
+        resolveFirstTaskStarted();
+        await firstTaskRelease;
+      }
       const usage = { completion_tokens: 5, prompt_tokens: 20 + index, total_tokens: 25 + index };
       const observation = observations[index];
       if (observation === undefined) {
@@ -359,10 +427,14 @@ async function providerFixture(secret, commandProgram) {
     facts: () => ({
       authorizationMatched,
       parallelRequested,
+      queueObserved,
       readinessRequests,
       secretEnteredPrompt,
+      steerObserved,
       taskRequests,
     }),
+    releaseFirstTask,
+    waitForFirstTask: () => firstTaskStarted,
   };
 }
 
@@ -407,13 +479,15 @@ async function journey({ columns, rows, viewport }) {
   );
 
   const secret = `R3_PACKAGED_CANARY_${randomUUID()}`;
-  const provider = await providerFixture(secret, commandProgram);
+  const provider = await providerFixture(secret, commandProgram, activeInputMode);
   const restorationChallenge = randomUUID().replaceAll("-", "");
   const restorationSentinel = `EDEN_R3_TUI_RESTORED_${restorationChallenge}`;
   const parentReady = "__EDEN_R3_PARENT_READY__";
   const shellScript = `trap : INT; before=$(stty -g); ${quotePosix(executable)}; code=$?; after=$(stty -g); printf '__EDEN_R3_MODE_BEFORE__=%s\\n' "$before"; printf '__EDEN_R3_MODE_AFTER__=%s\\n' "$after"; printf '__EDEN_R3_CANDIDATE_EXIT__=%s\\n' "$code"; printf '${parentReady}\\n'; IFS= read -r token; printf 'EDEN_R3_TUI_RESTORED_%s\\n' "$token"; exit "$code"`;
   let transcript = "";
-  const screen = () => terminalScreenText(transcript, columns, rows);
+  let screenColumns = columns;
+  let screenRows = rows;
+  const screen = () => terminalScreenText(transcript, screenColumns, screenRows);
   const environment = {
     ...process.env,
     EDEN_R3_SECRET_CANARY: secret,
@@ -503,28 +577,105 @@ async function journey({ columns, rows, viewport }) {
       `${viewport} complete task draft`,
     );
     terminal.write("\r");
-    await waitFor(
-      () => ({ facts: provider.facts(), screen: screen() }),
-      (value) => value.facts.taskRequests >= 3 && value.screen.includes("approval: pending"),
-      `${viewport} edit approval`,
-    );
-    terminal.write("a");
-    await waitFor(
-      () => ({ facts: provider.facts(), screen: screen() }),
-      (value) => value.facts.taskRequests >= 4 && value.screen.includes("approval: pending"),
-      `${viewport} create approval`,
-    );
-    terminal.write("a");
-    await waitFor(
-      () => ({ facts: provider.facts(), screen: screen() }),
-      (value) => value.facts.taskRequests >= 5 && value.screen.includes("approval: pending"),
-      `${viewport} command approval`,
-    );
-    terminal.write("a");
+    let rapidResize = "not-run";
+    if (activeInputMode) {
+      await provider.waitForFirstTask();
+      await waitFor(
+        screen,
+        (value) => value.includes("STEER OR QUEUE"),
+        `${viewport} active composer`,
+      );
+      terminal.write("\u001B[200~Steer 中文\nsecond line\u001B[201~");
+      await waitFor(
+        screen,
+        (value) => value.includes("Steer ") && value.includes("second line"),
+        `${viewport} CJK multiline steering draft`,
+      );
+      terminal.write("\r");
+      await waitFor(
+        screen,
+        (value) => value.includes("pending 1") || value.includes("INPUT · 1 durable pending"),
+        `${viewport} durable steering acceptance`,
+      );
+      terminal.write("\u001B[200~Queue after current answer.\u001B[201~");
+      await waitFor(
+        screen,
+        (value) => value.includes("Queue after current answer."),
+        `${viewport} queue draft`,
+      );
+      terminal.write("\u001B\r");
+      await waitFor(
+        screen,
+        (value) => value.includes("pending 2") || value.includes("INPUT · 2 durable pending"),
+        `${viewport} durable queue acceptance`,
+      );
+      if (viewport === "100x30") {
+        for (const [nextColumns, nextRows] of [
+          [60, 20],
+          [80, 24],
+          [100, 30],
+        ]) {
+          screenColumns = nextColumns;
+          screenRows = nextRows;
+          terminal.resize(nextColumns, nextRows);
+          await waitFor(
+            screen,
+            (value) => value.includes("Eden R3-B") && value.includes("pending"),
+            `${viewport} resize ${nextColumns}x${nextRows}`,
+          );
+        }
+        rapidResize = "passed";
+      }
+      provider.releaseFirstTask();
+    }
+    const approveCurrent = async (label) => {
+      if (!activeInputMode) {
+        terminal.write("a");
+        return;
+      }
+      terminal.write("\u0010");
+      await waitFor(
+        screen,
+        (value) => value.includes("focus: overlay.palette"),
+        `${viewport} ${label} approval palette`,
+      );
+      for (let index = 0; index < 6; index += 1) {
+        terminal.write("\u001B[B");
+        await new Promise((resolveDelay) => setTimeout(resolveDelay, 30));
+      }
+      terminal.write("\r");
+    };
     await waitFor(
       () => ({ facts: provider.facts(), screen: screen() }),
       (value) =>
-        value.facts.taskRequests === 7 &&
+        value.facts.taskRequests >= 3 &&
+        (value.screen.includes("approval: pending") ||
+          value.screen.includes("URGENT · approval pending")),
+      `${viewport} edit approval`,
+    );
+    await approveCurrent("edit");
+    await waitFor(
+      () => ({ facts: provider.facts(), screen: screen() }),
+      (value) =>
+        value.facts.taskRequests >= 4 &&
+        (value.screen.includes("approval: pending") ||
+          value.screen.includes("URGENT · approval pending")),
+      `${viewport} create approval`,
+    );
+    await approveCurrent("create");
+    await waitFor(
+      () => ({ facts: provider.facts(), screen: screen() }),
+      (value) =>
+        value.facts.taskRequests >= 5 &&
+        (value.screen.includes("approval: pending") ||
+          value.screen.includes("URGENT · approval pending")),
+      `${viewport} command approval`,
+    );
+    await approveCurrent("command");
+    await waitFor(
+      () => ({ facts: provider.facts(), screen: screen() }),
+      (value) =>
+        value.facts.taskRequests === (activeInputMode ? 8 : 7) &&
         (value.screen.includes("COMPLETE ANSWER") || /outcome:?\s*completed/iu.test(value.screen)),
       `${viewport} completed review`,
     );
@@ -570,10 +721,11 @@ async function journey({ columns, rows, viewport }) {
         : "failed";
     if (
       facts.readinessRequests !== 1 ||
-      facts.taskRequests !== 7 ||
+      facts.taskRequests !== (activeInputMode ? 8 : 7) ||
       !facts.authorizationMatched ||
       facts.parallelRequested ||
-      facts.secretEnteredPrompt
+      facts.secretEnteredPrompt ||
+      (activeInputMode && (!facts.steerObserved || !facts.queueObserved))
     ) {
       throw new Error(`Provider fixture facts were invalid for ${viewport}.`);
     }
@@ -588,7 +740,23 @@ async function journey({ columns, rows, viewport }) {
     const exactUsageAttempts = view.attempts.filter(
       (attempt) => attempt.usage.state === "exact",
     ).length;
+    const deliveredInputs = view.conversation.filter(
+      (turn) => turn.role === "user" && "source" in turn,
+    );
     return {
+      ...(activeInputMode
+        ? {
+            activeInput: {
+              acceptedCount: view.conversationInput.acceptedCount,
+              cjkMultiline:
+                deliveredInputs[0]?.content === "Steer 中文\nsecond line" &&
+                deliveredInputs[1]?.content === "Queue after current answer.",
+              pending: view.conversationInput.pending.length,
+              sources: deliveredInputs.map((turn) => turn.source),
+            },
+            rapidResize,
+          }
+        : {}),
       budget: {
         actionProposals: view.codingBudget.usage.actionProposals,
         modelSteps: view.codingBudget.usage.modelSteps,
@@ -623,6 +791,7 @@ async function journey({ columns, rows, viewport }) {
   } finally {
     data.dispose();
     if (!terminalExited) terminatePtyProcessGroup(terminal);
+    provider.releaseFirstTask();
     await provider.close();
   }
 }
@@ -657,12 +826,13 @@ try {
       sourceTreeRequiredAtRuntime: false,
     },
     platform: { architecture: process.arch, os: process.platform },
+    milestone: activeInputMode ? "R3-B" : "R3-A",
     provider: {
       externalNetwork: false,
       kind: "local_openai_compatible_fixture",
       readinessRequestsPerJourney: 1,
       secretCanaryExposed: false,
-      taskRequestsPerJourney: 7,
+      taskRequestsPerJourney: activeInputMode ? 8 : 7,
     },
     sourceSha,
     status: "passed",

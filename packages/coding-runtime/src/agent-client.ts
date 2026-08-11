@@ -208,6 +208,7 @@ export class InProcessAgentClient implements AgentClient {
   private readonly modelDeltas: ProductModelDelta[] = [];
   private modelDeltaCursor = 0;
   private closed = false;
+  private activeInputTail: Promise<void> = Promise.resolve();
   private mutationTail: Promise<void> = Promise.resolve();
   private session: RunSession | null;
 
@@ -425,6 +426,20 @@ export class InProcessAgentClient implements AgentClient {
     const previous = this.mutationTail;
     let release: () => void = () => undefined;
     this.mutationTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
+  private async serializeActiveInput<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.activeInputTail;
+    let release: () => void = () => undefined;
+    this.activeInputTail = new Promise<void>((resolve) => {
       release = resolve;
     });
     await previous;
@@ -838,14 +853,140 @@ export class InProcessAgentClient implements AgentClient {
 
   async submit(
     command: ProductCommand,
+    options?: {
+      readonly onRunStarted?: (view: ProductView) => void;
+      readonly signal?: AbortSignal;
+    },
+  ): Promise<ProductView> {
+    const decoded = decodeProductCommand(command);
+    if (!decoded.ok) throw new AgentClientError(decoded.error);
+    switch (decoded.value.type) {
+      case "conversation.steer":
+      case "conversation.queue": {
+        const activeInputCommand = decoded.value;
+        return this.serializeActiveInput(() => this.submitActiveInput(activeInputCommand, options));
+      }
+    }
+    return this.serializeMutation(() => this.submitExclusive(command, options));
+  }
+
+  private async submitActiveInput(
+    command: Extract<
+      ProductCommand,
+      { readonly type: "conversation.steer" | "conversation.queue" }
+    >,
     options?: { readonly signal?: AbortSignal },
   ): Promise<ProductView> {
-    return this.serializeMutation(() => this.submitExclusive(command, options));
+    this.ensureOpen();
+    if (this.readOnly) throw clientError("read_only_client", "This client is read-only.");
+    if (options?.signal?.aborted === true)
+      throw clientError("operation_aborted", "The operation was aborted.", "retry");
+    const session = this.requireSession(command.runId);
+    const initialState = session.engine.state;
+    if (initialState.phase !== "idle" && "model" in initialState) {
+      const duplicate = initialState.conversationInputs.find(
+        (input) => input.commandId === command.commandId,
+      );
+      if (duplicate !== undefined) {
+        if (
+          duplicate.content !== command.content ||
+          duplicate.mode !== (command.type === "conversation.steer" ? "steer" : "queue")
+        ) {
+          throw clientError(
+            "command_identity_conflict",
+            "The command identity is already correlated with different input.",
+          );
+        }
+        return this.currentView();
+      }
+    }
+    const view = await this.currentView();
+    assertCurrentRevision(command, view);
+    const state = session.engine.state;
+    if (state.phase === "idle" || !("model" in state) || state.phase === "terminal") {
+      throw clientError(
+        "conversation_input_unavailable",
+        "Active-run input requires a nonterminal provider run.",
+        "ask-user",
+      );
+    }
+    if (state.codingBudget === undefined) {
+      throw clientError(
+        "conversation_input_reservation_unavailable",
+        "This run has no usable-coding model-step grant for active input.",
+        "ask-user",
+      );
+    }
+    const byteLength = new TextEncoder().encode(command.content).byteLength;
+    const acceptedBytes = state.conversationInputs.reduce(
+      (total, input) => total + input.byteLength,
+      0,
+    );
+    const pending = state.conversationInputs.filter((input) => input.state === "accepted");
+    const mode = command.type === "conversation.steer" ? "steer" : "queue";
+    if (state.conversationInputs.length >= 8 || acceptedBytes + byteLength > 16_384) {
+      throw clientError(
+        "conversation_input_capacity_reached",
+        "The active-run input count or byte budget is exhausted.",
+        "ask-user",
+      );
+    }
+    if (
+      (mode === "steer" && pending.some((input) => input.mode === "steer")) ||
+      (mode === "queue" && pending.filter((input) => input.mode === "queue").length >= 3)
+    ) {
+      throw clientError(
+        `${mode}_capacity_reached`,
+        mode === "steer"
+          ? "One steering message is already pending."
+          : "Three queued messages are already pending.",
+        "ask-user",
+      );
+    }
+    if (
+      state.codingBudget.grant.modelSteps - state.codingBudget.usage.modelSteps <=
+      pending.length
+    ) {
+      throw clientError(
+        "conversation_input_reservation_unavailable",
+        "No remaining model step can be reserved for this input.",
+        "ask-user",
+      );
+    }
+    try {
+      await session.engine.commit(
+        {
+          byteLength,
+          commandId: command.commandId,
+          content: command.content,
+          messageId: `message-${this.idSource.next()}`,
+          mode,
+          modelStep: state.codingBudget.grant.modelSteps - pending.length,
+          order: state.conversationInputs.length,
+          type: "conversation.input.accepted",
+        },
+        command.commandId,
+      );
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("conversation.input.accepted")) {
+        throw clientError(
+          "conversation_input_unavailable",
+          "The run advanced before this input could be accepted.",
+          "retry",
+        );
+      }
+      throw error;
+    }
+    this.notify();
+    return this.currentView();
   }
 
   private async submitExclusive(
     command: ProductCommand,
-    options?: { readonly signal?: AbortSignal },
+    options?: {
+      readonly onRunStarted?: (view: ProductView) => void;
+      readonly signal?: AbortSignal;
+    },
   ): Promise<ProductView> {
     this.ensureOpen();
     if (this.readOnly) throw clientError("read_only_client", "This client is read-only.");
@@ -1058,6 +1199,9 @@ export class InProcessAgentClient implements AgentClient {
             }
           }
           this.session = session;
+          if (resolvedProfile !== null) {
+            options?.onRunStarted?.(await this.currentView());
+          }
         }, options?.signal);
         await this.driveEffects(options?.signal);
       } catch (error) {
@@ -1110,6 +1254,9 @@ export class InProcessAgentClient implements AgentClient {
             "unsupported_command",
             `${decoded.value.type} is outside the R1 fake-task slice.`,
           );
+        case "conversation.steer":
+        case "conversation.queue":
+          throw new Error("Active-run input must use the concurrent acceptance lane.");
       }
     }
     this.notify();

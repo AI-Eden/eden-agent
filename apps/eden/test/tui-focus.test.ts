@@ -7,6 +7,7 @@ import { act, createElement, useMemo } from "react";
 
 import { densityForLayout, tuiDesignTokens } from "../src/tui-design.ts";
 import {
+  activeComposerActionForKey,
   commandForKey,
   focusOrder,
   layoutModeForViewport,
@@ -15,6 +16,7 @@ import {
   reconcileFocus,
   type TuiFocusContext,
 } from "../src/tui-focus.ts";
+import { toolPresentationRegistry } from "../src/tui-tool-cards.tsx";
 
 test("design tokens keep semantic state and narrow fallbacks deterministic", () => {
   expect(tuiDesignTokens.color.awaiting).not.toBe(tuiDesignTokens.color.danger);
@@ -22,6 +24,25 @@ test("design tokens keep semantic state and narrow fallbacks deterministic", () 
   expect(tuiDesignTokens.state.disabled).toBe("disabled");
   expect(densityForLayout("narrow")).toEqual({ border: false, gap: 0, padding: 0 });
   expect(densityForLayout("wide")).toEqual({ border: true, gap: 1, padding: 1 });
+});
+
+test("the typed tool registry exhaustively owns every current repository capability", () => {
+  expect(Object.keys(toolPresentationRegistry).sort()).toEqual([
+    "anchor_edit",
+    "git_diff",
+    "git_status",
+    "list_files",
+    "read_file",
+    "repository_check",
+    "run_command",
+    "search_repository",
+    "write_file",
+  ]);
+  expect(toolPresentationRegistry.run_command.authority).toContain(
+    "approved structured host command",
+  );
+  expect(toolPresentationRegistry.anchor_edit.authority).toContain("approval-gated");
+  expect(toolPresentationRegistry.read_file.authority).toContain("read-only");
 });
 
 const trustedWorkspace: TuiFocusContext = {
@@ -93,12 +114,26 @@ test("one key router maps navigation, activation, overlays, and surfaced mnemoni
   });
 });
 
+test("active composer chords keep newline distinct from steer and queue", () => {
+  expect(activeComposerActionForKey({ name: "return" })).toBe("steer");
+  expect(activeComposerActionForKey({ meta: true, name: "return" })).toBe("queue");
+  expect(activeComposerActionForKey({ name: "return", option: true })).toBe("queue");
+  expect(activeComposerActionForKey({ name: "return", shift: true })).toBe("newline");
+  expect(activeComposerActionForKey({ name: "a" })).toBe(null);
+});
+
 test("run and history states expose only actions that can execute", () => {
+  expect(
+    focusOrder({ ...trustedWorkspace, hasConversationInput: true, runState: "active" }),
+  ).toEqual(["run.composer", "run.cancel"]);
   expect(focusOrder({ ...trustedWorkspace, runState: "approval" })).toEqual([
     "run.approve",
     "run.deny",
     "run.cancel",
   ]);
+  expect(
+    focusOrder({ ...trustedWorkspace, hasConversationInput: true, runState: "approval" }),
+  ).toEqual(["run.approve", "run.deny", "run.composer", "run.cancel"]);
   expect(focusOrder({ ...trustedWorkspace, runState: "retry" })).toEqual([
     "run.retry",
     "run.cancel",
@@ -126,6 +161,7 @@ test("run palette exposes explicit narrow conversation, context, and recovery sw
   expect(entries.map((entry) => entry.commandId)).toContain("show-conversation");
   expect(entries.map((entry) => entry.commandId)).toContain("show-context");
   expect(entries.map((entry) => entry.commandId)).toContain("show-recovery");
+  expect(entries.map((entry) => entry.commandId)).toContain("history");
   expect(entries.find((entry) => entry.commandId === "show-recovery")?.enabled).toBe(true);
   const terminalEntries = paletteEntries({
     ...trustedWorkspace,
@@ -133,6 +169,10 @@ test("run palette exposes explicit narrow conversation, context, and recovery sw
     runState: "terminal",
   });
   expect(terminalEntries.find((entry) => entry.commandId === "show-recovery")?.enabled).toBe(true);
+  expect(commandForKey({ ...trustedWorkspace, runState: "active" }, { name: "h" })).toEqual({
+    commandId: "history",
+    type: "invoke",
+  });
 });
 
 test("the selected OpenTUI stack delivers navigation and overlay keys to the graph owner", async () => {

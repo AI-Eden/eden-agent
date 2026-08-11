@@ -142,6 +142,66 @@ class ScriptedHost implements EffectHost {
   }
 }
 
+class GatedSteerHost implements EffectHost {
+  readonly requests: ModelStepRequestV1[] = [];
+  private releaseFirst: (() => void) | undefined;
+  readonly firstStarted: Promise<void>;
+  private markFirstStarted: (() => void) | undefined;
+
+  constructor() {
+    this.firstStarted = new Promise<void>((resolve) => {
+      this.markFirstStarted = resolve;
+    });
+  }
+
+  async execute(): Promise<KernelEvent> {
+    throw new Error("Unexpected repository effect.");
+  }
+
+  async reconcile(): Promise<ReconciliationResult> {
+    return { status: "not-started" };
+  }
+
+  async executeModelAttempt(
+    effect: Extract<KernelEffect, { readonly type: "provider.model.step" }>,
+    request: ModelStepRequestV1,
+  ): Promise<KernelEvent> {
+    this.requests.push(request);
+    if (this.requests.length === 1) {
+      this.markFirstStarted?.();
+      await new Promise<void>((resolve) => {
+        this.releaseFirst = resolve;
+      });
+    }
+    return {
+      effectId: effect.effectId,
+      observation: {
+        attemptId: request.attemptId,
+        finishStatus: "stop",
+        privateContinuity: null,
+        requestId: `request-${this.requests.length}`,
+        status: "completed",
+        text:
+          this.requests.length === 1
+            ? "The current answer reached a safe boundary."
+            : "The steering request was handled once.",
+        toolCalls: [],
+        usage: null,
+        version: 1,
+      },
+      type: "model.step.completed",
+    };
+  }
+
+  async reconcileModelAttempt(): Promise<ReconciliationResult> {
+    return { status: "not-started" };
+  }
+
+  release(): void {
+    this.releaseFirst?.();
+  }
+}
+
 class BatchScriptedHost implements EffectHost {
   completionOrder: string[] = [];
   maxActive = 0;
@@ -315,6 +375,104 @@ async function drive(runtime: RuntimeEngine) {
 }
 
 describe("provider model runtime loop", () => {
+  it("delivers queued follow-ups FIFO only after each model stop", async () => {
+    const host = new ScriptedHost(
+      ["Initial answer.", "First queued answer.", "Second queued answer."].map((text, index) => ({
+        attemptId: "replaced",
+        finishStatus: "stop" as const,
+        privateContinuity: null,
+        requestId: `request-queue-${index}`,
+        status: "completed" as const,
+        text,
+        toolCalls: [],
+        usage: null,
+        version: 1 as const,
+      })),
+    );
+    const root = await mkdtemp(join(tmpdir(), "eden-provider-queue-"));
+    const journal = await FileJournal.open(join(root, "journal.jsonl"), "run-queue", {
+      profile: "usable_coding_v1",
+    });
+    const runtime = await RuntimeEngine.open(journal, host, clock, ids());
+    await runtime.commit(batchStartEvent("run-queue"), "command-run-queue");
+    for (const [index, content] of ["First follow-up.", "Second follow-up."].entries()) {
+      await runtime.commit(
+        {
+          byteLength: new TextEncoder().encode(content).byteLength,
+          commandId: `command-queue-${index}`,
+          content,
+          messageId: `message-queue-${index}`,
+          mode: "queue",
+          modelStep: 8 - index,
+          order: index,
+          type: "conversation.input.accepted",
+        },
+        `command-queue-${index}`,
+      );
+    }
+    await drive(runtime);
+
+    assert.equal(runtime.state.phase, "terminal");
+    assert.deepEqual(
+      host.requests.map((request) =>
+        request.conversation.filter((item) => item.role === "user").map((item) => item.content),
+      ),
+      [
+        ["Read independent files."],
+        ["Read independent files.", "First follow-up."],
+        ["Read independent files.", "First follow-up.", "Second follow-up."],
+      ],
+    );
+    const replayed = await RuntimeEngine.open(journal, host, clock, ids(100));
+    assert.deepEqual(replayed.state, runtime.state);
+  });
+
+  it("accepts steering during an in-flight attempt and delivers it once at the next request", async () => {
+    const host = new GatedSteerHost();
+    const root = await mkdtemp(join(tmpdir(), "eden-provider-steer-"));
+    const journal = await FileJournal.open(join(root, "journal.jsonl"), "run-steer", {
+      profile: "usable_coding_v1",
+    });
+    const runtime = await RuntimeEngine.open(journal, host, clock, ids());
+    await runtime.commit(batchStartEvent("run-steer"), "command-run-steer");
+    const firstEffect = await runtime.requestNextEffect();
+    assert.equal(firstEffect?.type, "provider.model.step");
+    const settling = runtime.settleInFlightEffect();
+    await host.firstStarted;
+    await runtime.commit(
+      {
+        byteLength: 25,
+        commandId: "command-steer",
+        content: "Inspect the failing test.",
+        messageId: "message-steer",
+        mode: "steer",
+        modelStep: 8,
+        order: 0,
+        type: "conversation.input.accepted",
+      },
+      "command-steer",
+    );
+    host.release();
+    await settling;
+    const secondEffect = await runtime.requestNextEffect();
+    assert.equal(secondEffect?.type, "provider.model.step");
+    await runtime.settleInFlightEffect();
+
+    assert.equal(runtime.state.phase, "terminal");
+    assert.equal(host.requests.length, 2);
+    assert.deepEqual(host.requests[1]?.conversation.at(-1), {
+      content: "Inspect the failing test.",
+      role: "user",
+    });
+    const projected = projectView(runtime.state);
+    assert.deepEqual(projected.conversationInput?.pending, []);
+    assert.equal(projected.conversationInput?.acceptedCount, 1);
+    assert.equal(
+      projected.conversation?.filter((turn) => turn.role === "user" && "messageId" in turn).length,
+      1,
+    );
+  });
+
   it("persists two model attempts and one tool result, then replays with zero side effects", async () => {
     const host = new ScriptedHost([
       {

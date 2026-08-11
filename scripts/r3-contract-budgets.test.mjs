@@ -29,6 +29,24 @@ function encoded(event, sequence = 0) {
   ).byteLength;
 }
 
+function proposedRecordBytes(type, payload, sequence) {
+  return Buffer.byteLength(
+    `${JSON.stringify({
+      causationId: `r3-b-command-${sequence}`,
+      correlationId: "r3-b-active-input",
+      eventId: `r3-b-event-${sequence}`,
+      journalVersion: 1,
+      payload,
+      recordedAt: time,
+      redaction: { fields: [], status: "not-required" },
+      runId: "run-r3-budget",
+      sequence,
+      type,
+    })}\n`,
+    "utf8",
+  );
+}
+
 function modelCompleted(toolCalls, text = "x".repeat(4_096)) {
   return {
     effectId: "effect-model",
@@ -214,7 +232,7 @@ test("R3 maximum production event fixtures fit one exact journal record", async 
   }
 });
 
-test("the independently counted complete R3-A maximum fixture fits 2 MiB and 4096 records", async () => {
+test("the independently counted R3-A plus maximum active-input fixture fits existing limits", async (t) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), "eden-r3-run-budget-")));
   const stateDirectory = join(root, "state");
   await mkdir(stateDirectory);
@@ -352,11 +370,74 @@ test("the independently counted complete R3-A maximum fixture fits 2 MiB and 409
       { count: 12, name: "maximum tracked snapshots", size: encoded(snapshot) },
       { count: 160, name: "remaining lifecycle facts", size: encoded(smallLifecycle) },
     ];
-    const recordCount = categories.reduce((total, category) => total + category.count, 0);
-    const bytes = categories.reduce((total, category) => total + category.count * category.size, 0);
+    const activeInputContents = [
+      "u".repeat(4_096),
+      ...Array.from({ length: 4 }, () => "u".repeat(2_048)),
+      "u".repeat(1_365),
+      "u".repeat(1_365),
+      "u".repeat(1_366),
+    ];
+    const activeInputContentBytes = activeInputContents.reduce(
+      (total, content) => total + Buffer.byteLength(content, "utf8"),
+      0,
+    );
+    const activeInputRecords = activeInputContents.flatMap((content, index) => {
+      const message = {
+        byteLength: Buffer.byteLength(content, "utf8"),
+        commandId: `command-active-input-${index}`,
+        content,
+        messageId: `message-active-input-${index}`,
+        mode: index % 2 === 0 ? "steer" : "queue",
+        order: index,
+        reservedModelStep: index + 1,
+      };
+      return [
+        proposedRecordBytes("conversation.input.accepted", message, 300 + index * 2),
+        proposedRecordBytes("conversation.input.delivered", message, 301 + index * 2),
+      ];
+    });
+    const activeInputContextBytes = Buffer.byteLength(
+      JSON.stringify(
+        activeInputContents.map((content, index) => ({
+          content,
+          messageId: `message-active-input-${index}`,
+          role: "user",
+          source: index % 2 === 0 ? "steer" : "queue",
+        })),
+      ),
+      "utf8",
+    );
+    const r3ARecordCount = categories.reduce((total, category) => total + category.count, 0);
+    const r3ABytes = categories.reduce(
+      (total, category) => total + category.count * category.size,
+      0,
+    );
+    const activeInputJournalBytes = activeInputRecords.reduce((total, size) => total + size, 0);
+    const recordCount = r3ARecordCount + activeInputRecords.length;
+    const bytes = r3ABytes + activeInputJournalBytes;
 
+    strictEqual(activeInputContents.length, 8);
+    strictEqual(activeInputContentBytes, 16_384);
+    strictEqual(
+      Math.max(...activeInputContents.map((content) => Buffer.byteLength(content))),
+      4_096,
+    );
+    strictEqual(Math.max(...activeInputRecords) <= 65_536, true);
+    strictEqual(activeInputContextBytes <= 32_768, true);
     strictEqual(recordCount <= 4_096, true);
     strictEqual(bytes <= 2_097_152, true, JSON.stringify({ bytes, categories }));
+    t.diagnostic(
+      JSON.stringify({
+        activeInputContentBytes,
+        activeInputContextBytes,
+        activeInputJournalBytes,
+        activeInputRecords: activeInputRecords.length,
+        r3ABytes,
+        r3ARecordCount,
+        totalBytes: bytes,
+        totalRecords: recordCount,
+      }),
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }

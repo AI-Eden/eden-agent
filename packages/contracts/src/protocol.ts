@@ -55,6 +55,25 @@ const shortText = () => Type.String({ maxLength: 512, minLength: 1 });
 const closed = { additionalProperties: false } as const;
 const approvalSha256Schema = Type.String({ pattern: "^sha256:[a-f0-9]{64}$" });
 
+function isWellFormedUnicode(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const nextCodeUnit = value.charCodeAt(index + 1);
+      if (!(nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff)) return false;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export const ActiveRunInputContentSchema = Type.Refine(
+  Type.String({ maxLength: 4_096, minLength: 1 }),
+  (value) => isWellFormedUnicode(value) && new TextEncoder().encode(value).byteLength <= 4_096,
+);
+
 export const ProductErrorSchema = Type.Object(
   {
     code: Type.String({ maxLength: 128, minLength: 1, pattern: "^[a-z][a-z0-9_]*$" }),
@@ -117,6 +136,22 @@ export const RetryModelCommandSchema = Type.Object(
   { ...runCommandEnvelope, type: Type.Literal("model.retry") },
   closed,
 );
+export const SteerConversationCommandSchema = Type.Object(
+  {
+    ...runCommandEnvelope,
+    content: ActiveRunInputContentSchema,
+    type: Type.Literal("conversation.steer"),
+  },
+  closed,
+);
+export const QueueConversationCommandSchema = Type.Object(
+  {
+    ...runCommandEnvelope,
+    content: ActiveRunInputContentSchema,
+    type: Type.Literal("conversation.queue"),
+  },
+  closed,
+);
 export const ResolveWorkspaceTrustCommandSchema = Type.Object(
   {
     ...commandEnvelope,
@@ -135,6 +170,8 @@ export const ProductCommandSchema = Type.Union([
   CancelRunCommandSchema,
   ResolveApprovalCommandSchema,
   RetryModelCommandSchema,
+  SteerConversationCommandSchema,
+  QueueConversationCommandSchema,
 ]);
 export type ProductCommand = Type.Static<typeof ProductCommandSchema>;
 
@@ -918,9 +955,92 @@ export const ModelAttemptSummarySchema = Type.Object(
 );
 export type ModelAttemptSummary = Type.Static<typeof ModelAttemptSummarySchema>;
 
+export const ConversationInputModeSchema = Type.Union([
+  Type.Literal("steer"),
+  Type.Literal("queue"),
+]);
+export type ConversationInputMode = Type.Static<typeof ConversationInputModeSchema>;
+
+const conversationInputIdentity = {
+  byteLength: Type.Integer({ maximum: 4_096, minimum: 1 }),
+  commandId: CommandIdSchema,
+  content: ActiveRunInputContentSchema,
+  messageId: Type.String(identifierOptions),
+  mode: ConversationInputModeSchema,
+  order: Type.Integer({ maximum: 7, minimum: 0 }),
+} as const;
+const conversationInputReservation = (state: "reserved" | "consumed" | "released") =>
+  Type.Object(
+    {
+      modelStep: Type.Integer({ maximum: 12, minimum: 1 }),
+      state: Type.Literal(state),
+    },
+    closed,
+  );
+const conversationInputHasExactByteLength = (input: {
+  readonly byteLength: number;
+  readonly content: string;
+}) => new TextEncoder().encode(input.content).byteLength === input.byteLength;
+
+export const AcceptedConversationInputSchema = Type.Refine(
+  Type.Object(
+    {
+      ...conversationInputIdentity,
+      closureReason: Type.Null(),
+      deliveredTurnId: Type.Null(),
+      reservation: conversationInputReservation("reserved"),
+      state: Type.Literal("accepted"),
+    },
+    closed,
+  ),
+  conversationInputHasExactByteLength,
+);
+export const DeliveredConversationInputSchema = Type.Refine(
+  Type.Object(
+    {
+      ...conversationInputIdentity,
+      closureReason: Type.Null(),
+      deliveredTurnId: Type.String(identifierOptions),
+      reservation: conversationInputReservation("consumed"),
+      state: Type.Literal("delivered"),
+    },
+    closed,
+  ),
+  conversationInputHasExactByteLength,
+);
+export const ClosedConversationInputSchema = Type.Refine(
+  Type.Object(
+    {
+      ...conversationInputIdentity,
+      closureReason: ProductErrorSchema,
+      deliveredTurnId: Type.Null(),
+      reservation: conversationInputReservation("released"),
+      state: Type.Literal("closed"),
+    },
+    closed,
+  ),
+  conversationInputHasExactByteLength,
+);
+export const ConversationInputLifecycleSchema = Type.Union([
+  AcceptedConversationInputSchema,
+  DeliveredConversationInputSchema,
+  ClosedConversationInputSchema,
+]);
+export type ConversationInputLifecycle = Type.Static<typeof ConversationInputLifecycleSchema>;
+
 export const ConversationTurnSchema = Type.Union([
   Type.Object(
     { content: boundedText(), role: Type.Literal("user"), turnId: Type.String(identifierOptions) },
+    closed,
+  ),
+  Type.Object(
+    {
+      content: ActiveRunInputContentSchema,
+      messageId: Type.String(identifierOptions),
+      role: Type.Literal("user"),
+      source: ConversationInputModeSchema,
+      turnId: Type.String(identifierOptions),
+    },
     closed,
   ),
   Type.Object(
@@ -935,6 +1055,62 @@ export const ConversationTurnSchema = Type.Union([
   ),
 ]);
 export type ConversationTurn = Type.Static<typeof ConversationTurnSchema>;
+
+const ConversationInputSubmissionAvailabilitySchema = Type.Refine(
+  Type.Object(
+    {
+      available: Type.Boolean(),
+      reason: Type.Union([ProductErrorSchema, Type.Null()]),
+    },
+    closed,
+  ),
+  (submission) => submission.available === (submission.reason === null),
+);
+export const ConversationInputProductViewSchema = Type.Refine(
+  Type.Object(
+    {
+      acceptedBytes: Type.Integer({ maximum: 16_384, minimum: 0 }),
+      acceptedCount: Type.Integer({ maximum: 8, minimum: 0 }),
+      closed: Type.Array(ClosedConversationInputSchema, { maxItems: 8 }),
+      pending: Type.Array(AcceptedConversationInputSchema, { maxItems: 4 }),
+      remainingBytes: Type.Integer({ maximum: 16_384, minimum: 0 }),
+      reservations: Type.Object(
+        {
+          pending: Type.Integer({ maximum: 4, minimum: 0 }),
+          remainingModelSteps: Type.Integer({ maximum: 12, minimum: 0 }),
+        },
+        closed,
+      ),
+      submission: Type.Object(
+        {
+          queue: ConversationInputSubmissionAvailabilitySchema,
+          steer: ConversationInputSubmissionAvailabilitySchema,
+        },
+        closed,
+      ),
+    },
+    closed,
+  ),
+  (view) => {
+    const projectedInputs = [...view.pending, ...view.closed];
+    const projectedBytes = projectedInputs.reduce((total, input) => total + input.byteLength, 0);
+    const messageIds = new Set(projectedInputs.map((input) => input.messageId));
+    const commandIds = new Set(projectedInputs.map((input) => input.commandId));
+    const pendingSteerCount = view.pending.filter((input) => input.mode === "steer").length;
+    const pendingQueueCount = view.pending.filter((input) => input.mode === "queue").length;
+    return (
+      view.remainingBytes === 16_384 - view.acceptedBytes &&
+      view.acceptedCount >= projectedInputs.length &&
+      view.acceptedBytes >= projectedBytes &&
+      view.reservations.pending === view.pending.length &&
+      pendingSteerCount <= 1 &&
+      pendingQueueCount <= 3 &&
+      messageIds.size === projectedInputs.length &&
+      commandIds.size === projectedInputs.length
+    );
+  },
+);
+export type ConversationInputProductView = Type.Static<typeof ConversationInputProductViewSchema>;
 
 export const RetrySummarySchema = Type.Object(
   {
@@ -1324,6 +1500,7 @@ const ProductViewObjectSchema = Type.Object(
     tools: Type.Optional(Type.Array(ToolActivitySchema, { maxItems: 16 })),
     attempts: Type.Optional(Type.Array(ModelAttemptSummarySchema, { maxItems: 36 })),
     conversation: Type.Optional(Type.Array(ConversationTurnSchema, { maxItems: 13 })),
+    conversationInput: Type.Optional(ConversationInputProductViewSchema),
     retry: Type.Optional(RetrySummarySchema),
     repositoryCheck: Type.Optional(RepositoryCheckProductViewV1Schema),
   },
@@ -1539,6 +1716,14 @@ export const ConversationUpdatedEventSchema = Type.Object(
   },
   closed,
 );
+export const ConversationInputUpdatedEventSchema = Type.Object(
+  {
+    ...eventEnvelope,
+    input: ConversationInputLifecycleSchema,
+    type: Type.Literal("conversation.input.updated"),
+  },
+  closed,
+);
 export const RepositoryCheckUpdatedEventSchema = Type.Refine(
   Type.Object(
     {
@@ -1558,6 +1743,7 @@ export const ProductEventSchema = Type.Union([
   ToolUpdatedEventSchema,
   ModelAttemptUpdatedEventSchema,
   ConversationUpdatedEventSchema,
+  ConversationInputUpdatedEventSchema,
   RepositoryCheckUpdatedEventSchema,
   ReviewUpdatedEventSchema,
   RunTerminalEventSchema,
@@ -1669,7 +1855,10 @@ export interface AgentClient {
   reloadProviderProfiles(): Promise<ProviderProfileCatalog>;
   submit(
     command: ProductCommand,
-    options?: { readonly signal?: AbortSignal },
+    options?: {
+      readonly onRunStarted?: (view: ProductView) => void;
+      readonly signal?: AbortSignal;
+    },
   ): Promise<ProductView>;
   getSnapshot(runId: RunId): Promise<ProductView>;
   subscribe(

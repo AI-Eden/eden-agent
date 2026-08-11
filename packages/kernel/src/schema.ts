@@ -1,5 +1,6 @@
 import {
   ActionEnvelopeV1Schema,
+  ActiveRunInputContentSchema,
   ClosedCheckObservationSchema,
   RepositoryToolCallSchema as ContractRepositoryToolCallSchema,
   RepositoryToolResultSchema as ContractRepositoryToolResultSchema,
@@ -588,6 +589,30 @@ export const KernelEventSchema = Type.Union([
       effectId: identifier(),
       observation: ModelStepObservationSchema,
       type: Type.Literal("model.step.completed"),
+    },
+    closed,
+  ),
+  Type.Refine(
+    Type.Object(
+      {
+        byteLength: Type.Integer({ maximum: 4_096, minimum: 1 }),
+        commandId: identifier(),
+        content: ActiveRunInputContentSchema,
+        messageId: identifier(),
+        mode: Type.Union([Type.Literal("steer"), Type.Literal("queue")]),
+        modelStep: Type.Integer({ maximum: 12, minimum: 1 }),
+        order: Type.Integer({ maximum: 7, minimum: 0 }),
+        type: Type.Literal("conversation.input.accepted"),
+      },
+      closed,
+    ),
+    (event) => new TextEncoder().encode(event.content).byteLength === event.byteLength,
+  ),
+  Type.Object(
+    {
+      messageId: identifier(),
+      turnId: identifier(),
+      type: Type.Literal("conversation.input.delivered"),
     },
     closed,
   ),

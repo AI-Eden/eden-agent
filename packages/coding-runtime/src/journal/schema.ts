@@ -51,6 +51,8 @@ const eventType = Type.Union([
   Type.Literal("model.context.committed"),
   Type.Literal("model.step.completed"),
   Type.Literal("model.retry.requested"),
+  Type.Literal("conversation.input.accepted"),
+  Type.Literal("conversation.input.delivered"),
   Type.Literal("repository.tool.completed"),
   Type.Literal("repository.tool.batch.item.started"),
   Type.Literal("repository.tool.batch.item.completed"),

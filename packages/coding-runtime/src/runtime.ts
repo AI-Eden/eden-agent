@@ -119,6 +119,7 @@ export class RuntimeEngine {
   private lastEventId: string | null;
   private sequence: number;
   private currentState: RunState;
+  private commitTail: Promise<void> = Promise.resolve();
   private journalBytes: number;
   private startedAtMs: number | null;
 
@@ -192,6 +193,20 @@ export class RuntimeEngine {
   }
 
   async commit(event: KernelEvent, causationId: string | null): Promise<void> {
+    const previous = this.commitTail;
+    let release: () => void = () => undefined;
+    this.commitTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      await this.commitExclusive(event, causationId);
+    } finally {
+      release();
+    }
+  }
+
+  private async commitExclusive(event: KernelEvent, causationId: string | null): Promise<void> {
     const transition = reduce(this.currentState, event);
     if (!transition.ok) {
       throw new Error(`Illegal transition: ${transition.error.eventType}`);
@@ -236,6 +251,28 @@ export class RuntimeEngine {
   }
 
   async requestNextEffect(): Promise<KernelEffect | null> {
+    if (
+      this.currentState.phase === "executing" &&
+      "model" in this.currentState &&
+      this.currentState.stage === "model-ready"
+    ) {
+      const pending = this.currentState.conversationInputs.filter(
+        (input) => input.state === "accepted",
+      );
+      const next =
+        pending.find((input) => input.mode === "steer") ??
+        (this.currentState.queueDeliveryReady ? pending[0] : undefined);
+      if (next !== undefined) {
+        await this.commit(
+          {
+            messageId: next.messageId,
+            turnId: `turn-${this.idSource.next()}`,
+            type: "conversation.input.delivered",
+          },
+          this.lastEventId,
+        );
+      }
+    }
     if (
       this.currentState.phase === "executing" &&
       this.currentState.stage === "approval-consume-ready" &&
@@ -455,7 +492,10 @@ export class RuntimeEngine {
         throw new Error("The model attempt state changed before dispatch.");
       }
       const enabledTools: ModelStepRequestV1["enabledTools"] =
-        state.codingBudget !== undefined && state.modelStep >= state.codingBudget.grant.modelSteps
+        state.codingBudget !== undefined &&
+        state.modelStep >=
+          state.codingBudget.grant.modelSteps -
+            state.conversationInputs.filter((input) => input.state === "accepted").length
           ? []
           : [
               "list_files",

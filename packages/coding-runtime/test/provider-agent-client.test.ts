@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
 
-import type { ProductEvent, WorkspaceReview } from "@eden/contracts";
+import type { ProductEvent, ProductView, WorkspaceReview } from "@eden/contracts";
 import type {
   ModelStepDriver,
   ModelStepObservationV1,
@@ -108,6 +108,47 @@ class ReadThenAnswerProvider implements ModelStepDriver {
       usage: { completionTokens: 9, promptTokens: 41, totalTokens: 50 },
       version: 1,
     };
+  }
+}
+
+class GatedSteeringProvider implements ModelStepDriver {
+  readonly requests: ModelStepRequestV1[] = [];
+  readonly firstStarted: Promise<void>;
+  private markFirstStarted: (() => void) | undefined;
+  private releaseFirst: (() => void) | undefined;
+
+  constructor() {
+    this.firstStarted = new Promise<void>((resolve) => {
+      this.markFirstStarted = resolve;
+    });
+  }
+
+  async completeModelStep(request: ModelStepRequestV1): Promise<ModelStepObservationV1> {
+    this.requests.push(request);
+    if (this.requests.length === 1) {
+      this.markFirstStarted?.();
+      await new Promise<void>((resolve) => {
+        this.releaseFirst = resolve;
+      });
+    }
+    return {
+      attemptId: request.attemptId,
+      finishStatus: "stop",
+      privateContinuity: null,
+      requestId: `request-steer-${this.requests.length}`,
+      status: "completed",
+      text:
+        this.requests.length === 1
+          ? "The first answer reached its safe boundary."
+          : "The steering message was handled once.",
+      toolCalls: [],
+      usage: null,
+      version: 1,
+    };
+  }
+
+  release(): void {
+    this.releaseFirst?.();
   }
 }
 
@@ -304,6 +345,139 @@ it("AgentClient runs a durable real-model tool loop with closed replay-only proj
     const projection = projectJournal(records);
     assert.deepEqual(projection.view, view);
     assert.equal(provider.calls, callsBeforeReplay);
+  } finally {
+    await client.close();
+  }
+});
+
+it("AgentClient accepts steering while run.start owns an in-flight provider attempt", async () => {
+  const root = await mkdtemp(join(tmpdir(), "eden-provider-steering-client-"));
+  const workspace = join(root, "workspace");
+  const stateDirectory = join(root, "state");
+  const ripgrep = join(root, "rg-fixture");
+  await mkdir(workspace, { recursive: true });
+  await writeFile(join(workspace, "AGENTS.md"), "# Fixture rules\nUse repository evidence.\n");
+  await writeFile(ripgrep, "fixture-ripgrep-15.0.0\n");
+  await chmod(ripgrep, 0o755);
+  const ripgrepHash = `sha256:${createHash("sha256").update("fixture-ripgrep-15.0.0\n").digest("hex")}`;
+  const nativeProcess: NativeProcessPort = {
+    async run(request) {
+      const output = request.executable === ripgrep ? "ripgrep 15.0.0\n" : "git version 2.43.0\n";
+      return {
+        exitCode: 0,
+        status: "exited",
+        stderr: new Uint8Array(),
+        stdout: Buffer.from(output),
+      };
+    },
+  };
+  const provider = new GatedSteeringProvider();
+  let nextId = 0;
+  const client = await InProcessAgentClient.open({
+    createModelProvider: () => provider,
+    createReadinessProvider: (resolved) => ({
+      async checkReadiness() {
+        return {
+          checkedAt: "2026-07-20T00:00:00.000Z",
+          model: resolved.profile.model,
+          profileId: resolved.profile.id,
+          requestId: null,
+          state: "completion_ready",
+        };
+      },
+    }),
+    cwd: workspace,
+    idSource: {
+      next: () => (nextId++ === 0 ? "run-active-input" : `id-${nextId}`),
+    },
+    profileEnvironment: { EDEN_DEEPSEEK_KEY: credentialCanary },
+    realProviderRuns: true,
+    repositoryTools: {
+      gitExecutable: "git-fixture",
+      nativeProcess,
+      ripgrepAsset: { contentHash: ripgrepHash, path: ripgrep, version: "15.0.0" },
+    },
+    stateDirectory,
+  });
+  try {
+    const initial = await client.getProviderProfiles();
+    const saved = await client.saveProviderProfile({
+      commandId: "command-save-steer",
+      expectedRevision: initial.revision,
+      profile: {
+        baseUrl: "https://api.deepseek.com",
+        billingSource: "pay_as_you_go",
+        contextWindowTokens: 128_000,
+        credential: { name: "EDEN_DEEPSEEK_KEY", source: "environment" },
+        id: "deepseek",
+        maxOutputTokens: 8_192,
+        model: "deepseek-v4-pro",
+        protocol: "openai_chat_completions",
+        reasoningDisplay: "off",
+      },
+      protocolVersion: 1,
+      select: true,
+      type: "provider.profile.save",
+    });
+    await client.resolveWorkspaceTrust(trustCommand(await client.getWorkspaceReview()));
+    await client.checkProviderReadiness({
+      commandId: "command-ready-steer",
+      expectedRevision: saved.revision,
+      possibleChargeConfirmed: true,
+      profileId: "deepseek",
+      protocolVersion: 1,
+      type: "provider.readiness.check",
+    });
+    const startedView: { current: ProductView | null } = { current: null };
+    const runPromise = client.submit(
+      {
+        commandId: "command-run-steer",
+        protocolVersion: 1,
+        task: "Answer, then accept one steering message.",
+        type: "run.start",
+      },
+      { onRunStarted: (view) => (startedView.current = view) },
+    );
+    await provider.firstStarted;
+    assert.equal(startedView.current?.runId, "run-active-input");
+    assert.equal(startedView.current?.conversationInput?.submission.steer.available, true);
+    const inFlight = await client.getSnapshot("run-active-input");
+    const accepted = await client.submit({
+      commandId: "command-steer",
+      content: "Inspect the failing test.",
+      expectedRevision: inFlight.revision,
+      protocolVersion: 1,
+      runId: inFlight.runId,
+      type: "conversation.steer",
+    });
+    assert.equal(accepted.conversationInput?.pending.length, 1);
+    const duplicate = await client.submit({
+      commandId: "command-steer",
+      content: "Inspect the failing test.",
+      expectedRevision: inFlight.revision,
+      protocolVersion: 1,
+      runId: inFlight.runId,
+      type: "conversation.steer",
+    });
+    assert.equal(duplicate.revision, accepted.revision);
+    provider.release();
+    const completed = await runPromise;
+
+    assert.equal(completed.phase, "review");
+    assert.equal(provider.requests.length, 2);
+    assert.deepEqual(provider.requests[1]?.conversation.at(-1), {
+      content: "Inspect the failing test.",
+      role: "user",
+    });
+    assert.equal(completed.conversationInput?.pending.length, 0);
+    assert.equal(completed.conversationInput?.acceptedCount, 1);
+    const events = await collect(client.subscribe(completed.runId));
+    assert.deepEqual(
+      events
+        .filter((event) => event.type === "conversation.input.updated")
+        .map((event) => event.input.state),
+      ["accepted", "delivered"],
+    );
   } finally {
     await client.close();
   }

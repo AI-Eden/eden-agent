@@ -1,6 +1,6 @@
 # R3 Resume-Ready Verified Goal Plan
 
-- Status: R3-A accepted and closed on 2026-08-11; focused R3-B Freeze packet accepted, Build not authorized
+- Status: R3-A accepted and closed; R3-B Slices 0-4 candidate locally green; formal Slice 5 evidence pending
 - Date: 2026-08-10
 - Amended: 2026-08-11
 - Roadmap stage: R3, Verified Goal Product - v0.1
@@ -9,11 +9,11 @@
 - Required ADR: `docs/adr/0019-r3-resume-ready-vertical-delivery.md`
 - Blocking path: R3-A -> R3-B -> R3-C -> R3-E
 - Optional milestone: R3-D after R3-C, only with separate owner activation
-- Human checkpoint: separately authorize or decline R3-B Build from accepted ADR 0020 and `docs/plans/2026-08-11-r3-b-terminal-product-shell.md`
+- Human checkpoint: review the exact-source copied-package R3-B evidence before R3-C begins
 
 ## Authority and entry conditions
 
-The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, authorized public-first commits and pushes, accepted the deterministic candidate, and authorized copied packaged TUI evidence. After the first matching-provider row failed and the owner-authorized offline repair completed, the owner authorized one fresh matching-provider fixture at exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; it passed and consumed that authority. The owner accepted and closed R3-A, then authorized R3-B documentation-only Freeze. ADR 0020 and the focused R3-B plan now refine and supersede only this plan's R3-B Slice 6-7 detail. R3-B Build, another provider or network call, R3-D activation, image or package publication, and release publication remain separately unauthorized.
+The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, authorized public-first commits and pushes, accepted the deterministic candidate, and authorized copied packaged TUI evidence. After the first matching-provider row failed and the owner-authorized offline repair completed, the owner authorized one fresh matching-provider fixture at exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; it passed and consumed that authority. The owner accepted and closed R3-A, accepted ADR 0020 with the focused R3-B plan, separately authorized R3-B Build, reviewed the first active-input RED, and authorized autonomous work inside R3-B. The focused packet refines and supersedes only this plan's R3-B Slice 6-7 detail. The Slices 0-4 implementation candidate and copied-package diagnostic are green, while formal Slice 5 evidence awaits an exact committed candidate. Another provider or network call, R3-D activation, image or package publication, and release publication remain separately unauthorized.
 
 Build restarted only after that fresh authority. Its entry audit recorded and preserved the dirty Slice 0 draft and verified the public local/canonical/GitHub refs plus tutorial gitlink before the first new RED. Publication remains public repository first and tutorial gitlink second.
 
@@ -48,7 +48,7 @@ The local milestone gate includes `pnpm test`, `pnpm typecheck`, `pnpm build`, `
 
 The first owner-authorized matching real-provider attempt used the copied package, `https://api.deepseek.com`, and `deepseek-v4-pro` at `092f9a107e93112b401a1c9e48dcad04ff064529`. It stopped before terminal completion at the explicit `network` retry boundary; the runtime performed no automatic retry and the old driver emitted no passing JSON before cleaning its temporary directory. Later offline diagnosis found that the old driver had forwarded `NODE_TLS_REJECT_UNAUTHORIZED=0`, so that failed historical row cannot establish normal TLS.
 
-After accepting the recommendation to keep R3-A open, the owner authorized a bounded offline failure-artifact/TLS diagnosis. The repair makes every post-preflight failure write a schema-validated sanitized artifact before cleanup, uses a typed product retry-boundary error, excludes credential/raw-provider/transcript content, and removes inherited `NODE_TLS_REJECT_UNAUTHORIZED` from the copied-package child environment. A later, separately authorized single fixture at exact public candidate `468c4ba0f726715c2f190b3c2842f798992e8543` passed the complete copied-package coding journey against `https://api.deepseek.com` and `deepseek-v4-pro`. It proved normal TLS, did not forward the disable variable, performed no automatic fixture retry, ended non-success `completed`, restored the terminal, passed the independent repository oracle, and exposed no credential canary. The machine-readable evidence is `docs/benchmark-results/2026-08-11-r3-a-real-provider.json`. The owner accepted and closed R3-A on 2026-08-11. R3-B now waits on approval of its focused Freeze packet before Build.
+After accepting the recommendation to keep R3-A open, the owner authorized a bounded offline failure-artifact/TLS diagnosis. The repair makes every post-preflight failure write a schema-validated sanitized artifact before cleanup, uses a typed product retry-boundary error, excludes credential/raw-provider/transcript content, and removes inherited `NODE_TLS_REJECT_UNAUTHORIZED` from the copied-package child environment. A later, separately authorized single fixture at exact public candidate `468c4ba0f726715c2f190b3c2842f798992e8543` passed the complete copied-package coding journey against `https://api.deepseek.com` and `deepseek-v4-pro`. It proved normal TLS, did not forward the disable variable, performed no automatic fixture retry, ended non-success `completed`, restored the terminal, passed the independent repository oracle, and exposed no credential canary. The machine-readable evidence is `docs/benchmark-results/2026-08-11-r3-a-real-provider.json`. The owner accepted and closed R3-A on 2026-08-11. R3-B Freeze, Build, and first-core RED review are complete; exact-source milestone evidence remains pending.
 
 ## Current repository facts
 
@@ -347,7 +347,7 @@ Provider, public web, Docker, hosted, commit, push, package publication, and rel
 
 ## Rollback and amendment policy
 
-This plan includes the owner-accepted 2026-08-11 Freeze amendment and became fixed implementation input after its review. Fresh Build authority and public-first commit/push authority were granted on 2026-08-11. If later evidence invalidates an authority, recovery, product, platform, batching, persistence, or completion decision, stop the current slice and propose another visible ADR/plan amendment; do not silently widen the action, raise a budget, weaken a check, change checkpoint semantics, or move R3-D into the release gate.
+This plan includes the owner-accepted 2026-08-11 Freeze amendment and became fixed implementation input after its review. The earlier public-first commit/push authority was consumed by the published R3-A and R3-B Freeze work; the current R3-B Build candidate requires fresh commit/push authority. If later evidence invalidates an authority, recovery, product, platform, batching, persistence, or completion decision, stop the current slice and propose another visible ADR/plan amendment; do not silently widen the action, raise a budget, weaken a check, change checkpoint semantics, or move R3-D into the release gate.
 
 Implementation remains reviewable one slice at a time. No Build step may discard unrelated user changes or rewrite history. Publication, if separately authorized later, remains public first and tutorial gitlink second.
 
@@ -355,7 +355,7 @@ Implementation remains reviewable one slice at a time. No Build step may discard
 
 1. **Freeze amendment review:** completed on 2026-08-11 when the owner accepted the amended ADR, normative/focused contracts, and complete plan as one packet.
 2. **Build reauthorization:** granted on 2026-08-11 for implementation from the amended packet.
-3. **External authority:** public-first commit and push were granted on 2026-08-11; real provider/network, Docker, hosted, package, and release actions still require separate authority.
+3. **External authority:** fresh commit/push, real provider/network, Docker, hosted, package publication, and release actions require separate authority.
 4. **R3-D activation:** after R3-C evidence, explicitly activate or skip the non-blocking milestone.
 5. **Milestone review:** review each runnable R3-A, R3-B, and R3-C outcome before the next blocking milestone when the accepted plan names a key-node checkpoint.
 6. **Release candidate:** review the first verified patch, evidence matrix, support claims, and residual risks before any public release claim.

@@ -415,6 +415,16 @@ function providerProjection(state: Exclude<RunState, { readonly phase: "idle" }>
   ];
   let assistantIndex = 0;
   for (const item of state.conversation) {
+    if (item.role === "user" && "messageId" in item) {
+      conversation.push({
+        content: item.content,
+        messageId: item.messageId,
+        role: "user",
+        source: item.source,
+        turnId: item.turnId,
+      });
+      continue;
+    }
     if (item.role !== "assistant" || item.content.length === 0) continue;
     const attempt = state.attempts.filter((entry) => entry.step === assistantIndex + 1).at(-1);
     if (attempt === undefined) continue;
@@ -447,9 +457,95 @@ function providerProjection(state: Exclude<RunState, { readonly phase: "idle" }>
       turnId: `assistant-${state.interruption.attemptId}-incomplete`,
     });
   }
+  const acceptedBytes = state.conversationInputs.reduce(
+    (total, input) => total + input.byteLength,
+    0,
+  );
+  const pending = state.conversationInputs
+    .filter((input) => input.state === "accepted")
+    .map((input) => ({ ...input, reservation: { ...input.reservation } }));
+  const closedInputs = state.conversationInputs
+    .filter((input) => input.state === "closed")
+    .map((input) => ({
+      ...input,
+      closureReason: {
+        ...input.closureReason,
+        suggestedActions: [...input.closureReason.suggestedActions],
+      },
+      reservation: { ...input.reservation },
+    }));
+  const submissionReason = (
+    mode: "steer" | "queue",
+  ): NonNullable<ProductView["conversationInput"]>["submission"][typeof mode]["reason"] => {
+    if (state.phase === "terminal") {
+      return {
+        code: "run_terminal",
+        message: "The run is terminal and cannot accept more input.",
+        recoverability: "ask-user",
+        suggestedActions: ["Start a new run for another request."],
+      };
+    }
+    if (state.conversationInputs.length >= 8 || acceptedBytes >= 16_384) {
+      return {
+        code: "conversation_input_capacity_reached",
+        message: "The active-run input capacity is exhausted.",
+        recoverability: "ask-user",
+        suggestedActions: ["Wait for this run to finish before starting another request."],
+      };
+    }
+    if (
+      mode === "steer"
+        ? pending.some((input) => input.mode === "steer")
+        : pending.filter((input) => input.mode === "queue").length >= 3
+    ) {
+      return {
+        code: `${mode}_capacity_reached`,
+        message:
+          mode === "steer"
+            ? "One steering message is already pending."
+            : "Three queued messages are already pending.",
+        recoverability: "ask-user",
+        suggestedActions: ["Wait for a pending message to be delivered."],
+      };
+    }
+    if (
+      state.codingBudget === undefined ||
+      state.codingBudget.grant.modelSteps - state.codingBudget.usage.modelSteps <= pending.length
+    ) {
+      return {
+        code: "conversation_input_reservation_unavailable",
+        message: "No remaining model step can be reserved for this input.",
+        recoverability: "ask-user",
+        suggestedActions: ["Let the current run finish and start a new run if needed."],
+      };
+    }
+    return null;
+  };
+  const steerReason = submissionReason("steer");
+  const queueReason = submissionReason("queue");
   return {
     attempts,
     conversation,
+    conversationInput: {
+      acceptedBytes,
+      acceptedCount: state.conversationInputs.length,
+      closed: closedInputs,
+      pending,
+      remainingBytes: 16_384 - acceptedBytes,
+      reservations: {
+        pending: pending.length,
+        remainingModelSteps: Math.max(
+          0,
+          (state.codingBudget?.grant.modelSteps ?? 0) -
+            (state.codingBudget?.usage.modelSteps ?? 0) -
+            pending.length,
+        ),
+      },
+      submission: {
+        queue: { available: queueReason === null, reason: queueReason },
+        steer: { available: steerReason === null, reason: steerReason },
+      },
+    },
     retry: {
       available: state.phase === "awaiting-retry",
       reason: state.phase === "awaiting-retry" ? productError(state.interruption.error) : null,

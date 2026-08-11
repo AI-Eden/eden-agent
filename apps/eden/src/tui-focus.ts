@@ -15,6 +15,7 @@ export type TuiFocusId =
   | "overlay.readiness"
   | "run.approve"
   | "run.cancel"
+  | "run.composer"
   | "run.deny"
   | "run.exit"
   | "run.review"
@@ -43,15 +44,20 @@ export type TuiCommandId =
   | "reload-profiles"
   | "repository"
   | "retry"
+  | "queue-input"
   | "revoke"
   | "select-profile"
   | "show-context"
   | "show-conversation"
   | "show-recovery"
+  | "steer-input"
   | "toggle-tools"
   | "trust";
 
 export type TuiFocusContext = {
+  readonly canQueueInput?: boolean;
+  readonly canSteerInput?: boolean;
+  readonly hasConversationInput?: boolean;
   readonly hasProfile: boolean;
   readonly hasRepositoryReview: boolean;
   readonly hasReview: boolean;
@@ -69,6 +75,15 @@ export type TuiKey = {
   readonly option?: boolean;
   readonly shift?: boolean;
 };
+
+export type ActiveComposerAction = "newline" | "queue" | "steer";
+
+export function activeComposerActionForKey(key: TuiKey): ActiveComposerAction | null {
+  if (key.name !== "return" || key.ctrl) return null;
+  if (key.shift) return "newline";
+  if (key.meta || key.option) return "queue";
+  return "steer";
+}
 
 export type TuiKeyCommand =
   | { readonly type: "activate" }
@@ -92,6 +107,7 @@ const focusCommands: Readonly<Partial<Record<TuiFocusId, TuiCommandId>>> = {
   "inspection.back": "back",
   "run.approve": "approve",
   "run.cancel": "cancel",
+  "run.composer": "composer",
   "run.deny": "deny",
   "run.exit": "exit",
   "run.retry": "retry",
@@ -121,10 +137,20 @@ export function focusOrder(context: TuiFocusContext): readonly TuiFocusId[] {
   if (context.runState === "terminal") {
     return context.hasReview ? ["run.review", "run.exit"] : ["run.exit"];
   }
-  if (context.runState === "approval") return ["run.approve", "run.deny", "run.cancel"];
-  if (context.runState === "retry") return ["run.retry", "run.cancel"];
+  if (context.runState === "approval")
+    return context.hasConversationInput
+      ? ["run.approve", "run.deny", "run.composer", "run.cancel"]
+      : ["run.approve", "run.deny", "run.cancel"];
+  if (context.runState === "retry")
+    return context.hasConversationInput
+      ? ["run.retry", "run.composer", "run.cancel"]
+      : ["run.retry", "run.cancel"];
   if (context.runState === "active") {
-    return context.hasTools ? ["run.tools", "run.cancel"] : ["run.cancel"];
+    const order: TuiFocusId[] = [];
+    if (context.hasConversationInput) order.push("run.composer");
+    if (context.hasTools) order.push("run.tools");
+    order.push("run.cancel");
+    return order;
   }
   if (context.workspaceState === "loading") return [];
 
@@ -184,11 +210,29 @@ export function paletteEntries(context: TuiFocusContext): readonly TuiPaletteEnt
         label: "Show safe-actuation review",
         shortcut: null,
       },
+      {
+        commandId: "history",
+        enabled: true,
+        label: "Show run history",
+        shortcut: "h",
+      },
       { commandId: "exit", enabled: true, label: "Exit Eden", shortcut: "q" },
     ];
   }
   if (context.runState !== "none") {
     return [
+      {
+        commandId: "steer-input",
+        enabled: context.canSteerInput === true,
+        label: "Steer current run",
+        shortcut: "Enter",
+      },
+      {
+        commandId: "queue-input",
+        enabled: context.canQueueInput === true,
+        label: "Queue follow-up",
+        shortcut: "Alt+Enter",
+      },
       {
         commandId: "show-conversation",
         enabled: true,
@@ -207,6 +251,12 @@ export function paletteEntries(context: TuiFocusContext): readonly TuiPaletteEnt
           context.hasReview || context.runState === "approval" || context.runState === "retry",
         label: "Show approval or recovery",
         shortcut: null,
+      },
+      {
+        commandId: "history",
+        enabled: true,
+        label: "Show run history",
+        shortcut: "h",
       },
       {
         commandId: "approve",
@@ -334,7 +384,11 @@ export function commandForKey(context: TuiFocusContext, key: TuiKey): TuiKeyComm
     if (key.name === "d") return invoke("deny");
   }
   if (context.runState === "retry" && key.name === "u") return invoke("retry");
-  if (context.runState !== "none") return key.name === "e" ? invoke("toggle-tools") : null;
+  if (context.runState !== "none") {
+    if (key.name === "e") return invoke("toggle-tools");
+    if (key.name === "h") return invoke("history");
+    return null;
+  }
   if (key.name === "h") return invoke("history");
   if (key.name === "p") return invoke("profile");
   if (key.name === "s" && context.hasProfile) return invoke("select-profile");

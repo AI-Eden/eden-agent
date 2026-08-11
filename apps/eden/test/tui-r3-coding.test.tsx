@@ -110,6 +110,7 @@ test("R3-A command approval exposes exact trusted-host authority at every accept
         frames += renderer.captureCharFrame();
       }
       const normalized = frames.replace(/[^\p{L}\p{N}._/-]+/gu, " ").replaceAll(/\s+/gu, " ");
+      expect(normalized).toContain("URGENT approval pending");
       expect(normalized).toContain("approval pending");
       expect(normalized).toContain("isolation none");
       expect(normalized).toContain("network host_unrestricted");

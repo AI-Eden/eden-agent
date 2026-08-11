@@ -1,6 +1,7 @@
 import type {
   ActionEnvelopeV1,
   ClosedCheckObservation,
+  ConversationInputLifecycle as ContractConversationInputLifecycle,
   RepositoryToolCall as ContractRepositoryToolCall,
   RepositoryToolResult as ContractRepositoryToolResult,
   GitStatusEntry,
@@ -128,6 +129,8 @@ type DeepReadonly<T> = T extends (...arguments_: never[]) => unknown
       ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
       : T;
 
+export type ConversationInputLifecycle = DeepReadonly<ContractConversationInputLifecycle>;
+
 export type RepositoryToolCall = DeepReadonly<ContractRepositoryToolCall>;
 
 export type RepositoryToolResult = DeepReadonly<ContractRepositoryToolResult>;
@@ -165,6 +168,13 @@ export type ModelUsage = {
 
 export type ModelConversationItem =
   | { readonly content: string; readonly role: "user" }
+  | {
+      readonly content: string;
+      readonly messageId: string;
+      readonly role: "user";
+      readonly source: "steer" | "queue";
+      readonly turnId: string;
+    }
   | {
       readonly content: string;
       readonly privateContinuity: string | null;
@@ -467,6 +477,21 @@ export type KernelEvent =
       readonly type: "model.retry.requested";
     }
   | {
+      readonly byteLength: number;
+      readonly commandId: string;
+      readonly content: string;
+      readonly messageId: string;
+      readonly mode: "steer" | "queue";
+      readonly modelStep: number;
+      readonly order: number;
+      readonly type: "conversation.input.accepted";
+    }
+  | {
+      readonly messageId: string;
+      readonly turnId: string;
+      readonly type: "conversation.input.delivered";
+    }
+  | {
       readonly type: "repository.tool.completed";
       readonly effectId: string;
       readonly result: RepositoryToolResult;
@@ -568,11 +593,13 @@ type ProviderActiveRunFields = {
   readonly action: SafeActuationAction | null;
   readonly attempts: readonly ModelAttempt[];
   readonly conversation: readonly ModelConversationItem[];
+  readonly conversationInputs: readonly ConversationInputLifecycle[];
   readonly context: readonly ModelContextItem[];
   readonly codingBudget?: UsableCodingBudgetState;
   readonly correlationId: string;
   readonly model: ModelRunConfiguration;
   readonly modelStep: number;
+  readonly queueDeliveryReady: boolean;
   readonly revision: number;
   readonly runId: string;
   readonly task: string;

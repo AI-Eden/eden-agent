@@ -9,8 +9,10 @@ import type {
   WorkspaceReview,
 } from "@eden/contracts";
 import type { KeyEvent } from "@opentui/core";
+import type { ReactNode } from "react";
 
 import { RepositoryCheckCard } from "./repository-check-cards.tsx";
+import { ActiveRunComposer } from "./tui-active-composer.tsx";
 import { densityForLayout, tuiDesignTokens } from "./tui-design.ts";
 import type {
   TuiFocusId,
@@ -21,145 +23,30 @@ import type {
 } from "./tui-focus.ts";
 import { HistoryPanel, InspectionPanel } from "./tui-history.tsx";
 import { fitTerminalLine, safeTerminalBlock } from "./tui-text.ts";
+import { ToolCard } from "./tui-tool-cards.tsx";
 
-function ToolCard({
-  activity,
-  compact,
-  expanded,
+function ConversationViewport({
+  bounded,
+  children,
+  height,
 }: {
-  readonly activity: NonNullable<ProductView["tools"]>[number];
-  readonly compact: boolean;
-  readonly expanded: boolean;
+  readonly bounded: boolean;
+  readonly children: ReactNode;
+  readonly height: number;
 }) {
-  const path =
-    activity.call.name === "git_status"
-      ? "."
-      : activity.call.name === "repository_check"
-        ? `.eden/checks:${activity.call.arguments.checkName}`
-        : activity.call.name === "run_command"
-          ? activity.call.arguments.cwd
-          : activity.call.arguments.path;
-  const safePath = fitTerminalLine(path, Number.MAX_SAFE_INTEGER);
-  const result = activity.result;
-  return (
-    <box
-      style={{
-        border: compact ? tuiDesignTokens.border.surface : tuiDesignTokens.border.card,
-        flexDirection: "column",
-        flexShrink: 0,
-        padding: compact ? tuiDesignTokens.spacing.none : tuiDesignTokens.spacing.panel,
-        width: "100%",
-      }}
-    >
-      <text>
-        repository tool: {activity.call.name} · {activity.state}
-      </text>
-      {expanded && (
-        <text>
-          source: {safePath} · authority:{" "}
-          {activity.call.name === "run_command"
-            ? "approved structured host command"
-            : "bounded read-only repository capability"}
-        </text>
-      )}
-      <text>
-        {fitTerminalLine(
-          `tool details: ${expanded ? "expanded" : "folded"} · focus tools + Enter/e toggles`,
-          compact ? 56 : Number.MAX_SAFE_INTEGER,
-        )}
-      </text>
-      {expanded && result?.status === "failed" && (
-        <text fg={tuiDesignTokens.color.danger}>tool error: {result.error.message}</text>
-      )}
-      {expanded && result?.status === "succeeded" && result.name === "read_file" && (
-        <box style={{ flexDirection: "column" }}>
-          <text>
-            bytes: {result.data.offset}+{result.data.bytesRead}/{result.data.totalBytes} · next:{" "}
-            {result.data.nextOffset ?? "complete"}
-          </text>
-          <text>hash: {result.data.contentHash}</text>
-          <text>repository result:</text>
-          <text>{safeTerminalBlock(result.data.content)}</text>
-        </box>
-      )}
-      {expanded && result?.status === "succeeded" && result.name === "list_files" && (
-        <box style={{ flexDirection: "column" }}>
-          <text>
-            rows: {result.data.entries.length} · visited: {result.data.visited} · next:{" "}
-            {result.data.continuation ?? "complete"}
-          </text>
-          <text>hash: {result.data.contentHash}</text>
-          {result.data.entries.map((entry) => (
-            <text key={entry.path}>
-              {entry.kind}: {fitTerminalLine(entry.path, Number.MAX_SAFE_INTEGER)}
-            </text>
-          ))}
-        </box>
-      )}
-      {expanded && result?.status === "succeeded" && result.name === "search_repository" && (
-        <box style={{ flexDirection: "column" }}>
-          <text>
-            matches: {result.data.matches.length} · engine: {result.data.engine.name}{" "}
-            {result.data.engine.version} · next: {result.data.continuation ?? "complete"}
-          </text>
-          <text>hash: {result.data.contentHash}</text>
-          {result.data.matches.map((match) => (
-            <text key={`${match.path}:${match.lineNumber}:${match.byteColumn}:${match.preview}`}>
-              {fitTerminalLine(match.path, Number.MAX_SAFE_INTEGER)}:{match.lineNumber}:
-              {match.byteColumn}: {safeTerminalBlock(match.preview)}
-            </text>
-          ))}
-        </box>
-      )}
-      {expanded && result?.status === "succeeded" && result.name === "git_status" && (
-        <box style={{ flexDirection: "column" }}>
-          <text>
-            rows: {result.data.entries.length} · Git {result.data.gitVersion}
-          </text>
-          <text>hash: {result.data.contentHash}</text>
-          {result.data.entries.map((entry) => (
-            <text key={`${entry.path}:${entry.originalPath ?? ""}`}>
-              {entry.indexStatus}
-              {entry.worktreeStatus} {entry.kind}:{" "}
-              {fitTerminalLine(entry.path, Number.MAX_SAFE_INTEGER)}
-              {entry.originalPath === null
-                ? ""
-                : ` ← ${fitTerminalLine(entry.originalPath, Number.MAX_SAFE_INTEGER)}`}
-            </text>
-          ))}
-        </box>
-      )}
-      {expanded && result?.status === "succeeded" && result.name === "git_diff" && (
-        <box style={{ flexDirection: "column" }}>
-          <text>
-            bytes: {result.data.offset}+{result.data.bytesRead}/{result.data.totalBytes} · next:{" "}
-            {result.data.continuation?.nextOffset ?? "complete"}
-          </text>
-          <text>
-            HEAD: {result.data.head} · status: {result.data.statusHash}
-          </text>
-          <text>patch: {result.data.patchHash}</text>
-          <text>repository diff:</text>
-          <text>{safeTerminalBlock(result.data.content)}</text>
-        </box>
-      )}
-      {expanded && result?.status === "completed" && result.name === "run_command" && (
-        <box style={{ flexDirection: "column" }}>
-          <text>
-            outcome: {result.data.outcome} · exit: {result.data.exitCode ?? "none"} · cleanup:{" "}
-            {result.data.cleanupStatus}
-          </text>
-          <text>
-            executable: {fitTerminalLine(result.data.executablePath, Number.MAX_SAFE_INTEGER)}
-          </text>
-          <text>stdout ({result.data.stdoutBytes} bytes):</text>
-          <text>{safeTerminalBlock(result.data.stdout)}</text>
-          <text>stderr ({result.data.stderrBytes} bytes):</text>
-          <text>{safeTerminalBlock(result.data.stderr)}</text>
-        </box>
-      )}
-    </box>
-  );
+  if (bounded) {
+    return (
+      <scrollbox
+        scrollY
+        stickyScroll
+        stickyStart="bottom"
+        style={{ flexDirection: "column", height: Math.max(3, height - 17), width: "100%" }}
+      >
+        {children}
+      </scrollbox>
+    );
+  }
+  return <box style={{ flexDirection: "column", width: "100%" }}>{children}</box>;
 }
 
 function ReviewPatch({
@@ -274,6 +161,7 @@ export type EdenTuiLayoutProps = {
   readonly liveModelText: string | null;
   readonly layoutMode: TuiLayoutMode;
   readonly onDraftChange: (value: string) => void;
+  readonly onActiveInput?: (mode: "queue" | "steer", content: string) => void;
   readonly onComposerKeyDown: (event: KeyEvent) => void;
   readonly onProfileDraftChange: (value: string) => void;
   readonly onProfileKeyDown: (event: KeyEvent) => void;
@@ -308,6 +196,10 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
   const conversationVisible = props.layoutMode !== "narrow" || props.runPane === "conversation";
   const contextVisible = props.layoutMode !== "narrow" || props.runPane === "context";
   const recoveryVisible = props.layoutMode !== "narrow" || props.runPane === "recovery";
+  const activeComposerVisible =
+    props.view?.terminalOutcome === null &&
+    props.view.conversationInput !== undefined &&
+    props.onActiveInput !== undefined;
   return (
     <box
       style={{
@@ -320,11 +212,11 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
     >
       <text fg={tuiDesignTokens.color.accent} style={{ flexShrink: 0 }}>
         {fitTerminalLine(
-          "Eden R2 · conversation + bounded runtime evidence · no credential required for R1 demo",
+          "Eden R3-B · conversation spine + evidence lens · durable steer/queue",
           props.width - 4,
         )}
       </text>
-      {props.surface === "workspace" && props.error !== null && (
+      {props.error !== null && (
         <text fg={tuiDesignTokens.color.danger} style={{ flexShrink: 0 }}>
           {fitTerminalLine(`error: ${props.error}`, props.width - 4)}
         </text>
@@ -368,6 +260,27 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
             )}
           </text>
         </box>
+      )}
+      {props.view?.approval !== null && props.view?.approval !== undefined && (
+        <box style={{ flexDirection: "column", flexShrink: 0 }}>
+          <text fg={tuiDesignTokens.color.awaiting}>
+            URGENT · approval pending · a approve · d deny · scope {props.view.approval.scope}
+          </text>
+        </box>
+      )}
+      {props.view?.phase === "awaiting-retry" && (
+        <box style={{ flexDirection: "column", flexShrink: 0 }}>
+          <text fg={tuiDesignTokens.color.danger}>
+            URGENT · retry required · u retry · Ctrl+C cancel
+          </text>
+          <text>{props.view.retry?.reason?.message ?? "Explicit retry is required."}</text>
+        </box>
+      )}
+      {(props.view?.conversationInput?.pending.length ?? 0) > 0 && (
+        <text fg={tuiDesignTokens.color.awaiting} style={{ flexShrink: 0 }}>
+          INPUT · {props.view?.conversationInput?.pending.length ?? 0} durable pending ·
+          reservations {props.view?.conversationInput?.reservations.pending ?? 0}
+        </text>
       )}
       {props.overlay === "palette" && (
         <box style={{ border: true, flexDirection: "column", padding: 1 }}>
@@ -619,14 +532,16 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
         <box
           style={{
             flexDirection: "column",
-            flexShrink: 0,
             marginTop: tuiDesignTokens.spacing.section,
+            ...(activeComposerVisible
+              ? { flexGrow: 1, flexShrink: 1, overflow: "hidden" as const }
+              : { flexShrink: 0 }),
           }}
         >
           <text>
             {fitTerminalLine(
               props.layoutMode === "narrow"
-                ? `view: ${props.runPane} · Ctrl+P switches conversation/context/recovery`
+                ? `view: ${props.runPane} · Ctrl+P switches conversation/context/recovery/History`
                 : props.layoutMode === "medium"
                   ? "composition: conversation + contextual drawer"
                   : "composition: session navigation + conversation + review pane",
@@ -653,6 +568,9 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
             style={{
               flexDirection: props.layoutMode === "narrow" ? "column" : "row",
               gap: density.gap,
+              ...(activeComposerVisible
+                ? { flexGrow: 1, flexShrink: 1, overflow: "hidden" as const }
+                : {}),
               width: "100%",
             }}
           >
@@ -675,6 +593,9 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
             <box
               style={{
                 flexDirection: "column",
+                ...(activeComposerVisible
+                  ? { flexGrow: 1, flexShrink: 1, overflow: "hidden" as const }
+                  : {}),
                 width:
                   props.layoutMode === "wide"
                     ? Math.max(36, props.width - 58)
@@ -690,7 +611,10 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                   : "authority: repository read bounded · write denied · trusted-host policy-only · provider network allowed"}
               </text>
               {conversationVisible && (
-                <box style={{ flexDirection: "column", width: "100%" }}>
+                <ConversationViewport
+                  bounded={activeComposerVisible}
+                  height={props.height - (props.compact ? 0 : 3)}
+                >
                   <text>CONVERSATION</text>
                   {props.liveModelText !== null && props.view.terminalOutcome === null && (
                     <box
@@ -714,8 +638,29 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                         width: "100%",
                       }}
                     >
-                      <text>{turn.role === "user" ? "you" : `assistant · ${turn.status}`}</text>
+                      <text>
+                        {turn.role === "user"
+                          ? `you${"source" in turn ? ` · ${turn.source}` : ""}`
+                          : `assistant · ${turn.status}`}
+                      </text>
                       <text>{safeTerminalBlock(turn.content)}</text>
+                    </box>
+                  ))}
+                  {props.view.conversationInput?.pending.map((input) => (
+                    <box
+                      key={input.messageId}
+                      style={{
+                        border: density.border,
+                        flexDirection: "column",
+                        padding: density.padding,
+                        width: "100%",
+                      }}
+                    >
+                      <text fg={tuiDesignTokens.color.awaiting}>
+                        you · {input.mode} · {input.state} · reservation{" "}
+                        {input.reservation.modelStep}
+                      </text>
+                      <text>{safeTerminalBlock(input.content)}</text>
                     </box>
                   ))}
                   {props.view.repositoryCheck !== undefined && (
@@ -753,7 +698,7 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                       <text>q exits</text>
                     </box>
                   )}
-                </box>
+                </ConversationViewport>
               )}
               {contextVisible && (
                 <box style={{ flexDirection: "column", width: "100%" }}>
@@ -994,6 +939,20 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
               </box>
             )}
           </box>
+          {props.view.terminalOutcome === null &&
+            props.view.conversationInput !== undefined &&
+            props.onActiveInput !== undefined && (
+              <ActiveRunComposer
+                compact={props.compact}
+                conversationInput={props.view.conversationInput}
+                draft={props.draft}
+                focused={props.focusId === "run.composer"}
+                onDraftChange={props.onDraftChange}
+                onKeyDown={props.onComposerKeyDown}
+                onSubmit={props.onActiveInput}
+                width={props.width}
+              />
+            )}
         </box>
       )}
     </box>

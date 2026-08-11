@@ -1,11 +1,11 @@
 # R3-B Terminal Product Shell Plan
 
-- Status: Accepted Freeze packet on 2026-08-11; Build not authorized
+- Status: Slices 0-4 implementation candidate and copied-package diagnostic locally green; formal Slice 5 evidence pending
 - Date: 2026-08-11
 - Milestone: R3-B, after accepted R3-A and before R3-C
 - Architecture decision: `docs/adr/0020-r3-b-conversation-spine-and-typed-intervention.md`
 - Parent plan: `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md`
-- Human checkpoint: separately authorize or decline R3-B Build
+- Human checkpoint: authorize an exact public candidate, then review formal copied-package evidence before R3-C
 
 ## Goal and user-visible outcome
 
@@ -15,14 +15,23 @@ This plan refines and supersedes only the R3-B implementation detail in Slices 6
 
 ## Current repository facts
 
-- The public baseline is `2dbf80f2037029e52853b83b4d2404e59d422baa`; the tutorial gitlink points to that exact commit at Freeze entry.
+- The published Build-entry baseline is `b80bb10ae3a1942a76eab96cdf5c07f2c0f8e22f`; the tutorial gitlink points to that exact commit.
 - R3-A is owner-accepted. Its exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543` has passing copied-package, normal-TLS matching-provider, and exact-candidate hosted R1/R2 evidence.
-- `AgentClient.submit` currently accepts run start, pause, resume, cancel, approval resolution, and explicit model retry. Pause and resume remain unsupported in the current runtime. There is no active-run steering or queue command.
-- `ProductView` currently carries at most 13 conversation turns, 16 tool activities, 36 attempts, current approval/review, changed files, checks, budgets, retry, and optional repository-check truth. The renderer must not invent additional durable facts.
-- The provider conversation currently starts with one task user turn and adds assistant/tool items. A model `stop` reaches terminal non-success `completed`; queued follow-up therefore requires a real kernel and replay contract rather than a renderer list.
-- The current TUI uses Bun, OpenTUI 0.4.3, React 19.2.7, one focus graph, and exact narrow/medium/wide thresholds. `tui.tsx` owns controller state and `tui-layout.tsx` owns a large mixed layout. The pre-run composer is a single-line input and disappears after run start.
+- The current candidate adds closed `conversation.steer` and `conversation.queue` submission through `AgentClient`, while pause and resume remain unsupported.
+- `ProductView` now projects typed active-input availability, reservation, pending, delivered, and closed truth in addition to existing conversation, tool, approval, review, check, budget, retry, and repository-check facts. The renderer does not invent durable state.
+- Provider context now receives delivered steering before the next safe provider request and queued input after a complete model stop. Both paths are journaled and replayable; terminal `completed` still remains non-success.
+- The TUI remains on Bun, OpenTUI 0.4.3, React 19.2.7, one focus graph, and the frozen narrow/medium/wide thresholds. A managed multiline textarea is pinned below a bounded conversation viewport during every active provider run.
 - Pinned OpenTUI React types expose textarea and scrollbox primitives but no assumed intrinsic diff component. R3-B must use capabilities proven in the installed version.
 - Two private generated images are accepted only as non-normative density and hierarchy references. Public source, tests, and runtime behavior cannot depend on those files.
+
+## Current Build candidate
+
+- Slice 0 remains green for the unchanged baseline, maximum input fixture, ProductView inventory, and 2 MiB journal/context ledger.
+- Slice 1 is implemented through additive protocol v1 commands/events/view projection, kernel reservation and lifecycle state, serialized journal commits, replay, provider-context ordering, and AgentClient concurrent acceptance.
+- Slices 2-4 are implemented through an exhaustive typed tool registry, compact routine activity, persistent managed textarea, steer/queue and legacy newline chords, stable focus/palette access, urgent authority rails, history switching, responsive transcript containment, and existing evidence/review surfaces.
+- Typecheck, build, code formatting, contract/kernel/runtime targets, and affected TUI regressions are locally green.
+- A copied-package diagnostic passed `60x20`, `80x24`, and `100x30`; each journey delivered one exact multiline CJK steer and one queued follow-up, consumed eight exact model attempts, executed six expected tools with three approvals, passed the independent repository oracle, and restored the parent terminal. The `100x30` journey also passed rapid `60x20 -> 80x24 -> 100x30` resize.
+- The diagnostic was built from an uncommitted worktree and is not milestone evidence. Slice 5 remains open until one exact committed candidate produces the validated public evidence record.
 
 ## Frozen product contract
 
@@ -233,6 +242,7 @@ No Build step may discard unrelated user changes. Commit, push, provider/network
 ## Human checkpoints
 
 1. **Freeze review:** completed on 2026-08-11 when the owner accepted ADR 0020, the focused contract changes, and this plan as one R3-B packet.
-2. **Build authorization:** separately authorize or decline R3-B Build; acceptance and publication of this packet do not grant it.
-3. **First core RED:** review the first failing lifecycle test for durable input acceptance/reservation/delivery before production behavior changes.
-4. **Milestone review:** review the copied-package R3-B evidence before R3-C begins.
+2. **Build authorization:** granted separately on 2026-08-11 after Freeze publication.
+3. **First core RED:** completed when the owner approved continuation and autonomous work within the frozen R3-B boundary.
+4. **Exact candidate authority:** pending; commit and push remain separately gated.
+5. **Milestone review:** review the formal copied-package R3-B evidence before R3-C begins.

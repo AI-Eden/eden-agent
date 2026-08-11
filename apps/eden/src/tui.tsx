@@ -362,6 +362,7 @@ function EdenTuiSurface({
     if (task.trim().length === 0 || review?.authority.taskStart !== "allowed") return;
     const controller = new AbortController();
     activeOperation.current = controller;
+    let startedViewPublished = false;
     try {
       const nextView = await client.submit(
         {
@@ -370,12 +371,25 @@ function EdenTuiSurface({
           task,
           type: "run.start",
         },
-        { signal: controller.signal },
+        {
+          onRunStarted: (startedView) => {
+            startedViewPublished = true;
+            setView(startedView);
+            setDraft("");
+            setComposerFocused(false);
+            setFollowing(true);
+            onViewChange?.(startedView);
+          },
+          signal: controller.signal,
+        },
       );
       setView(nextView);
-      setComposerFocused(false);
+      if (!startedViewPublished) {
+        setDraft("");
+        setComposerFocused(false);
+        setFollowing(true);
+      }
       onViewChange?.(nextView);
-      setFollowing(true);
       setError(null);
     } catch (cause) {
       let message = errorMessage(cause, "The task could not start.");
@@ -443,6 +457,46 @@ function EdenTuiSurface({
     }
   };
 
+  const submitActiveInput = async (mode: "queue" | "steer", content: string) => {
+    const current = view;
+    if (
+      current === null ||
+      current.terminalOutcome !== null ||
+      current.conversationInput === undefined ||
+      content.length === 0 ||
+      !current.conversationInput.submission[mode].available
+    ) {
+      return;
+    }
+    try {
+      const latest = await client.getSnapshot(current.runId);
+      setView(latest);
+      onViewChange?.(latest);
+      if (
+        latest.terminalOutcome !== null ||
+        latest.conversationInput === undefined ||
+        !latest.conversationInput.submission[mode].available
+      ) {
+        return;
+      }
+      const nextView = await client.submit({
+        commandId: randomUUID(),
+        content,
+        expectedRevision: latest.revision,
+        protocolVersion: 1,
+        runId: latest.runId,
+        type: mode === "steer" ? "conversation.steer" : "conversation.queue",
+      });
+      setView(nextView);
+      setDraft("");
+      setFocusId("run.composer");
+      onViewChange?.(nextView);
+      setError(null);
+    } catch (cause) {
+      setError(errorMessage(cause, `The ${mode} input could not be accepted.`));
+    }
+  };
+
   const focusContext = useMemo<TuiFocusContext>(() => {
     const runState =
       view === null
@@ -455,6 +509,9 @@ function EdenTuiSurface({
               ? "retry"
               : "active";
     return {
+      canQueueInput: view?.conversationInput?.submission.queue.available === true,
+      canSteerInput: view?.conversationInput?.submission.steer.available === true,
+      hasConversationInput: view?.conversationInput !== undefined,
       hasProfile: (profileCatalog?.profiles.length ?? 0) > 0,
       hasRepositoryReview: review?.repository !== undefined,
       hasReview: view?.review !== undefined,
@@ -524,7 +581,8 @@ function EdenTuiSurface({
         cancelAndExit();
         return;
       case "composer":
-        if (review?.authority.taskStart === "allowed") setComposerFocused(true);
+        if (view?.conversationInput !== undefined) setFocusId("run.composer");
+        else if (review?.authority.taskStart === "allowed") setComposerFocused(true);
         return;
       case "connection":
         if (providerReadiness === null || providerReadiness.state === "unconfigured") {
@@ -559,6 +617,9 @@ function EdenTuiSurface({
       case "repository":
         void recheckRepository();
         return;
+      case "queue-input":
+        void submitActiveInput("queue", draft);
+        return;
       case "retry":
         void retryModel();
         return;
@@ -576,6 +637,9 @@ function EdenTuiSurface({
         return;
       case "show-recovery":
         setRunPane("recovery");
+        return;
+      case "steer-input":
+        void submitActiveInput("steer", draft);
         return;
       case "toggle-tools": {
         const ids = view?.tools?.map((activity) => activity.call.toolCallId) ?? [];
@@ -608,7 +672,11 @@ function EdenTuiSurface({
     } else if (key.name === "escape") {
       key.preventDefault();
       key.stopPropagation();
-      setComposerFocused(false);
+      if (view?.conversationInput !== undefined) {
+        setFocusId((current) => moveFocus(focusContext, current, 1));
+      } else {
+        setComposerFocused(false);
+      }
     }
   };
 
@@ -630,7 +698,12 @@ function EdenTuiSurface({
   };
 
   const handleGraphKey = (key: KeyEvent) => {
-    if (composerFocused && !(key.ctrl && (key.name === "c" || key.name === "p"))) {
+    const activeComposerFocused =
+      view?.conversationInput !== undefined && focusId === "run.composer";
+    if (
+      (composerFocused || activeComposerFocused) &&
+      !(key.ctrl && (key.name === "c" || key.name === "p"))
+    ) {
       if (key.name === "escape") {
         key.preventDefault();
         key.stopPropagation();
@@ -709,16 +782,6 @@ function EdenTuiSurface({
         : "conversation",
     );
   }, [activeRunId, approvalIdentity, awaitingRetry, view?.review]);
-
-  const toolIdentity = view?.tools?.map((activity) => activity.call.toolCallId).join("\0") ?? "";
-  useEffect(() => {
-    if (toolIdentity.length === 0) return;
-    setExpandedToolIds((current) => {
-      const next = new Set(current);
-      for (const toolCallId of toolIdentity.split("\0")) next.add(toolCallId);
-      return next;
-    });
-  }, [toolIdentity]);
 
   useEffect(
     () => () => {
@@ -862,6 +925,7 @@ function EdenTuiSurface({
       liveModelText={liveModelText?.text ?? null}
       layoutMode={layoutMode}
       onComposerKeyDown={handleComposerKeyDown}
+      onActiveInput={(mode, content) => void submitActiveInput(mode, content)}
       onDraftChange={setDraft}
       onProfileDraftChange={(displayed) =>
         setProfileDraft((previous) => reconcileMaskedProfileDraft(previous, displayed))

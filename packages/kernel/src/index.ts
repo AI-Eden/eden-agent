@@ -4,6 +4,7 @@ export type {
   Action,
   AwaitingApprovalRunState,
   AwaitingRetryRunState,
+  ConversationInputLifecycle,
   ExecutingRunState,
   GitReviewSnapshot,
   IdleRunState,
