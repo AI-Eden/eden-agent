@@ -1,6 +1,6 @@
 # R3 Resume-Ready Verified Goal Plan
 
-- Status: R3-A is owner-accepted and closed; R3-B has a bounded matching-surface repair amendment in progress; R3-C remains not started
+- Status: R3-A and R3-B are owner-accepted and closed; the R3-B matching-surface repair amendment is complete; R3-C remains not started
 - Date: 2026-08-10
 - Amended: 2026-08-11
 - Roadmap stage: R3, Verified Goal Product - v0.1
@@ -9,13 +9,13 @@
 - Required ADR: `docs/adr/0019-r3-resume-ready-vertical-delivery.md`
 - Blocking path: R3-A -> R3-B -> R3-C -> R3-E
 - Optional milestone: R3-D after R3-C, only with separate owner activation
-- Human checkpoint: R3-B repair Build authorized on 2026-08-12; another provider request and R3-C remain separately gated
+- Human checkpoint: R3-B repair closeout completed on 2026-08-12; another provider request and R3-C remain separately gated
 
 ## Authority and entry conditions
 
 The owner accepted ADR 0019, the R3 normative and focused contract changes, and this document as one Freeze packet on 2026-08-10, then separately authorized the blocking Build plan. Slice 0 exposed a plan-changing multi-call and persistence constraint, Build stopped, and the owner accepted the bounded amendment on 2026-08-11. The owner then approved the amended Freeze, freshly reauthorized Build, authorized public-first commits and pushes, accepted the deterministic candidate, and authorized copied packaged TUI evidence. After the first matching-provider row failed and the owner-authorized offline repair completed, the owner authorized one fresh matching-provider fixture at exact candidate `468c4ba0f726715c2f190b3c2842f798992e8543`; it passed and consumed that authority. The owner accepted and closed R3-A, accepted ADR 0020 with the focused R3-B plan, separately authorized R3-B Build, reviewed the first active-input RED, and authorized autonomous work inside R3-B. The focused packet refines and supersedes only this plan's R3-B Slice 6-7 detail. Fresh copied-package evidence bound to final source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5` passed after the last product change, and the final hosted R1/R2 regressions passed. R3-B is owner-accepted and closed. R3-C remains not started; another provider or network call, R3-D activation, image or package publication, and release publication remain separately unauthorized.
 
-Current 2026-08-12 status supersedes the preceding historical closeout wording: the owner-operated packaged review exposed three matching-surface defects and authorized the bounded matching-surface repair amendment. R3-B closeout is reopened only for that repair. R3-C remains not started; another provider or network call, R3-D activation, image or package publication, and release publication remain separately unauthorized.
+Current 2026-08-12 status supersedes the preceding historical closeout wording: the owner-operated packaged review exposed three matching-surface defects and authorized the bounded matching-surface repair amendment. Exact repair candidate `381b2f404b4f38397831f8193f7dced8efd20ea1` passed refreshed copied-package journeys and hosted R1/R2 regressions. The matching-surface repair amendment is complete, and R3-B is owner-accepted and closed. The owner-observed real-provider interruption remains an explicitly bounded residual failure because no additional provider request was made. R3-C remains not started; another provider or network call, R3-D activation, image or package publication, and release publication remain separately unauthorized.
 
 Build restarted only after that fresh authority. Its entry audit recorded and preserved the dirty Slice 0 draft and verified the public local/canonical/GitHub refs plus tutorial gitlink before the first new RED. Publication remains public repository first and tutorial gitlink second.
 

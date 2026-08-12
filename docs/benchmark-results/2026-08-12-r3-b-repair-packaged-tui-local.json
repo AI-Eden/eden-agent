@@ -1,0 +1,122 @@
+{
+  "journeys": [
+    {
+      "activeInput": {
+        "acceptedCount": 2,
+        "cjkMultiline": true,
+        "pending": 0,
+        "sources": ["steer", "queue"]
+      },
+      "rapidResize": "not-run",
+      "readinessFeedback": "checking_then_completion_ready",
+      "trustTaskFocus": "direct",
+      "budget": {
+        "actionProposals": 3,
+        "modelSteps": 8,
+        "toolCalls": 6
+      },
+      "exactUsageAttempts": 8,
+      "exitCode": 0,
+      "finalAnswerSha256": "sha256:79961fcc7ba825b45fdc9787eb939b86e8355702786a6dd6eb253d10a848f04a",
+      "oracle": {
+        "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+        "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+        "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+        "testExitCode": 0
+      },
+      "runId": "run-f0ba1507-7457-49a6-8e79-890c0ae83e84",
+      "status": "passed",
+      "terminalOutcome": "completed",
+      "terminalRestoration": "restored",
+      "tools": ["list_files", "read_file", "anchor_edit", "write_file", "run_command", "git_diff"],
+      "transcriptSha256": "sha256:5ca7dbcb4d5d439a6294668bd01fb1f711f3ff43ba03498e1a6791be4af93259",
+      "viewport": "60x20"
+    },
+    {
+      "activeInput": {
+        "acceptedCount": 2,
+        "cjkMultiline": true,
+        "pending": 0,
+        "sources": ["steer", "queue"]
+      },
+      "rapidResize": "not-run",
+      "readinessFeedback": "checking_then_completion_ready",
+      "trustTaskFocus": "direct",
+      "budget": {
+        "actionProposals": 3,
+        "modelSteps": 8,
+        "toolCalls": 6
+      },
+      "exactUsageAttempts": 8,
+      "exitCode": 0,
+      "finalAnswerSha256": "sha256:79961fcc7ba825b45fdc9787eb939b86e8355702786a6dd6eb253d10a848f04a",
+      "oracle": {
+        "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+        "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+        "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+        "testExitCode": 0
+      },
+      "runId": "run-0bc544db-6dad-44c1-9834-86573e20d343",
+      "status": "passed",
+      "terminalOutcome": "completed",
+      "terminalRestoration": "restored",
+      "tools": ["list_files", "read_file", "anchor_edit", "write_file", "run_command", "git_diff"],
+      "transcriptSha256": "sha256:e76515f025ca333d6842ffb43610302ac64a03d0371307fff404494ad7de1c38",
+      "viewport": "80x24"
+    },
+    {
+      "activeInput": {
+        "acceptedCount": 2,
+        "cjkMultiline": true,
+        "pending": 0,
+        "sources": ["steer", "queue"]
+      },
+      "rapidResize": "passed",
+      "readinessFeedback": "checking_then_completion_ready",
+      "trustTaskFocus": "direct",
+      "budget": {
+        "actionProposals": 3,
+        "modelSteps": 8,
+        "toolCalls": 6
+      },
+      "exactUsageAttempts": 8,
+      "exitCode": 0,
+      "finalAnswerSha256": "sha256:79961fcc7ba825b45fdc9787eb939b86e8355702786a6dd6eb253d10a848f04a",
+      "oracle": {
+        "answerSha256": "sha256:1737ef29ba647e558b55fccbdaebad1b5737bc2528f166d42d062e240a25c766",
+        "createdSha256": "sha256:59134a4054b27a3fc30e1ac81d9b9168dc0561f65982151324a021fe8ce88d06",
+        "gitDiffSha256": "sha256:e00e5d3491c7ba04e11df92c239d61f03174a6e3164c8f647659c0a88497df6b",
+        "testExitCode": 0
+      },
+      "runId": "run-f5f7b40a-7dd8-4e59-ad22-c797e465eeaa",
+      "status": "passed",
+      "terminalOutcome": "completed",
+      "terminalRestoration": "restored",
+      "tools": ["list_files", "read_file", "anchor_edit", "write_file", "run_command", "git_diff"],
+      "transcriptSha256": "sha256:3cfa723f7a1d463d45f6391f9a460c2c9675d06f2d6739466123dd62e985cfa9",
+      "viewport": "100x30"
+    }
+  ],
+  "package": {
+    "applicationHash": "sha256:bafbbfc21896767b0d2cc126c85aa699906c4992ff5770d7c471c483084ce12f",
+    "copied": true,
+    "manifestHash": "sha256:843058e5fe3641b98910dc19538d0cbab58e217c480979566159c5512def00c8",
+    "sourceDirectory": "dist",
+    "sourceTreeRequiredAtRuntime": false
+  },
+  "platform": {
+    "architecture": "x64",
+    "os": "linux"
+  },
+  "milestone": "R3-B",
+  "provider": {
+    "externalNetwork": false,
+    "kind": "local_openai_compatible_fixture",
+    "readinessRequestsPerJourney": 1,
+    "secretCanaryExposed": false,
+    "taskRequestsPerJourney": 8
+  },
+  "sourceSha": "381b2f404b4f38397831f8193f7dced8efd20ea1",
+  "status": "passed",
+  "verifierSuccessClaimed": false
+}

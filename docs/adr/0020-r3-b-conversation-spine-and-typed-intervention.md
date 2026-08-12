@@ -1,6 +1,6 @@
 # ADR 0020: Use a Conversation Spine and Typed Active-Run Intervention
 
-- Status: Accepted; bounded matching-surface repair amendment authorized on 2026-08-12
+- Status: Accepted; bounded matching-surface repair amendment completed on 2026-08-12
 - Date: 2026-08-11
 - Decision source: R3-B TUI Explore and owner design-direction checkpoint on 2026-08-11
 - Scope: R3-B terminal information architecture, responsive degradation, and active-run input authority
@@ -57,7 +57,7 @@ The design keeps Eden's identity as a calm evidence instrument: conversation is 
 
 R3-B does not activate pause/resume, Plan, Goal, verifier success, repair, child agents, web tools, a general shell, a renderer replacement, or a protocol-independent TUI source of truth. Approval of this ADR and its companion plan did not itself authorize Build or external actions. The owner separately authorized Build and reviewed the first-core RED on 2026-08-11. Commit, push, provider/network, package publication, and release authority remain separately gated.
 
-The owner-operated review on 2026-08-12 found three matching-surface defects after the original milestone closeout: trust completion retained History focus instead of moving to the task composer, the readiness check lacked visible checking and explicit success feedback, and post-visible provider failures erased their classified cause by projecting every non-cancellation error as `network`. The owner authorized a bounded repair amendment for those defects. It changes no ProductCommand, ProductEvent, ProductView, persistence, budget, approval, retry, or support contract. Another real provider request remains separately gated because it may incur cost.
+The owner-operated review on 2026-08-12 found three matching-surface defects after the original milestone closeout: trust completion retained History focus instead of moving to the task composer, the readiness check lacked visible checking and explicit success feedback, and post-visible provider failures erased their classified cause by projecting every non-cancellation error as `network`. The owner authorized a bounded repair amendment for those defects. Exact repair candidate `381b2f404b4f38397831f8193f7dced8efd20ea1` passed refreshed copied-package journeys at all three accepted viewports plus hosted R1 and R2 regressions. The matching-surface repair amendment is complete, R3-B is owner-accepted and closed, and no ProductCommand, ProductEvent, ProductView, persistence, budget, approval, retry, or support contract changed. The owner-observed real-provider interruption remains an explicitly bounded residual failure; another real provider request remains separately gated because it may incur cost.
 
 ## Rejected alternatives
 

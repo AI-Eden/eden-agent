@@ -1,11 +1,11 @@
 # R3-B Terminal Product Shell Plan
 
-- Status: bounded matching-surface repair amendment authorized on 2026-08-12; prior copied-package evidence remains historical
+- Status: owner-accepted and closed; bounded matching-surface repair amendment completed on 2026-08-12
 - Date: 2026-08-11
 - Milestone: R3-B, after accepted R3-A and before R3-C
 - Architecture decision: `docs/adr/0020-r3-b-conversation-spine-and-typed-intervention.md`
 - Parent plan: `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md`
-- Human checkpoint: repair Build authorized; stop before one separately authorized real-provider retry
+- Human checkpoint: repair closeout complete; stop before one separately authorized real-provider retry
 
 ## Goal and user-visible outcome
 
@@ -51,6 +51,8 @@ The owner authorized the following test-first repair slices:
 - **Repair D — evidence refresh:** run focused suites, the affected package/full gates, a copied packaged TUI journey covering the repaired trust and readiness flows, and a single-agent diff/spec review. Stop before another DeepSeek request and request one exact possible-charge authorization.
 
 Stop conditions are unchanged: no protocol break, renderer/runtime replacement, automatic retry, new provider authority, raised budget, R3-C/R3-D state, package publication, release claim, or broader support claim. The final closeout may be restored only after the repaired copied-package evidence passes and the separately authorized real-provider row either passes or is retained as an explicitly bounded residual failure.
+
+The repaired copied-package record at `docs/benchmark-results/2026-08-12-r3-b-repair-packaged-tui-local.json` binds exact repair candidate `381b2f404b4f38397831f8193f7dced8efd20ea1` and passes `60x20`, `80x24`, and `100x30`. Every journey proves direct trust-to-task focus, visible `checking` followed by `completion_ready`, exact steer then queue delivery, multiline CJK input, eight model attempts, six expected tools, three approvals, independent repository oracles, zero exit, and parent-terminal restoration without external network or verifier-success claim. Hosted R1 run [`31590345318`](https://github.com/AI-Eden/eden-agent/actions/runs/31590345318) and hosted R2 run [`31590345277`](https://github.com/AI-Eden/eden-agent/actions/runs/31590345277) passed the unchanged repair candidate. The first two Windows attempts in R2 were affected by existing host-process transients; the third attempt passed all 27 job steps without a source change. The owner-observed real-provider interruption is retained as an explicitly bounded residual failure because this repair closeout made no additional provider request. The matching-surface repair amendment is complete, and R3-B is owner-accepted and closed. R3-C remains not started.
 
 ## Frozen product contract
 
@@ -263,5 +265,5 @@ No Build step may discard unrelated user changes. Commit, push, provider/network
 1. **Freeze review:** completed on 2026-08-11 when the owner accepted ADR 0020, the focused contract changes, and this plan as one R3-B packet.
 2. **Build authorization:** granted separately on 2026-08-11 after Freeze publication.
 3. **First core RED:** completed when the owner approved continuation and autonomous work within the frozen R3-B boundary.
-4. **Exact candidate authority:** completed through the authorized public-first implementation and evidence publication chain; final evidence source is `f98e8b3d87b530d46aa7e33664290a02a75ad1a5`.
-5. **Milestone review:** completed on 2026-08-11 when the owner accepted the formal evidence and authorized R3-B complete closeout. R3-C remains not started.
+4. **Exact candidate authority:** completed through the authorized public-first implementation and evidence publication chain; the matching-surface repair source is `381b2f404b4f38397831f8193f7dced8efd20ea1`.
+5. **Milestone review:** completed on 2026-08-11 and refreshed on 2026-08-12 after the authorized matching-surface repair amendment passed. R3-B is owner-accepted and closed; R3-C remains not started.
