@@ -223,6 +223,27 @@ const failureDescriptions: Readonly<Record<ProviderFailureCode, FailureDescripti
   },
 };
 
+const timeoutSystemCodes = new Set([
+  "ETIMEDOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+]);
+const networkSystemCodes = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "ENOTFOUND",
+  "EPIPE",
+  "UND_ERR_SOCKET",
+]);
+
+class ProviderStreamInterruptedError extends Error {
+  readonly name = "ProviderStreamInterruptedError";
+}
+
 function requestId(value: unknown): string | null {
   return typeof value === "string" && /^[A-Za-z0-9._:-]{1,128}$/u.test(value) ? value : null;
 }
@@ -233,10 +254,30 @@ function statusFamily(status: number | undefined): "4xx" | "5xx" | null {
   return null;
 }
 
+function systemErrorCode(error: unknown): string | null {
+  let current = error;
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (typeof current !== "object" || current === null) return null;
+    if ("code" in current && typeof current.code === "string") {
+      return current.code.toUpperCase();
+    }
+    current = "cause" in current ? current.cause : null;
+  }
+  return null;
+}
+
 function errorCode(error: unknown): ProviderFailureCode {
   if (error instanceof APIUserAbortError) return "cancellation";
   if (error instanceof APIConnectionTimeoutError) return "timeout";
   if (error instanceof APIConnectionError) return "network";
+  if (error instanceof ProviderStreamInterruptedError) return "network";
+  const systemCode = systemErrorCode(error);
+  if (systemCode !== null && timeoutSystemCodes.has(systemCode)) {
+    return "timeout";
+  }
+  if (systemCode !== null && networkSystemCodes.has(systemCode)) {
+    return "network";
+  }
   if (!(error instanceof APIError)) return "protocol_incompatibility";
   const providerCode = typeof error.code === "string" ? error.code.toLowerCase() : "";
   if (providerCode.includes("quota") || error.status === 402) return "billing_quota";
@@ -497,7 +538,10 @@ export class OpenAICompatibleProvider {
           finishStatus = choice.finish_reason;
         }
       }
-      if (finishStatus === null) throw new Error("model stream did not terminate");
+      if (finishStatus === null) {
+        if (receivedApplicationDelta) throw new ProviderStreamInterruptedError();
+        throw new Error("model stream did not terminate");
+      }
       const toolCalls = [...toolFragments.entries()]
         .sort(([left], [right]) => left - right)
         .map(([, fragment]) => decodeToolFragment(fragment));
@@ -530,16 +574,28 @@ export class OpenAICompatibleProvider {
     } catch (error) {
       const code = errorCode(error);
       if (receivedApplicationDelta && visibleText.length > 0) {
-        const cancellation = signal.aborted || code === "cancellation";
+        const interruptedCode = signal.aborted ? "cancellation" : code;
+        const message =
+          interruptedCode === "cancellation"
+            ? "The model attempt was cancelled after visible output."
+            : interruptedCode === "network"
+              ? "The provider stream was interrupted after visible output."
+              : interruptedCode === "timeout"
+                ? "The provider stream timed out after visible output."
+                : interruptedCode === "protocol_incompatibility"
+                  ? "The provider stream became incompatible after visible output."
+                  : `The provider stream ended with a ${interruptedCode.replaceAll("_", " ")} failure after visible output.`;
         return {
           attemptId: input.attemptId,
           error: {
-            code: cancellation ? "cancellation" : "network",
-            message: cancellation
-              ? "The model attempt was cancelled after visible output."
-              : "The provider stream was interrupted after visible output.",
+            code: interruptedCode,
+            message,
             recoverability: "ask-user",
-            suggestedActions: ["Explicitly retry from the last committed conversation turn."],
+            suggestedActions: [
+              interruptedCode === "protocol_incompatibility"
+                ? "Check provider compatibility, then explicitly retry from the last committed conversation turn."
+                : "Explicitly retry from the last committed conversation turn.",
+            ],
           },
           partialText: visibleText,
           status: "interrupted",

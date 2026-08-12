@@ -128,12 +128,14 @@ function EdenTuiSurface({
   const [overlay, setOverlay] = useState<TuiOverlay>(null);
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [providerReadiness, setProviderReadiness] = useState<ProviderReadiness | null>(null);
+  const [readinessChecking, setReadinessChecking] = useState(false);
   const [runPane, setRunPane] = useState<TuiRunPane>("conversation");
   const [review, setReview] = useState<WorkspaceReview | null>(initialWorkspaceReview ?? null);
   const [timeline, setTimeline] = useState<readonly ProductEvent["type"][]>([]);
   const [view, setView] = useState<ProductView | null>(null);
   const activeOperation = useRef<AbortController | null>(null);
   const focusBeforeOverlay = useRef<TuiFocusId | null>(null);
+  const readinessCheckPending = useRef(false);
   const readyPublished = useRef(false);
 
   const leaveComposer = useCallback(() => setComposerFocused(false), []);
@@ -193,11 +195,15 @@ function EdenTuiSurface({
   };
 
   const checkProviderReadiness = async () => {
+    if (readinessCheckPending.current) return;
     if (profileCatalog?.activeProfileId === null || profileCatalog?.activeProfileId === undefined) {
       setError("Configure an active provider profile before checking the connection.");
       setOverlay(null);
       return;
     }
+    readinessCheckPending.current = true;
+    setReadinessChecking(true);
+    setError(null);
     try {
       const readiness = await client.checkProviderReadiness({
         commandId: randomUUID(),
@@ -213,6 +219,8 @@ function EdenTuiSurface({
     } catch (cause) {
       setError(errorMessage(cause, "The provider readiness check could not complete."));
     } finally {
+      readinessCheckPending.current = false;
+      setReadinessChecking(false);
       setOverlay(null);
     }
   };
@@ -946,6 +954,7 @@ function EdenTuiSurface({
       profileDraft={maskedProfileDraft(profileDraft)}
       profileEditorFocused={overlay === "profile"}
       providerReadiness={providerReadiness}
+      readinessChecking={readinessChecking}
       readinessConfirmationFocused={overlay === "readiness"}
       selectedIndex={history.selectedIndex}
       surface={history.surface}

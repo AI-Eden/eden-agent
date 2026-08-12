@@ -175,7 +175,7 @@ export function focusOrder(context: TuiFocusContext): readonly TuiFocusId[] {
 
   const order: TuiFocusId[] = [];
   if (context.workspaceState === "trusted") order.push("workspace.composer");
-  else if (context.workspaceState === "restricted") order.push("workspace.trust");
+  else order.push("workspace.trust");
   order.push("workspace.history", "workspace.profile");
   if (context.hasProfile) order.push("workspace.connection");
   if (context.hasRepositoryReview) order.push("workspace.repository");

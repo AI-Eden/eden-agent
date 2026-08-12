@@ -354,6 +354,7 @@ async function trustWorkspace(fixture: Awaited<ReturnType<typeof setup>>) {
   const frame = fixture.renderer.captureCharFrame();
   expect(frame).toContain("Eden R3-B");
   expect(frame).toContain("trust: trusted");
+  expect(frame).toContain("focus: workspace.composer");
   expect(frame).toContain("Describe the fake task");
 }
 
@@ -599,6 +600,7 @@ test("provider onboarding creates, masks, updates, selects, deletes, and reloads
 
 test("provider readiness requires charge confirmation and recovers from a network failure", async () => {
   let requests = 0;
+  const releaseSuccessfulCheck = deferred<true>();
   const server = createServer((request, response) => {
     requests += 1;
     if (requests === 1) {
@@ -606,7 +608,8 @@ test("provider readiness requires charge confirmation and recovers from a networ
       return;
     }
     request.resume();
-    request.on("end", () => {
+    request.on("end", async () => {
+      await releaseSuccessfulCheck.promise;
       response.writeHead(200, {
         "content-type": "text/event-stream",
         "x-request-id": "request-tui-ready",
@@ -673,12 +676,19 @@ test("provider readiness requires charge confirmation and recovers from a networ
     await act(async () => fixture.renderer.mockInput.pressKey("c"));
     readinessChanged = fixture.readiness.take();
     profileChanged = fixture.profiles.take();
-    await act(async () => {
-      fixture.renderer.mockInput.pressKey("y");
-      await Promise.all([readinessChanged, profileChanged]);
-    });
+    await act(async () => fixture.renderer.mockInput.pressKey("y"));
+    const checking = await fixture.renderer.waitForFrame((candidate) =>
+      candidate.includes("connection check: checking"),
+    );
+    expect(checking).not.toContain("confirm: y");
+    await act(async () => fixture.renderer.mockInput.pressKey("y"));
+    expect(requests).toBe(2);
+
+    releaseSuccessfulCheck.resolve(true);
+    await act(async () => Promise.all([readinessChanged, profileChanged]));
     await act(async () => fixture.renderer.flush());
-    expect(fixture.renderer.captureCharFrame()).toContain("completion_ready");
+    frame = fixture.renderer.captureCharFrame();
+    expect(frame).toContain("connection check: completion_ready · checked ");
     expect(requests).toBe(2);
   } finally {
     act(() => fixture.renderer.renderer.destroy());

@@ -75,11 +75,24 @@ test("the focus graph owns stable workspace order and excludes disabled actions"
     }),
   ).toEqual(["workspace.trust", "workspace.history", "workspace.profile", "workspace.repository"]);
   expect(focusOrder({ ...trustedWorkspace, workspaceState: "updating" })).toEqual([
+    "workspace.trust",
     "workspace.history",
     "workspace.profile",
     "workspace.connection",
     "workspace.repository",
   ]);
+});
+
+test("trust completion moves directly from the pending trust control to the task composer", () => {
+  const restricted = { ...trustedWorkspace, workspaceState: "restricted" } as const;
+  const updating = { ...trustedWorkspace, workspaceState: "updating" } as const;
+  let focus = reconcileFocus(restricted, "workspace.trust");
+
+  focus = reconcileFocus(updating, focus);
+  expect(focus).toBe("workspace.trust");
+
+  focus = reconcileFocus(trustedWorkspace, focus);
+  expect(focus).toBe("workspace.composer");
 });
 
 test("focus movement wraps, reverses, and preserves identity across responsive modes", () => {

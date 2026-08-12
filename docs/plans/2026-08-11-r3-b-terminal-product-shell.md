@@ -1,11 +1,11 @@
 # R3-B Terminal Product Shell Plan
 
-- Status: R3-B is owner-accepted and closed; final copied-package evidence source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5`
+- Status: bounded matching-surface repair amendment authorized on 2026-08-12; prior copied-package evidence remains historical
 - Date: 2026-08-11
 - Milestone: R3-B, after accepted R3-A and before R3-C
 - Architecture decision: `docs/adr/0020-r3-b-conversation-spine-and-typed-intervention.md`
 - Parent plan: `docs/plans/2026-08-10-r3-resume-ready-verified-goal.md`
-- Human checkpoint: completed on 2026-08-11; R3-C remains separately gated and not started
+- Human checkpoint: repair Build authorized; stop before one separately authorized real-provider retry
 
 ## Goal and user-visible outcome
 
@@ -34,6 +34,23 @@ This plan refines and supersedes only the R3-B implementation detail in Slices 6
 - The refreshed copied-package record at `docs/benchmark-results/2026-08-11-r3-b-packaged-tui-local.json` binds final source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5` and passes `60x20`, `80x24`, and `100x30`. Each journey delivered one exact multiline CJK steer and one queued follow-up, consumed eight exact model attempts, executed six expected tools with three approvals, passed the independent repository oracle, exited zero, and restored the parent terminal. The `100x30` journey also passed rapid `60x20 -> 80x24 -> 100x30` resize; the provider was a deterministic local fixture with no external network and no verifier-success claim.
 - Hosted R1 run [`31498375172`](https://github.com/AI-Eden/eden-agent/actions/runs/31498375172) passed the last product change at `b0c5d0d75f761a98f96b2d48afd00a45262f63c9`, and hosted R2 run [`31501285574`](https://github.com/AI-Eden/eden-agent/actions/runs/31501285574) passed final source `f98e8b3d87b530d46aa7e33664290a02a75ad1a5`.
 - Slice 5 and the milestone review are complete. R3-B is owner-accepted and closed; R3-C remains not started.
+
+## Accepted 2026-08-12 matching-surface repair amendment
+
+The owner-operated packaged review exposed three defects that invalidate the original complete-closeout wording without reopening the R3-B architecture or later milestones:
+
+1. The real trust transition follows `restricted -> updating -> trusted`. Focus reconciliation moved from `workspace.trust` to `workspace.history` during `updating` and preserved History after trust completed, so the next Enter opened History instead of focusing task input.
+2. The possible-charge readiness overlay accepted `y` without exposing in-flight state, then returned to a workspace line whose ordinary `completion_ready` value was too weak to confirm success. The persisted readiness record proves that the reported check succeeded, but the matching surface did not make that outcome clear.
+3. Two explicit attempts in one real-provider run emitted visible text and then interrupted before any tool call. The adapter correctly required explicit retry, but its post-visible catch path rewrote every non-cancellation cause to `network`, so durable evidence could not distinguish transport interruption from a sanitized protocol incompatibility.
+
+The owner authorized the following test-first repair slices:
+
+- **Repair A — trust focus:** add a pure focus-transition RED plus an OpenTUI key-sequence RED proving `t` followed by Enter reaches task input without History navigation. Move focus to `workspace.composer` only after trusted authority is published; keep trust failure and restricted focus unchanged.
+- **Repair B — readiness feedback:** add renderer REDs for one visible `checking` state, duplicate-confirm suppression, explicit `completion_ready` success with checked time, and the existing sanitized failure recovery. This is renderer-local transient state plus existing `ProviderReadiness` truth; it adds no durable product state.
+- **Repair C — interrupted classification:** add local SSE REDs for a real post-delta disconnect and a post-delta protocol violation. Both remain `interrupted`, preserve bounded partial text, require explicit user retry, and expose their distinct existing failure codes without raw provider payloads.
+- **Repair D — evidence refresh:** run focused suites, the affected package/full gates, a copied packaged TUI journey covering the repaired trust and readiness flows, and a single-agent diff/spec review. Stop before another DeepSeek request and request one exact possible-charge authorization.
+
+Stop conditions are unchanged: no protocol break, renderer/runtime replacement, automatic retry, new provider authority, raised budget, R3-C/R3-D state, package publication, release claim, or broader support claim. The final closeout may be restored only after the repaired copied-package evidence passes and the separately authorized real-provider row either passes or is retained as an explicitly bounded residual failure.
 
 ## Frozen product contract
 

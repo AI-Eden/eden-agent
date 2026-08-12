@@ -1,6 +1,6 @@
 # ADR 0020: Use a Conversation Spine and Typed Active-Run Intervention
 
-- Status: Accepted; R3-B is owner-accepted and closed
+- Status: Accepted; bounded matching-surface repair amendment authorized on 2026-08-12
 - Date: 2026-08-11
 - Decision source: R3-B TUI Explore and owner design-direction checkpoint on 2026-08-11
 - Scope: R3-B terminal information architecture, responsive degradation, and active-run input authority
@@ -56,6 +56,8 @@ R3-B is not a visual-only refactor. The active composer extends ProductCommand, 
 The design keeps Eden's identity as a calm evidence instrument: conversation is the main reading flow, semantic color communicates status rather than decoration, and evidence expands at decision boundaries. The accepted reference images may guide density and hierarchy, but copied product names, logos, powerlines, exact colors, exact pane ratios, and generated text defects are excluded.
 
 R3-B does not activate pause/resume, Plan, Goal, verifier success, repair, child agents, web tools, a general shell, a renderer replacement, or a protocol-independent TUI source of truth. Approval of this ADR and its companion plan did not itself authorize Build or external actions. The owner separately authorized Build and reviewed the first-core RED on 2026-08-11. Commit, push, provider/network, package publication, and release authority remain separately gated.
+
+The owner-operated review on 2026-08-12 found three matching-surface defects after the original milestone closeout: trust completion retained History focus instead of moving to the task composer, the readiness check lacked visible checking and explicit success feedback, and post-visible provider failures erased their classified cause by projecting every non-cancellation error as `network`. The owner authorized a bounded repair amendment for those defects. It changes no ProductCommand, ProductEvent, ProductView, persistence, budget, approval, retry, or support contract. Another real provider request remains separately gated because it may incur cost.
 
 ## Rejected alternatives
 

@@ -82,7 +82,9 @@ function validateEvidence(evidence) {
       (journey.activeInput?.acceptedCount !== 2 ||
         journey.activeInput.pending !== 0 ||
         JSON.stringify(journey.activeInput.sources) !== JSON.stringify(["steer", "queue"]) ||
-        journey.activeInput.cjkMultiline !== true)
+        journey.activeInput.cjkMultiline !== true ||
+        journey.readinessFeedback !== "checking_then_completion_ready" ||
+        journey.trustTaskFocus !== "direct")
     ) {
       throw new Error(`R3-B active input evidence is incomplete for ${expected.viewport}.`);
     }
@@ -129,6 +131,8 @@ if (process.argv[2] === "--self-test") {
       budget: { ...journey.budget, modelSteps: 8 },
       exactUsageAttempts: 8,
       rapidResize: index === 0 ? "passed" : "not-run",
+      readinessFeedback: "checking_then_completion_ready",
+      trustTaskFocus: "direct",
     })),
     milestone: "R3-B",
   };
@@ -275,7 +279,9 @@ async function providerFixture(secret, commandProgram, withActiveInput) {
   let secretEnteredPrompt = false;
   let parallelRequested = false;
   let queueObserved = false;
+  let releaseReadiness = () => undefined;
   let releaseFirstTask = () => undefined;
+  let resolveReadinessStarted = () => undefined;
   let resolveFirstTaskStarted = () => undefined;
   let steerObserved = false;
   const firstTaskRelease = new Promise((resolveRelease) => {
@@ -283,6 +289,12 @@ async function providerFixture(secret, commandProgram, withActiveInput) {
   });
   const firstTaskStarted = new Promise((resolveStarted) => {
     resolveFirstTaskStarted = resolveStarted;
+  });
+  const readinessRelease = new Promise((resolveRelease) => {
+    releaseReadiness = resolveRelease;
+  });
+  const readinessStarted = new Promise((resolveStarted) => {
+    resolveReadinessStarted = resolveStarted;
   });
   const observations = [
     ["call-list", "list_files", { continuation: null, path: "." }, "Inspect repository files."],
@@ -344,6 +356,8 @@ async function providerFixture(secret, commandProgram, withActiveInput) {
       });
       if (parsed.max_tokens === 8) {
         readinessRequests += 1;
+        resolveReadinessStarted();
+        await readinessRelease;
         response.end(
           [
             streamChunk({ content: "EDEN_READY_V1" }),
@@ -434,6 +448,8 @@ async function providerFixture(secret, commandProgram, withActiveInput) {
       taskRequests,
     }),
     releaseFirstTask,
+    releaseReadiness,
+    waitForReadiness: () => readinessStarted,
     waitForFirstTask: () => firstTaskStarted,
   };
 }
@@ -545,9 +561,16 @@ async function journey({ columns, rows, viewport }) {
       `${viewport} readiness confirmation`,
     );
     terminal.write("y");
+    await provider.waitForReadiness();
     await waitFor(
       screen,
-      (value) => value.includes("completion_ready"),
+      (value) => value.includes("connection check: checking"),
+      `${viewport} readiness progress`,
+    );
+    provider.releaseReadiness();
+    await waitFor(
+      screen,
+      (value) => value.includes("connection check: completion_ready · checked "),
       `${viewport} completion readiness`,
     );
     terminal.write("t");
@@ -556,11 +579,6 @@ async function journey({ columns, rows, viewport }) {
       (value) => value.includes("trust: trusted"),
       `${viewport} workspace trust`,
     );
-    for (let index = 0; index < 16; index += 1) {
-      if (screen().includes("focus: workspace.composer")) break;
-      terminal.write("\t");
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 30));
-    }
     await waitFor(
       screen,
       (value) => value.includes("focus: workspace.composer"),
@@ -755,6 +773,8 @@ async function journey({ columns, rows, viewport }) {
               sources: deliveredInputs.map((turn) => turn.source),
             },
             rapidResize,
+            readinessFeedback: "checking_then_completion_ready",
+            trustTaskFocus: "direct",
           }
         : {}),
       budget: {
@@ -792,6 +812,7 @@ async function journey({ columns, rows, viewport }) {
     data.dispose();
     if (!terminalExited) terminatePtyProcessGroup(terminal);
     provider.releaseFirstTask();
+    provider.releaseReadiness();
     await provider.close();
   }
 }

@@ -386,6 +386,29 @@ describe("OpenAI-compatible model steps", () => {
     });
   });
 
+  it("preserves a protocol failure that occurs after visible output", async () => {
+    const local = await fixture((_request, response) => {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.end(
+        [
+          chunk({ content: "Visible before incompatible protocol" }),
+          chunk({ unsupported_delta: "SECRET_CANARY_PROTOCOL" }),
+          "data: [DONE]\n\n",
+        ].join(""),
+      );
+    });
+    const result = await adapter(local.baseUrl).completeModelStep(
+      request,
+      new AbortController().signal,
+    );
+    assert.equal(result.status, "interrupted");
+    if (result.status !== "interrupted") return;
+    assert.equal(result.error.code, "protocol_incompatibility");
+    assert.equal(result.error.recoverability, "ask-user");
+    assert.equal(result.partialText, "Visible before incompatible protocol");
+    assert.equal(JSON.stringify(result).includes("SECRET_CANARY_PROTOCOL"), false);
+  });
+
   it("returns a controlled cancellation snapshot without partial tool data or usage", async () => {
     const controller = new AbortController();
     const local = await fixture((_request, response) => {

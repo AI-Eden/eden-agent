@@ -176,6 +176,7 @@ export type EdenTuiLayoutProps = {
   readonly profileDraft: string;
   readonly profileEditorFocused: boolean;
   readonly providerReadiness: ProviderReadiness | null;
+  readonly readinessChecking?: boolean;
   readonly readinessConfirmationFocused: boolean;
   readonly selectedIndex: number;
   readonly surface: "history" | "inspection" | "workspace";
@@ -328,6 +329,15 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
                   {props.profileCatalog?.activeProfileId ?? "not configured"} · readiness:{" "}
                   {props.providerReadiness?.state ?? "loading"}
                 </text>
+                {props.providerReadiness?.checkedAt !== null &&
+                  props.providerReadiness?.checkedAt !== undefined && (
+                    <text fg={tuiDesignTokens.color.accent}>
+                      {fitTerminalLine(
+                        `connection check: ${props.providerReadiness.state} · checked ${props.providerReadiness.checkedAt}`,
+                        props.width - 4,
+                      )}
+                    </text>
+                  )}
                 <text>
                   {fitTerminalLine(
                     `context: ${props.review.context.state} · repository: read disabled · write denied`,
@@ -496,7 +506,13 @@ export function EdenTuiLayout(props: EdenTuiLayoutProps) {
           <box style={{ flexDirection: "column", marginTop: 1 }}>
             <text>Provider connection check</text>
             <text>One fixed streamed prompt uses network access and may incur a small charge.</text>
-            <text>confirm: y · cancel: n</text>
+            {props.readinessChecking ? (
+              <text fg={tuiDesignTokens.color.awaiting}>
+                connection check: checking · please wait
+              </text>
+            ) : (
+              <text>confirm: y · cancel: n</text>
+            )}
           </box>
         )}
       {props.surface === "workspace" &&

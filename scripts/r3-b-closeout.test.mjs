@@ -18,7 +18,7 @@ const evidenceUrl = new URL(
 );
 const reviewUrl = new URL("../docs/evidence/r3-b-milestone-review/review.md", import.meta.url);
 
-test("R3-B closeout stays bound to final-source evidence and owner review", async () => {
+test("R3-B repair preserves historical evidence while current status stays reopened", async () => {
   const evidence = JSON.parse(await readFile(evidenceUrl, "utf8"));
   const review = await readFile(reviewUrl, "utf8");
   const currentStatuses = await Promise.all(
@@ -36,7 +36,7 @@ test("R3-B closeout stays bound to final-source evidence and owner review", asyn
   match(review, /R3-C remains not started/u);
 
   for (const status of currentStatuses) {
-    match(status, /R3-B is owner-accepted and closed/u);
+    match(status, /matching-surface repair amendment/u);
     strictEqual(status.includes("R3-B owner milestone review remains pending"), false);
   }
 });
